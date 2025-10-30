@@ -30,19 +30,19 @@
 
             <!-- Reservas -->
             <flux:navlist variant="outline">
-                <flux:navlist.item icon="cube" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Vechiculos</flux:navlist.item>
+                <flux:navlist.item icon="cube" :href="route('admin.reservations.index')" :current="request()->routeIs('admin.reservations.index')" wire:navigate>Vechiculos</flux:navlist.item>
             </flux:navlist>
 
             <!-- Vehiculos -->
             <flux:navlist variant="outline">
-                <flux:navlist.item icon="truck" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Reservas</flux:navlist.item>
+                <flux:navlist.item icon="truck" :href="route('admin.vehicles.index')" :current="request()->routeIs('admin.vehicles.index')" wire:navigate>Reservas</flux:navlist.item>
             </flux:navlist>
 
             <!-- Usuarios -->
             <flux:navlist >
                 <flux:navlist.group expandable heading="Gestion de Usuarios" icon="truck">
-                    <flux:navlist.item class="!bg-transparent hover:!bg-transparent focus:!bg-transparent" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Usuarios</flux:navlist.item>
-                    <flux:navlist.item class="!bg-transparent hover:!bg-transparent focus:!bg-transparent" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Conductores</flux:navlist.item>
+                    <flux:navlist.item class="!bg-transparent hover:!bg-transparent focus:!bg-transparent" :href="route('admin.users.index')" :current="request()->routeIs('admin.users.index')" wire:navigate>Usuarios</flux:navlist.item>
+                    <flux:navlist.item class="!bg-transparent hover:!bg-transparent focus:!bg-transparent" :href="route('admin.drivers.index')" :current="request()->routeIs('admin.drivers.index')" wire:navigate>Conductores</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 

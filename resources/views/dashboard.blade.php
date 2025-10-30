@@ -66,19 +66,19 @@
             <flux:heading size="lg" class="mb-4">Accesos Rápidos</flux:heading>
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <x-dashboard.quick-action
-                    href="/medios"
+                    href="/admin/vehicles"
                     icon="cube"
                     label="Gestión de Medios"
                 />
 
                 <x-dashboard.quick-action
-                    href="/usuarios"
+                    href="/admin/users"
                     icon="users"
                     label="Usuarios"
                 />
 
                 <x-dashboard.quick-action
-                    href="/conductores"
+                    href="/admin/drivers"
                     icon="user-circle"
                     label="Conductores"
                 />
