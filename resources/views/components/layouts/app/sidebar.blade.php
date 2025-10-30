@@ -30,7 +30,7 @@
 
             <!-- Reservas -->
             <flux:navlist variant="outline">
-                <flux:navlist.item icon="calendar" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Reservas</flux:navlist.item>
+                <flux:navlist.item icon="cube" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Vechiculos</flux:navlist.item>
             </flux:navlist>
 
             <!-- Vehiculos -->
@@ -154,5 +154,6 @@
         {{ $slot }}
 
         @fluxScripts
+        @stack('scripts')
     </body>
 </html>
