@@ -91,18 +91,22 @@
             </div>
         </div>
     </div>
-
+    
     @push('scripts')
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
+        function renderCharts() {
             const isDark = document.documentElement.classList.contains('dark');
             const textColor = isDark ? '#e5e7eb' : '#374151';
             const gridColor = isDark ? '#374151' : '#e5e7eb';
 
-            // Gráfico de Reservas
+            // --- Gráfico de Reservas ---
             const ctxReservas = document.getElementById('reservasChart');
             if (ctxReservas) {
-                new Chart(ctxReservas, {
+                if (window.reservasChart instanceof Chart) {
+                    window.reservasChart.destroy();
+                }
+
+                window.reservasChart = new Chart(ctxReservas, {
                     type: 'line',
                     data: {
                         labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
@@ -138,30 +142,26 @@
                         scales: {
                             y: {
                                 beginAtZero: true,
-                                ticks: {
-                                    color: textColor
-                                },
-                                grid: {
-                                    color: gridColor
-                                }
+                                ticks: { color: textColor },
+                                grid: { color: gridColor }
                             },
                             x: {
-                                ticks: {
-                                    color: textColor
-                                },
-                                grid: {
-                                    display: false
-                                }
+                                ticks: { color: textColor },
+                                grid: { display: false }
                             }
                         }
                     }
                 });
             }
 
-            // Gráfico de Distribución
+            // --- Gráfico de Distribución ---
             const ctxDistribucion = document.getElementById('distribucionChart');
             if (ctxDistribucion) {
-                new Chart(ctxDistribucion, {
+                if (window.distribucionChart instanceof Chart) {
+                    window.distribucionChart.destroy();
+                }
+
+                window.distribucionChart = new Chart(ctxDistribucion, {
                     type: 'doughnut',
                     data: {
                         labels: ['Sede Norte', 'Sede Sur', 'Sede Centro', 'Sede Oriente'],
@@ -205,7 +205,12 @@
                     }
                 });
             }
-        });
+        }
+
+        // Estos eventos hacen que se recarguen los gráficos al navegar
+        document.addEventListener('livewire:load', renderCharts);
+        document.addEventListener('livewire:navigated', renderCharts);
     </script>
     @endpush
+
 </x-layouts.app>
