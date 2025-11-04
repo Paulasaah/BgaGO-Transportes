@@ -33,7 +33,7 @@
             <x-stats.card
                 title="Total Vehículos"
                 :value="$stats['total']"
-                icon="cube"
+                icon="bike"
                 color="blue"
             />
 
@@ -54,7 +54,7 @@
             <x-stats.card
                 title="Mantenimiento"
                 :value="$stats['mantenimiento']"
-                icon="wrench-screwdriver"
+                icon="wrench"
                 color="orange"
             />
         </x-dashboard.stats-grid>

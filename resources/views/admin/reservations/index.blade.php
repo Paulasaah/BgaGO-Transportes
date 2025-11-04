@@ -41,7 +41,7 @@
             <x-stats.card
                 title="Activas"
                 :value="$stats['activas']"
-                icon="arrow-path"
+                icon="clipboard-check"
                 color="green"
             />
 

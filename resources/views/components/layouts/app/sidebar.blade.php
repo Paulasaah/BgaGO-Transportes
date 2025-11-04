@@ -13,29 +13,31 @@
 
             <flux:navlist variant="outline">
                 <flux:navlist.group heading="General" class="grid">
-                    <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>Dashboard</flux:navlist.item>
+                    <flux:navlist.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
+                        Dashboard
+                    </flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 
             <flux:navlist variant="outline">
 
-                <flux:navlist.item icon="chart-bar-square" href="https://laravel.com/docs/starter-kits" target="_blank">
+                <flux:navlist.item icon="chart-bar-square" :href="route('admin.monitoring')" :current="request()->routeIs('admin.monitoring')" wire:navigate>
                     Monitoreo
                 </flux:navlist.item>
 
-                <flux:navlist.item icon="map-pin" href="https://laravel.com/docs/starter-kits" target="_blank">
+                <flux:navlist.item icon="map" :href="route('admin.map')" :current="request()->routeIs('admin.map')" wire:navigate>
                     Mapa
                 </flux:navlist.item>
             </flux:navlist>
 
             <!-- Reservas -->
             <flux:navlist variant="outline">
-                <flux:navlist.item icon="cube" :href="route('admin.reservations.index')" :current="request()->routeIs('admin.reservations.index')" wire:navigate>Vechiculos</flux:navlist.item>
+                <flux:navlist.item icon="cube" :href="route('admin.reservations.index')" :current="request()->routeIs('admin.reservations.index')" wire:navigate>Reservas</flux:navlist.item>
             </flux:navlist>
 
             <!-- Vehiculos -->
             <flux:navlist variant="outline">
-                <flux:navlist.item icon="truck" :href="route('admin.vehicles.index')" :current="request()->routeIs('admin.vehicles.index')" wire:navigate>Reservas</flux:navlist.item>
+                <flux:navlist.item icon="truck" :href="route('admin.vehicles.index')" :current="request()->routeIs('admin.vehicles.index')" wire:navigate>Vehiculos</flux:navlist.item>
             </flux:navlist>
 
             <!-- Usuarios -->
@@ -50,7 +52,7 @@
             <flux:spacer />
 
             <flux:navlist variant="outline">
-                <flux:navlist.item icon="book-open-text" href="https://laravel.com/docs/starter-kits" target="_blank">
+                <flux:navlist.item icon="document-chart-bar" href="#" wire:navigate>
                     Reportes
                 </flux:navlist.item>
             </flux:navlist>

@@ -123,4 +123,18 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+        /*
+    |--------------------------------------------------------------------------
+    | Usar Datos Mock (Sin Base de Datos)
+    |--------------------------------------------------------------------------
+    |
+    | Cuando es true, usa MockDataService con datos de ejemplo.
+    | Cuando es false, usa DataService con consultas reales a la base de datos.
+    | 
+    | IMPORTANTE: Cambia a false cuando tengas tus migraciones listas
+    |
+    */
+
+    'use_mock_data' => env('USE_MOCK_DATA', true),
+
 ];
