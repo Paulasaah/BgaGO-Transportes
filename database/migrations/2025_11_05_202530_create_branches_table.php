@@ -13,13 +13,16 @@ return new class extends Migration
     {
         Schema::create('branches', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('code')->unique();
-            $table->string('address')->nullable();
-            $table->string('city')->nullable();
-            $table->decimal('lat', 10, 7)->nullable();
-            $table->decimal('lng', 10, 7)->nullable();
+            $table->string('nombre');
+            $table->text('direccion');
+            $table->string('ciudad');
+            $table->string('telefono')->nullable();
+            $table->string('email')->nullable();
+            $table->decimal('latitud', 10, 7)->nullable();
+            $table->decimal('longitud', 10, 7)->nullable();
+            $table->boolean('activa')->default(true);
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

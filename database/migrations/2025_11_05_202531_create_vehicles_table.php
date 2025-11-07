@@ -6,28 +6,43 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('vehicles', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique();
-            $table->string('plate')->nullable()->unique();
-            $table->string('model')->nullable();
-            $table->unsignedInteger('mileage')->default(0);
-            $table->enum('type', ['bike', 'scooter', 'moto', 'car']);
-            $table->enum('status', ['available', 'reserved', 'in_service', 'disabled'])->default('available');
-            $table->unsignedTinyInteger('battery')->nullable();
-            $table->foreignId('branch_id')->nullable()->constrained('branches')->nullOnDelete();
+
+            // Información básica
+            $table->string('placa')->unique();
+            $table->string('marca');
+            $table->string('modelo');
+            $table->year('year')->nullable();
+            $table->enum('tipo', ['bicicleta', 'scooter', 'moto'])->default('moto');
+            $table->string('color')->nullable();
+
+            // Relaciones
+            $table->foreignId('sede_id')->constrained('branches')->cascadeOnDelete();
+            $table->foreignId('conductor_id')->nullable()->constrained('users')->nullOnDelete();
+
+            // Estado y disponibilidad
+            $table->enum('estado', ['disponible', 'ocupado', 'mantenimiento', 'inactivo'])->default('disponible');
+            $table->boolean('visible_catalogo')->default(true);
+
+            // Precios base
+            $table->decimal('precio_hora', 10, 2)->default(0);
+            $table->decimal('precio_dia', 10, 2)->default(0);
+
+            // Multimedia y descripción
+            $table->string('imagen_principal')->nullable();
+            $table->text('descripcion')->nullable();
+
             $table->timestamps();
+            $table->softDeletes();
+
+            // Índices
+            $table->index(['estado', 'sede_id']);
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('vehicles');
