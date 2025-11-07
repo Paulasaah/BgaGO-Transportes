@@ -13,6 +13,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 });
 
+Route::view('reports', 'admin.reports.index')->name('reports.index');
+
 Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(function () {
     // Gestión
     Route::view('users', 'admin.users.index')->name('users.index');

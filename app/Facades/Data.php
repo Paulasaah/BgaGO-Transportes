@@ -5,6 +5,8 @@ namespace App\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
+ * Facade para acceder al servicio de datos (Mock o Real)
+ * 
  * @method static array getDashboardStats()
  * @method static array getReservasPorMes()
  * @method static array getDistribucionSedes()
