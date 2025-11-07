@@ -12,25 +12,25 @@
 
 ---
 
-## 📚 Tabla de Contenidos
+## Tabla de Contenidos
 
-- [🧩 Stack Tecnológico](#-stack-tecnológico)
-- [⚙️ Instalación y Configuración](#️-instalación-y-configuración)
-- [🧱 Estructura del Proyecto](#-estructura-del-proyecto)
-- [🧭 Módulos Principales](#-módulos-principales)
-- [👥 Flujo de Trabajo del Equipo](#-flujo-de-trabajo-del-equipo)
-- [🧪 Testing](#-testing)
-- [☁️ Despliegue en Azure](#️-despliegue-en-azure)
-- [📊 Paneles y Funcionalidades](#-paneles-y-funcionalidades)
-- [🚀 Roadmap](#-roadmap)
-- [👩‍💻 Equipo de Desarrollo](#-equipo-de-desarrollo)
-- [📜 Licencia](#-licencia)
+- [Stack Tecnológico](#-stack-tecnológico)
+- [Instalación y Configuración](#️-instalación-y-configuración)
+- [Estructura del Proyecto](#-estructura-del-proyecto)
+- [Módulos Principales](#-módulos-principales)
+- [Flujo de Trabajo del Equipo](#-flujo-de-trabajo-del-equipo)
+- [Testing](#-testing)
+- [Despliegue en Azure](#️-despliegue-en-azure)
+- [Paneles y Funcionalidades](#-paneles-y-funcionalidades)
+- [Roadmap](#-roadmap)
+- [Equipo de Desarrollo](#-equipo-de-desarrollo)
+- [Licencia](#-licencia)
 
 ---
 
-## 🧩 Stack Tecnológico
+## Stack Tecnológico
 
-### 🔙 Backend
+### Backend
 - **Laravel 12+ (PHP 8.2+)**
 - **Eloquent ORM**
 - **MySQL 8.0+**
@@ -38,7 +38,7 @@
 - **Laravel Horizon** - Gestión de colas
 - **Laravel Telescope** - Monitoreo y debugging avanzado
 
-### 🎨 Frontend
+### Frontend
 - **Blade Templates**
 - **Tailwind CSS v3**
 - **Alpine.js**
@@ -46,13 +46,13 @@
 - **Flux UI** - Starter Kit UI oficial de Laravel + Livewire
 - **Chart.js** - Dashboards y reportes dinámicos
 
-### 🌐 Integraciones
+### Integraciones
 - **Leaflet.js** - Mapas interactivos y geolocalización
 - **PayU Colombia** - Pasarela de pagos
 - **Mailtrap (dev)** / **Amazon SES (prod)** - Envío de correos
 - **Pusher / Laravel Echo Server** - WebSockets en tiempo real
 
-### ⚙️ Herramientas
+### Herramientas
 - **Composer** - Dependencias PHP  
 - **pnpm** - Dependencias JS  
 - **Postman** - Pruebas API  
@@ -64,6 +64,7 @@
 ### ☁️ Infraestructura
 - **Debian 12 (Azure VM)**
 - **Apache / Nginx (PHP-FPM)**
+- **Docker**
 - **Redis** para sesiones y colas
 
 ---
@@ -83,14 +84,14 @@
 
 ---
 
-### 🧩 Paso 1: Clonar el proyecto
+### Paso 1: Clonar el proyecto
 
 ```bash
 git clone https://github.com/Paulasaah/BgaGO-Transportes.git
 cd BgaGO-Transportes
 ```
 
-### 🔧 Paso 2: Configurar entorno
+### Paso 2: Configurar entorno
 
 ```bash
 cp .env.example .env
@@ -100,7 +101,7 @@ php artisan key:generate
 Edita el archivo `.env` con tus credenciales locales:
 
 ```env
-APP_NAME="BgaGO Transportes"
+APP_NAME="BgaGO"
 APP_ENV=local
 APP_KEY=base64:...
 APP_URL=http://localhost:9001
@@ -117,7 +118,7 @@ SESSION_DRIVER=redis
 QUEUE_CONNECTION=redis
 ```
 
-### 📦 Paso 3: Instalar dependencias
+### Paso 3: Instalar dependencias
 
 ```bash
 # Dependencias PHP
@@ -127,7 +128,7 @@ composer install
 pnpm install
 ```
 
-### 🧠 Paso 4: Migrar base de datos
+### Paso 4: Migrar base de datos
 
 ```bash
 php artisan migrate --seed
@@ -135,7 +136,7 @@ php artisan migrate --seed
 
 Esto creará las tablas iniciales y roles base (Admin, Usuario, Conductor).
 
-### 🧑‍💻 Paso 5: Compilar assets
+### Paso 5: Compilar assets
 
 ```bash
 # Modo desarrollo
@@ -145,13 +146,11 @@ pnpm run dev
 pnpm run build
 ```
 
-### ▶️ Paso 6: Ejecutar servidor local
+### Paso 6: Ejecutar servidor local 
 
 ```bash
-php artisan serve --port=9001
+php artisan serve 
 ```
-
-Accede a: 👉 **http://localhost:9001**
 
 ---
 
@@ -197,7 +196,7 @@ BgaGO-Transportes/
 
 ---
 
-## 🧭 Módulos Principales
+## Módulos Principales
 
 | Módulo | Descripción | Tablas / Lógica |
 |--------|-------------|-----------------|
@@ -212,7 +211,7 @@ BgaGO-Transportes/
 
 ---
 
-## 👥 Flujo de Trabajo del Equipo
+## Flujo de Trabajo del Equipo
 
 El proyecto se desarrolla bajo el modelo **Git Flow**, con trabajo colaborativo entre tres miembros.
 
@@ -222,7 +221,7 @@ El proyecto se desarrolla bajo el modelo **Git Flow**, con trabajo colaborativo 
 | 🎨 **Frontend Lead** | Paula Saavedra | UI/UX, Blade + Livewire, Tailwind, vistas públicas |
 | 🔍 **QA / Infraestructura** | Emily Nicol David | Pruebas, documentación, CI/CD y despliegue en Azure |
 
-### 🌿 Flujo Git
+### Flujo Git
 
 ```bash
 # Crear rama de trabajo
@@ -240,7 +239,7 @@ git push origin feature/nueva-funcionalidad
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Ejecutar pruebas unitarias
@@ -254,11 +253,12 @@ vendor/bin/phpunit
 
 ## ☁️ Despliegue en Azure
 
-### 💡 Pasos para producción en Debian 12 (Azure VM)
+### Pasos para producción en Debian 12 (Azure VM)
 
 1. **Clonar el proyecto en la VM:**
 ```bash
-cd /home/bgago/
+mkdir proyecto
+cd proyecto
 git clone https://github.com/Paulasaah/BgaGO-Transportes.git
 ```
 
@@ -269,7 +269,7 @@ pnpm install
 pnpm run build
 ```
 
-3. **Configurar Apache o Nginx:**
+3. **Configurar Apache**
 ```bash
 # Editar archivo de configuración
 sudo nano /etc/apache2/sites-available/bgago.conf
@@ -306,7 +306,7 @@ php artisan horizon
 
 ---
 
-## 🚀 Roadmap
+## Roadmap
 
 - [ ] Módulo de auditoría y logs
 - [ ] Integración IoT con Azure Central
@@ -316,7 +316,7 @@ php artisan horizon
 
 ---
 
-## 👩‍💻 Equipo de Desarrollo
+## Equipo de Desarrollo
 
 | Nombre | Rol | GitHub |
 |--------|-----|--------|
@@ -326,8 +326,6 @@ php artisan horizon
 
 ---
 
-## 📜 Licencia
+## Licencia
 
 Este proyecto es de uso académico y formativo.
-
-**Desarrollado con ❤️ por el equipo de BgaGO Transportes — 2025**
