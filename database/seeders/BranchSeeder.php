@@ -18,6 +18,10 @@ class BranchSeeder extends Seeder
                 'email' => 'cabecera@empresa.com',
                 'latitud' => 7.1193,
                 'longitud' => -73.1227,
+                'radio' => 500,
+                'color' => '#3b82f6',
+                'descripcion' => 'Sucursal principal ubicada en el corazón de Bucaramanga.',
+                'capacidad_vehiculos' => 20,
                 'activa' => true,
             ],
             [
@@ -28,6 +32,10 @@ class BranchSeeder extends Seeder
                 'email' => 'canaveral@empresa.com',
                 'latitud' => 7.0741,
                 'longitud' => -73.1023,
+                'radio' => 400,
+                'color' => '#10b981',
+                'descripcion' => 'Sucursal en zona comercial y de alto flujo.',
+                'capacidad_vehiculos' => 15,
                 'activa' => true,
             ],
             [
@@ -38,6 +46,10 @@ class BranchSeeder extends Seeder
                 'email' => 'floridablanca@empresa.com',
                 'latitud' => 7.0648,
                 'longitud' => -73.0863,
+                'radio' => 450,
+                'color' => '#f59e0b',
+                'descripcion' => 'Sucursal orientada a entregas rápidas y domicilios.',
+                'capacidad_vehiculos' => 12,
                 'activa' => true,
             ],
             [
@@ -48,6 +60,10 @@ class BranchSeeder extends Seeder
                 'email' => 'piedecuesta@empresa.com',
                 'latitud' => 6.9871,
                 'longitud' => -73.0495,
+                'radio' => 500,
+                'color' => '#ef4444',
+                'descripcion' => 'Sucursal que cubre zonas rurales y extensas rutas.',
+                'capacidad_vehiculos' => 10,
                 'activa' => true,
             ],
         ]);

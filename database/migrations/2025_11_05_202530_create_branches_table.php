@@ -16,11 +16,17 @@ return new class extends Migration
             $table->string('nombre');
             $table->text('direccion');
             $table->string('ciudad');
-            $table->string('telefono')->nullable();
+            $table->string('telefono', 20)->nullable();
             $table->string('email')->nullable();
             $table->decimal('latitud', 10, 7)->nullable();
             $table->decimal('longitud', 10, 7)->nullable();
+
+            $table->integer('radio')->default(500)->comment('Radio de cobertura en metros');
+            $table->string('color', 7)->default('#3b82f6');
+            $table->text('descripcion')->nullable();
+            $table->integer('capacidad_vehiculos')->default(10);
             $table->boolean('activa')->default(true);
+
             $table->timestamps();
             $table->softDeletes();
         });
