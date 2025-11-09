@@ -10,14 +10,26 @@ class Reservation extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'vehicle_id',
-        'driver_profile_id',
-        'fecha_reserva',
-        'fecha_inicio',
-        'fecha_fin',
-        'estado',
-        'monto_total',
+        'driver_id',
+        'service_type',
+        'status',
+        'pickup_address',
+        'dropoff_address',
+        'starts_at',
+        'ends_at',
+        'distance_km',
+        'price_cents',
+        'canceled_at',
+        'cancellation_reason',
     ];
+
+    // 🔗 Relaciones
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function vehicle()
     {
@@ -26,7 +38,7 @@ class Reservation extends Model
 
     public function driver()
     {
-        return $this->belongsTo(DriverProfile::class, 'driver_profile_id');
+        return $this->belongsTo(DriverProfile::class, 'driver_id');
     }
 
     public function payment()
