@@ -20,18 +20,12 @@ services:
       - '${APP_PORT:-8000}:80'
       - '${VITE_PORT:-5173}:${VITE_PORT:-5173}'
     environment:
-      WWWUSER: '0' # fuerza root
+      WWWUSER: '${WWWUSER:-1000}' # UID del usuario 'sail'
       LARAVEL_SAIL: 1
       XDEBUG_MODE: 'off'
       XDEBUG_CONFIG: 'client_host=host.docker.internal'
     volumes:
       - '.:/var/www/html'
-    command: >
-      bash -c "
-        chown -R www-data:www-data /var/www/html/storage &&
-        chmod -R 775 /var/www/html/storage &&
-        php artisan serve --host=0.0.0.0 --port=80
-      "
     user: root
     networks:
       - sail

@@ -53,3 +53,6 @@ echo "✔ MySQL          : puerto 3306 interno / 3307 host"
 echo "✔ Mosquitto MQTT : puerto 1883"
 echo "✔ Publisher/Sub. : conectados en red 'sail'"
 echo "----------------------------------------------"
+echo ""
+echo "📜 Últimos logs de Laravel:"
+./vendor/bin/sail logs laravel.test --tail=20

@@ -1,14 +1,17 @@
 <?php
 
-use App\Http\Controllers\Api\IotDataController;
-use App\Http\Controllers\Api\AzureTelemetryController;
-use App\Http\Controllers\Api\AzureDeviceController;
-use App\Http\Controllers\TelemetryController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Models\Telemetria;
+
+// Controladores API
+use App\Http\Controllers\Api\IotDataController;
+use App\Http\Controllers\Api\AzureTelemetryController;
+use App\Http\Controllers\Api\AzureDeviceController;
+use App\Http\Controllers\Api\TelemetryController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -59,6 +62,7 @@ Route::get('/ping', function () {
  * Soporta formato mejorado con todos los campos
  */
 Route::post('/telemetria', [TelemetryController::class, 'store']);
+Route::get('/telemetria/realtime', [TelemetryController::class, 'realtime']);
 
 /**
  * Endpoint legacy (mantener compatibilidad con versión anterior)
