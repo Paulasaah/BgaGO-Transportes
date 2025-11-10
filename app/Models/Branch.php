@@ -14,20 +14,12 @@ class Branch extends Model
         'nombre',
         'direccion',
         'ciudad',
-<<<<<<< HEAD
         'lat',
         'lon',
-=======
-        'telefono',
-        'email',
-        'latitud',
-        'longitud',
->>>>>>> sergio
         'radio',
         'color',
         'descripcion',
         'capacidad_vehiculos',
-<<<<<<< HEAD
     ];
 
     protected $casts = [
@@ -40,19 +32,6 @@ class Branch extends Model
     /**
      * Relación con vehículos
      */
-=======
-        'activa',
-    ];
-
-    protected $casts = [
-        'latitud' => 'float',
-        'longitud' => 'float',
-        'radio' => 'integer',
-        'activa' => 'boolean',
-    ];
-
-    // Relaciones
->>>>>>> sergio
     public function vehicles()
     {
         return $this->hasMany(Vehicle::class, 'sede_id');

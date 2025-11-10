@@ -16,7 +16,7 @@ class DeliverySeeder extends Seeder
 
         $data = [
             [
-                'tipo' => 'objeto',
+                'tipo' => 'paquete',
                 'descripcion' => 'Entrega de casco adicional.',
                 'direccion_origen' => 'Sucursal Cabecera',
                 'direccion_destino' => 'Calle 45 #28-90, Bucaramanga',
@@ -32,7 +32,7 @@ class DeliverySeeder extends Seeder
                 'estado' => 'en_camino',
             ],
             [
-                'tipo' => 'objeto',
+                'tipo' => 'paquete',
                 'descripcion' => 'Entrega de documento olvidado.',
                 'direccion_origen' => 'Sucursal Floridablanca',
                 'direccion_destino' => 'Av. La Rosita #22-15, Bucaramanga',

@@ -15,7 +15,8 @@
         "livewire/flux": "^2.0",
         "livewire/volt": "^1.6.7",
         "php-mqtt/client": "^2.3",
-        "php-mqtt/laravel-client": "^1.6"
+        "php-mqtt/laravel-client": "^1.6",
+        "spatie/laravel-permission": "^6.23"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
