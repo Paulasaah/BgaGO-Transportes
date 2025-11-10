@@ -6,15 +6,21 @@ use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Ejecutar todos los seeders del sistema.
-     */
     public function run(): void
     {
         $this->call([
-            BranchSeeder::class,       // 🏢 Sedes (Centro, Cañaveral, etc.)
-            UserSeeder::class,         // 👤 Usuarios base
-            ReservationSeeder::class,  // 📋 Reservas de ejemplo
+            UserSeeder::class,
+            BranchSeeder::class,
+            DeliverySeeder::class,
+            PaymentMethodSeeder::class,
+            TransactionLogSeeder::class,
+            ConfiguracionSeeder::class,
+            VehicleSeeder::class,
+            DriverProfileSeeder::class,
+            ReservationSeeder::class,
+            PaymentSeeder::class,
+            VehicleMaintenanceSeeder::class,
+            EventSeeder::class,
         ]);
 
         $this->command->info('✅ Todos los seeders ejecutados correctamente.');

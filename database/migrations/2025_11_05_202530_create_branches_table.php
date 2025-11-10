@@ -19,6 +19,7 @@ return new class extends Migration
             $table->text('descripcion')->nullable();
             $table->integer('capacidad_vehiculos')->default(10);
             $table->timestamps();
+            $table->softDeletes();
         });
 
     }

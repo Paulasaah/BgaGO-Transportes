@@ -2,24 +2,32 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Branch extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'nombre',
         'direccion',
-        'telefono',
         'ciudad',
+<<<<<<< HEAD
         'lat',
         'lon',
+=======
+        'telefono',
+        'email',
+        'latitud',
+        'longitud',
+>>>>>>> sergio
         'radio',
         'color',
         'descripcion',
         'capacidad_vehiculos',
+<<<<<<< HEAD
     ];
 
     protected $casts = [
@@ -32,9 +40,27 @@ class Branch extends Model
     /**
      * Relación con vehículos
      */
+=======
+        'activa',
+    ];
+
+    protected $casts = [
+        'latitud' => 'float',
+        'longitud' => 'float',
+        'radio' => 'integer',
+        'activa' => 'boolean',
+    ];
+
+    // Relaciones
+>>>>>>> sergio
     public function vehicles()
     {
-        return $this->hasMany(Vehicle::class);
+        return $this->hasMany(Vehicle::class, 'sede_id');
+    }
+
+    public function reservations()
+    {
+        return $this->hasMany(Reservation::class, 'sede_id');
     }
 
     /**

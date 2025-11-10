@@ -13,14 +13,37 @@ return new class extends Migration
     {
         Schema::create('gps_tracks', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('vehicle_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('reservation_id')->nullable()->constrained()->nullOnDelete();
-            $table->decimal('lat', 10, 7);
-            $table->decimal('lng', 10, 7);
-            $table->decimal('speed', 6, 2)->nullable();
-            $table->unsignedTinyInteger('battery')->nullable();
-            $table->timestamp('recorded_at')->index();
+
+            // Relaciones
+            $table->foreignId('vehiculo_id')->constrained('vehicles')->cascadeOnDelete();
+            $table->foreignId('reserva_id')->nullable()->constrained('reservations')->nullOnDelete();
+
+            // Coordenadas geográficas
+            $table->decimal('latitud', 10, 7)->comment('Latitud del vehículo');
+            $table->decimal('longitud', 10, 7)->comment('Longitud del vehículo');
+            $table->decimal('altitud', 8, 2)->nullable()->comment('Altitud en metros');
+            $table->decimal('precision', 8, 2)->nullable()->comment('Precisión del GPS en metros');
+
+            // Datos de movimiento
+            $table->decimal('velocidad', 6, 2)->nullable()->comment('Velocidad en km/h');
+
+            // Estado del vehículo
+            $table->boolean('motor_encendido')->default(false)->comment('Estado del motor: encendido/apagado');
+            $table->unsignedTinyInteger('nivel_bateria')->nullable()->comment('Porcentaje de batería (0-100)');
+            $table->integer('kilometraje')->nullable()->comment('Kilometraje registrado en este punto');
+            $table->decimal('temperatura_motor', 5, 2)->nullable()->comment('Temperatura del motor en °C');
+            $table->enum('fuente', ['gps', 'app_conductor', 'manual'])->default('gps')->comment('Origen de la información');
+
+            // Registro temporal
+            $table->timestamp('fecha_registro')->useCurrent()->index()->comment('Fecha y hora del registro del GPS');
+
             $table->timestamps();
+
+            // Índices optimizados
+            $table->index('vehiculo_id');
+            $table->index('reserva_id');
+            $table->index(['vehiculo_id', 'fecha_registro']);
+            $table->index(['latitud', 'longitud']);
         });
     }
 
