@@ -68,6 +68,11 @@ class Vehicle extends Model
         return $this->hasMany(VehicleMaintenance::class, 'vehiculo_id');
     }
 
+    public function deliveries()
+    {
+        return $this->hasMany(Delivery::class, 'vehiculo_id');
+    }
+
     public function gpsTracks()
     {
         return $this->hasMany(GpsTrack::class, 'vehiculo_id');

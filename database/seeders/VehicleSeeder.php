@@ -14,6 +14,11 @@ class VehicleSeeder extends Seeder
         $branchIds = Branch::pluck('id')->toArray();
         $userIds = User::pluck('id')->toArray();
 
+        if (empty($branchIds) || empty($userIds)) {
+            $this->command->warn('⚠️ No hay datos suficientes en Branch o User para crear vehículos.');
+            return;
+        }
+
         $vehicles = [
             ['placa' => 'ABC-123', 'marca' => 'Yamaha', 'modelo' => 'NMAX', 'year' => 2021, 'tipo' => 'moto', 'color' => 'Negro'],
             ['placa' => 'XYZ-789', 'marca' => 'Honda', 'modelo' => 'Click 150', 'year' => 2020, 'tipo' => 'moto', 'color' => 'Rojo'],
@@ -28,16 +33,21 @@ class VehicleSeeder extends Seeder
         ];
 
         foreach ($vehicles as $v) {
-            Vehicle::create(array_merge($v, [
-                'sede_id' => $branchIds[array_rand($branchIds)],
-                'conductor_id' => $userIds[array_rand($userIds)],
-                'estado' => 'disponible',
-                'visible_catalogo' => true,
-                'precio_hora' => 15000,
-                'precio_dia' => 60000,
-                'imagen_principal' => 'https://via.placeholder.com/400x300',
-                'descripcion' => 'Vehículo en excelentes condiciones para servicio urbano.',
-            ]));
+            Vehicle::updateOrCreate(
+                ['placa' => $v['placa']], // clave única
+                array_merge($v, [
+                    'sede_id' => $branchIds[array_rand($branchIds)],
+                    'conductor_id' => $userIds[array_rand($userIds)],
+                    'estado' => 'disponible',
+                    'visible_catalogo' => true,
+                    'precio_hora' => 15000,
+                    'precio_dia' => 60000,
+                    'imagen_principal' => 'https://via.placeholder.com/400x300',
+                    'descripcion' => 'Vehículo en excelentes condiciones para servicio urbano.',
+                ])
+            );
         }
+
+        $this->command->info('✅ Vehículos creados o actualizados correctamente.');
     }
 }

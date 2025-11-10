@@ -3,11 +3,12 @@
 namespace App\Http\Requests\Delivery;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Vehicle;
 
 class StoreVehicleDeliveryRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Determina si el usuario está autorizado a hacer esta solicitud.
      */
     public function authorize(): bool
     {
@@ -15,7 +16,7 @@ class StoreVehicleDeliveryRequest extends FormRequest
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Reglas de validación.
      */
     public function rules(): array
     {
@@ -30,41 +31,41 @@ class StoreVehicleDeliveryRequest extends FormRequest
                 'integer',
                 'exists:branches,id',
             ],
-            
+
             // Origen (sede)
-            'origen_direccion' => [
+            'direccion_origen' => [
                 'required',
                 'string',
                 'max:255',
             ],
-            'origen_lat' => [
+            'lat_origen' => [
                 'required',
                 'numeric',
                 'between:-90,90',
             ],
-            'origen_lng' => [
+            'lon_origen' => [
                 'required',
                 'numeric',
                 'between:-180,180',
             ],
-            
+
             // Destino (cliente)
-            'destino_direccion' => [
+            'direccion_destino' => [
                 'required',
                 'string',
                 'max:255',
             ],
-            'destino_lat' => [
+            'lat_destino' => [
                 'required',
                 'numeric',
                 'between:-90,90',
             ],
-            'destino_lng' => [
+            'lon_destino' => [
                 'required',
                 'numeric',
                 'between:-180,180',
             ],
-            
+
             // Datos del destinatario
             'nombre_destinatario' => [
                 'required',
@@ -76,83 +77,110 @@ class StoreVehicleDeliveryRequest extends FormRequest
                 'string',
                 'regex:/^\+?57\s?\d{3}\s?\d{3}\s?\d{4}$/',
             ],
-            
+
             // Programación
             'fecha_entrega' => [
                 'nullable',
                 'date',
                 'after_or_equal:now',
             ],
-            
+
+            // Instrucciones y costo
             'instrucciones_especiales' => [
                 'nullable',
                 'string',
                 'max:500',
             ],
+            'costo' => [
+                'nullable',
+                'numeric',
+                'min:0',
+            ],
         ];
     }
 
     /**
-     * Get custom messages for validator errors.
+     * Mensajes personalizados.
      */
     public function messages(): array
     {
         return [
-            'vehiculo_id.required' => 'Debes seleccionar un vehículo',
-            'vehiculo_id.exists' => 'El vehículo seleccionado no existe',
-            'sede_id.required' => 'Debes seleccionar una sede',
-            'sede_id.exists' => 'La sede seleccionada no existe',
-            
-            'origen_direccion.required' => 'La dirección de origen es obligatoria',
-            'destino_direccion.required' => 'La dirección de destino es obligatoria',
-            
-            'nombre_destinatario.required' => 'El nombre del destinatario es obligatorio',
-            'telefono_destinatario.required' => 'El teléfono del destinatario es obligatorio',
-            'telefono_destinatario.regex' => 'El teléfono debe ser válido (ej: +57 300 123 4567)',
-            
-            'fecha_entrega.after_or_equal' => 'La fecha de entrega debe ser futura',
-            'instrucciones_especiales.max' => 'Las instrucciones no pueden exceder 500 caracteres',
+            'vehiculo_id.required' => 'Debes seleccionar un vehículo.',
+            'vehiculo_id.exists' => 'El vehículo seleccionado no existe.',
+            'sede_id.required' => 'Debes seleccionar una sede.',
+            'sede_id.exists' => 'La sede seleccionada no existe.',
+
+            'direccion_origen.required' => 'La dirección de origen es obligatoria.',
+            'direccion_destino.required' => 'La dirección de destino es obligatoria.',
+
+            'nombre_destinatario.required' => 'El nombre del destinatario es obligatorio.',
+            'telefono_destinatario.required' => 'El teléfono del destinatario es obligatorio.',
+            'telefono_destinatario.regex' => 'El teléfono debe ser válido (ej: +57 300 123 4567).',
+
+            'fecha_entrega.after_or_equal' => 'La fecha de entrega debe ser futura.',
+            'instrucciones_especiales.max' => 'Las instrucciones no pueden exceder 500 caracteres.',
         ];
     }
 
     /**
-     * Configure the validator instance.
+     * Nombres amigables.
+     */
+    public function attributes(): array
+    {
+        return [
+            'vehiculo_id' => 'vehículo',
+            'sede_id' => 'sede',
+            'direccion_origen' => 'dirección de origen',
+            'direccion_destino' => 'dirección de destino',
+            'lat_origen' => 'latitud de origen',
+            'lon_origen' => 'longitud de origen',
+            'lat_destino' => 'latitud de destino',
+            'lon_destino' => 'longitud de destino',
+            'nombre_destinatario' => 'nombre del destinatario',
+            'telefono_destinatario' => 'teléfono del destinatario',
+            'fecha_entrega' => 'fecha de entrega',
+            'costo' => 'costo del envío',
+        ];
+    }
+
+    /**
+     * Validaciones adicionales personalizadas.
      */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
-            // Validar que el vehículo esté disponible
-            $vehicle = \App\Models\Vehicle::find($this->vehiculo_id);
-            
-            if ($vehicle && !$vehicle->isDisponible()) {
+            // Validar disponibilidad del vehículo
+            $vehicle = Vehicle::find($this->vehiculo_id);
+
+            if ($vehicle && method_exists($vehicle, 'isDisponible') && !$vehicle->isDisponible()) {
                 $validator->errors()->add(
                     'vehiculo_id',
-                    'El vehículo seleccionado no está disponible'
+                    'El vehículo seleccionado no está disponible actualmente.'
                 );
             }
 
-            // Validar distancia
-            if ($this->origen_lat && $this->origen_lng && 
-                $this->destino_lat && $this->destino_lng) {
-                
+            // Validar distancia mínima y máxima
+            if ($this->lat_origen && $this->lon_origen &&
+                $this->lat_destino && $this->lon_destino) {
+
                 $distancia = $this->calculateDistance(
-                    $this->origen_lat,
-                    $this->origen_lng,
-                    $this->destino_lat,
-                    $this->destino_lng
+                    $this->lat_origen,
+                    $this->lon_origen,
+                    $this->lat_destino,
+                    $this->lon_destino
                 );
 
                 if ($distancia < 0.5) {
                     $validator->errors()->add(
-                        'destino_direccion',
-                        'El destino debe estar al menos a 500 metros del origen'
+                        'direccion_destino',
+                        'El destino debe estar al menos a 500 metros del origen.'
                     );
                 }
 
                 if ($distancia > 50) {
                     $validator->errors()->add(
-                        'destino_direccion',
-                        'Por el momento solo cubrimos distancias de hasta 50 km'
+                        'direccion_destino',
+                        'Por el momento solo cubrimos distancias de hasta 50 km.'
                     );
                 }
             }
@@ -160,7 +188,7 @@ class StoreVehicleDeliveryRequest extends FormRequest
     }
 
     /**
-     * Prepare the data for validation.
+     * Prepara los datos antes de la validación.
      */
     protected function prepareForValidation(): void
     {
@@ -176,26 +204,25 @@ class StoreVehicleDeliveryRequest extends FormRequest
     }
 
     /**
-     * Normalizar teléfono
+     * Normaliza el formato del teléfono.
      */
     protected function normalizePhone(string $phone): string
     {
         $phone = preg_replace('/[\s\-]/', '', $phone);
-        
+
         if (!str_starts_with($phone, '+57')) {
             $phone = '+57' . ltrim($phone, '57');
         }
-        
+
         return $phone;
     }
 
     /**
-     * Calcular distancia
+     * Calcula la distancia entre dos coordenadas (Haversine).
      */
     protected function calculateDistance($lat1, $lon1, $lat2, $lon2): float
     {
         $earthRadius = 6371;
-
         $latFrom = deg2rad($lat1);
         $lonFrom = deg2rad($lon1);
         $latTo = deg2rad($lat2);
@@ -204,12 +231,10 @@ class StoreVehicleDeliveryRequest extends FormRequest
         $latDelta = $latTo - $latFrom;
         $lonDelta = $lonTo - $lonFrom;
 
-        $a = sin($latDelta / 2) * sin($latDelta / 2) +
-             cos($latFrom) * cos($latTo) *
-             sin($lonDelta / 2) * sin($lonDelta / 2);
-        
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+        $a = sin($latDelta / 2) ** 2 +
+             cos($latFrom) * cos($latTo) * sin($lonDelta / 2) ** 2;
 
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
         return round($earthRadius * $c, 2);
     }
 }

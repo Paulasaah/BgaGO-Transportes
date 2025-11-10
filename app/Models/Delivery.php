@@ -13,8 +13,10 @@ class Delivery extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
+        'user_id',
         'reserva_id',
         'tipo',
+        'descripcion',
         'vehiculo_id',
         'nombre_remitente',
         'telefono_remitente',
@@ -22,14 +24,21 @@ class Delivery extends Model
         'telefono_destinatario',
         'descripcion_contenido',
         'peso_estimado',
-        'requiere_firma',
         'es_fragil',
         'instrucciones_especiales',
         'fecha_recogida',
         'fecha_entrega',
-        'firma_destinatario',
-        'foto_entrega',
         'notas_entrega',
+        'direccion_origen',
+        'lat_origen',
+        'lon_origen',
+        'direccion_destino',
+        'lat_destino',
+        'lon_destino',
+        'costo',
+        'estado',
+        'fecha_entrega_estimada',
+        'fecha_entrega_real',
     ];
 
     protected $casts = [
@@ -39,6 +48,9 @@ class Delivery extends Model
         'es_fragil' => 'boolean',
         'fecha_recogida' => 'datetime',
         'fecha_entrega' => 'datetime',
+        'fecha_entrega_estimada' => 'datetime',
+        'fecha_entrega_real' => 'datetime',
+        'costo' => 'decimal:2',
     ];
 
     // ==========================================
@@ -54,6 +66,12 @@ class Delivery extends Model
     {
         return $this->belongsTo(Vehicle::class, 'vehiculo_id');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
 
     // ==========================================
     // SCOPES

@@ -14,18 +14,27 @@ class PaymentSeeder extends Seeder
         $reservations = Reservation::all();
         $users = User::all();
 
-        foreach ($reservations as $i => $reservation) {
-            Payment::create([
-                'codigo_transaccion' => 'TX-' . strtoupper(uniqid()),
-                'reserva_id' => $reservation->id,
-                'user_id' => $users->random()->id,
-                'metodo_pago' => 'tarjeta',
-                'monto' => $reservation->monto_final,
-                'estado' => 'aprobado',
-                'referencia_externa' => 'STRIPE-' . rand(10000, 99999),
-                'datos_transaccion' => json_encode(['gateway' => 'Stripe', 'currency' => 'COP']),
-                'fecha_aprobacion' => now()->subDays(rand(1, 10)),
-            ]);
+        if ($reservations->isEmpty()) {
+            $this->command->warn('⚠️ No hay reservas disponibles. Se omite PaymentSeeder.');
+            return;
         }
+
+        foreach ($reservations as $reservation) {
+            Payment::updateOrCreate(
+                ['reserva_id' => $reservation->id], // clave única
+                [
+                    'codigo_transaccion' => 'TX-' . strtoupper(uniqid()),
+                    'user_id' => $users->random()->id,
+                    'metodo_pago' => 'tarjeta',
+                    'monto' => $reservation->monto_final ?? 0,
+                    'estado' => 'aprobado',
+                    'referencia_externa' => 'STRIPE-' . rand(10000, 99999),
+                    'datos_transaccion' => json_encode(['gateway' => 'Stripe', 'currency' => 'COP']),
+                    'fecha_aprobacion' => now()->subDays(rand(1, 10)),
+                ]
+            );
+        }
+
+        $this->command->info('✅ Pagos creados o actualizados correctamente.');
     }
 }

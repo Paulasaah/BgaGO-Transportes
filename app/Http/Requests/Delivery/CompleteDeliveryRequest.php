@@ -7,37 +7,32 @@ use Illuminate\Foundation\Http\FormRequest;
 class CompleteDeliveryRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Determina si el usuario está autorizado a realizar esta acción.
      */
     public function authorize(): bool
     {
         $delivery = $this->route('delivery');
-        
-        if (!$delivery) {
+
+        if (!$delivery || !auth()->check()) {
             return false;
         }
 
-        // Solo el conductor asignado o un admin
-        return auth()->id() === $delivery->reservation->conductor_id ||
-               auth()->user()->isAdmin();
+        // ✅ Solo el conductor asignado o un admin pueden completar el delivery
+        return auth()->id() === optional($delivery->reservation)->conductor_id
+            || auth()->user()->isAdmin();
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Reglas de validación.
      */
     public function rules(): array
     {
         return [
-            'firma' => [
-                'nullable',
-                'string',
-                'max:10000', // Base64 image
-            ],
             'foto' => [
                 'nullable',
                 'image',
                 'mimes:jpeg,png,jpg',
-                'max:5120', // 5MB
+                'max:5120', // Máx 5MB
             ],
             'notas' => [
                 'nullable',
@@ -48,74 +43,72 @@ class CompleteDeliveryRequest extends FormRequest
     }
 
     /**
-     * Get custom messages for validator errors.
+     * Mensajes personalizados.
      */
     public function messages(): array
     {
         return [
-            'foto.image' => 'El archivo debe ser una imagen',
-            'foto.mimes' => 'La foto debe ser JPG o PNG',
-            'foto.max' => 'La foto no puede pesar más de 5MB',
-            'notas.max' => 'Las notas no pueden exceder 500 caracteres',
+            'foto.image' => 'El archivo debe ser una imagen válida.',
+            'foto.mimes' => 'La foto debe estar en formato JPG o PNG.',
+            'foto.max' => 'La foto no puede superar los 5MB.',
+            'notas.max' => 'Las notas no pueden exceder los 500 caracteres.',
         ];
     }
 
     /**
-     * Configure the validator instance.
+     * Nombres legibles de los atributos.
+     */
+    public function attributes(): array
+    {
+        return [
+            'foto' => 'foto de entrega',
+            'notas' => 'notas de entrega',
+        ];
+    }
+
+    /**
+     * Validaciones adicionales personalizadas.
      */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
             $delivery = $this->route('delivery');
-            
-            if (!$delivery) {
+
+            if (!$delivery || !isset($delivery->reservation)) {
                 return;
             }
 
-            // Verificar que el delivery está activo
-            if (!$delivery->reservation->isActiva()) {
+            // 🚫 Si la reserva ya no está activa
+            if (method_exists($delivery->reservation, 'isActiva') && !$delivery->reservation->isActiva()) {
                 $validator->errors()->add(
                     'estado',
-                    'Este domicilio no está activo'
+                    'Este domicilio no está activo o ya fue completado.'
                 );
             }
 
-            // Verificar que ya fue recogido
-            if (!$delivery->fecha_recogida) {
+            // ⚠️ Verificar que haya sido recogido
+            if (is_null($delivery->fecha_recogida)) {
                 $validator->errors()->add(
                     'estado',
-                    'Primero debes marcar el domicilio como recogido'
-                );
-            }
-
-            // Verificar firma si es requerida
-            if ($delivery->requiere_firma && !$this->has('firma')) {
-                $validator->errors()->add(
-                    'firma',
-                    'Este domicilio requiere firma del destinatario'
+                    'Debes marcar el domicilio como recogido antes de completarlo.'
                 );
             }
         });
     }
 
     /**
-     * Handle a passed validation attempt.
+     * Post-procesamiento tras validación exitosa.
      */
     protected function passedValidation(): void
     {
-        // Procesar la foto si existe
+        // 📸 Procesar foto si fue cargada
         if ($this->hasFile('foto')) {
             $path = $this->file('foto')->store('deliveries/photos', 'public');
             $this->merge(['foto_entrega' => $path]);
         }
 
-        // Guardar firma si existe
-        if ($this->has('firma')) {
-            $this->merge(['firma_destinatario' => $this->firma]);
-        }
-
-        // Guardar notas
-        if ($this->has('notas')) {
+        // 📝 Guardar notas si existen
+        if ($this->filled('notas')) {
             $this->merge(['notas_entrega' => $this->notas]);
         }
     }

@@ -18,12 +18,16 @@ class DriverProfileSeeder extends Seeder
         ];
 
         foreach ($users as $i => $user) {
-            DriverProfile::create([
-                'user_id' => $user->id,
-                'license_number' => $licenses[$i] ?? 'DRV-99999',
-                'rating' => rand(4, 5),
-                'is_active' => true,
-            ]);
+            DriverProfile::updateOrCreate(
+                ['user_id' => $user->id], // clave única
+                [
+                    'license_number' => $licenses[$i] ?? 'DRV-99999',
+                    'rating' => rand(4, 5),
+                    'is_active' => true,
+                ]
+            );
         }
+
+        $this->command->info('✅ Perfiles de conductores creados o actualizados correctamente.');
     }
 }

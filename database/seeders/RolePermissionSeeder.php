@@ -11,11 +11,15 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        // Resetear cache de roles/permisos
+        // ==========================================
+        // 🧹 LIMPIAR CACHE DE PERMISOS
+        // ==========================================
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
+        $this->command->warn('🔄 Verificando roles y permisos existentes...');
+
         // ==========================================
-        // CREAR PERMISOS
+        // 🔐 CREAR O ACTUALIZAR PERMISOS
         // ==========================================
         $permissions = [
             // Reservas
@@ -23,52 +27,62 @@ class RolePermissionSeeder extends Seeder
             'crear_reservas',
             'editar_reservas',
             'cancelar_reservas',
-            
+
             // Domicilios
             'ver_domicilios',
             'crear_domicilios',
             'asignar_domicilios',
             'completar_domicilios',
-            
+
             // Vehículos
             'ver_vehiculos',
             'gestionar_vehiculos',
             'asignar_conductores',
-            
+
             // Pagos
             'ver_pagos',
             'aprobar_pagos',
             'rechazar_pagos',
             'reembolsar_pagos',
-            
+
             // Conductores
             'ver_conductores',
             'gestionar_conductores',
-            
+
             // Dashboard
             'ver_dashboard_admin',
             'ver_dashboard_conductor',
-            
+
             // Reportes
             'ver_reportes',
             'exportar_reportes',
         ];
 
         foreach ($permissions as $permission) {
-            Permission::create(['name' => $permission]);
+            Permission::firstOrCreate([
+                'name' => $permission,
+                'guard_name' => 'web',
+            ]);
         }
 
+        $this->command->info('✅ Permisos creados o actualizados correctamente.');
+
         // ==========================================
-        // CREAR ROLES Y ASIGNAR PERMISOS
+        // 🧩 CREAR ROLES SI NO EXISTEN
+        // ==========================================
+        $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
+        $conductorRole = Role::firstOrCreate(['name' => 'conductor', 'guard_name' => 'web']);
+        $clienteRole = Role::firstOrCreate(['name' => 'cliente', 'guard_name' => 'web']);
+
+        // ==========================================
+        // 🔗 ASIGNAR PERMISOS A CADA ROL
         // ==========================================
 
         // 🔴 ADMIN - Acceso total
-        $adminRole = Role::create(['name' => 'admin']);
-        $adminRole->givePermissionTo(Permission::all());
+        $adminRole->syncPermissions(Permission::all());
 
         // 🟢 CONDUCTOR - Gestión de entregas
-        $conductorRole = Role::create(['name' => 'conductor']);
-        $conductorRole->givePermissionTo([
+        $conductorRole->syncPermissions([
             'ver_domicilios',
             'completar_domicilios',
             'ver_reservas',
@@ -76,8 +90,7 @@ class RolePermissionSeeder extends Seeder
         ]);
 
         // 🔵 CLIENTE - Usuario final
-        $clienteRole = Role::create(['name' => 'cliente']);
-        $clienteRole->givePermissionTo([
+        $clienteRole->syncPermissions([
             'ver_reservas',
             'crear_reservas',
             'cancelar_reservas',
@@ -86,37 +99,38 @@ class RolePermissionSeeder extends Seeder
             'ver_pagos',
         ]);
 
-        $this->command->info('✅ Roles y permisos creados correctamente');
+        $this->command->info('✅ Roles creados y permisos asignados correctamente.');
 
         // ==========================================
-        // ASIGNAR ROLES A USUARIOS EXISTENTES
+        // 👥 ASIGNAR ROLES A USUARIOS
         // ==========================================
-        
+
         // Primer usuario = Admin
         $admin = User::first();
         if ($admin) {
-            $admin->assignRole('admin');
+            $admin->syncRoles(['admin']);
             $this->command->info("✅ {$admin->email} asignado como ADMIN");
         }
 
-        // Usuarios 2-4 = Conductores
+        // Usuarios 2–4 = Conductores
         $conductores = User::skip(1)->take(3)->get();
         foreach ($conductores as $conductor) {
-            $conductor->assignRole('conductor');
+            $conductor->syncRoles(['conductor']);
             $this->command->info("✅ {$conductor->email} asignado como CONDUCTOR");
         }
 
-        // Usuarios restantes = Clientes
+        // Resto = Clientes
         $totalUsers = User::count();
-
         if ($totalUsers > 4) {
             $clientes = User::skip(4)->take($totalUsers - 4)->get();
             foreach ($clientes as $cliente) {
-                $cliente->assignRole('cliente');
+                $cliente->syncRoles(['cliente']);
                 $this->command->info("✅ {$cliente->email} asignado como CLIENTE");
             }
         } else {
             $this->command->warn('⚠️ No hay usuarios adicionales para asignar como CLIENTES.');
         }
+
+        $this->command->info('🎯 Seeder ejecutado correctamente sin duplicados.');
     }
 }

@@ -8,21 +8,21 @@ use App\Models\Reservation;
 class CancelReservationRequest extends FormRequest
 {
     /**
-     * Determine if the user is authorized to make this request.
+     * Determina si el usuario está autorizado a realizar la solicitud.
      */
     public function authorize(): bool
     {
         $reservation = $this->route('reservation');
-        
-        // El usuario debe ser el dueño de la reserva o un admin
+
+        // ✅ Solo el dueño o un admin pueden cancelar
         return $reservation && (
             $reservation->user_id === auth()->id() ||
-            auth()->user()->isAdmin()
+            (auth()->check() && auth()->user()->isAdmin())
         );
     }
 
     /**
-     * Get the validation rules that apply to the request.
+     * Reglas de validación.
      */
     public function rules(): array
     {
@@ -37,19 +37,19 @@ class CancelReservationRequest extends FormRequest
     }
 
     /**
-     * Get custom messages for validator errors.
+     * Mensajes personalizados.
      */
     public function messages(): array
     {
         return [
-            'motivo_cancelacion.required' => 'Debes indicar el motivo de la cancelación',
-            'motivo_cancelacion.min' => 'El motivo debe tener al menos 10 caracteres',
-            'motivo_cancelacion.max' => 'El motivo no puede exceder 500 caracteres',
+            'motivo_cancelacion.required' => 'Debes indicar el motivo de la cancelación.',
+            'motivo_cancelacion.min' => 'El motivo debe tener al menos 10 caracteres.',
+            'motivo_cancelacion.max' => 'El motivo no puede exceder 500 caracteres.',
         ];
     }
 
     /**
-     * Get custom attributes for validator errors.
+     * Nombres amigables de los atributos.
      */
     public function attributes(): array
     {
@@ -59,37 +59,37 @@ class CancelReservationRequest extends FormRequest
     }
 
     /**
-     * Configure the validator instance.
+     * Validaciones adicionales personalizadas.
      */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
             $reservation = $this->route('reservation');
-            
-            if (!$reservation) {
+
+            if (!$reservation instanceof Reservation) {
                 return;
             }
 
-            // Verificar que la reserva puede ser cancelada
-            if (!$reservation->canBeCancelled()) {
+            // ⚠️ No permitir cancelar si el estado no lo permite
+            if (method_exists($reservation, 'canBeCancelled') && !$reservation->canBeCancelled()) {
                 $validator->errors()->add(
                     'estado',
-                    'Esta reserva no puede ser cancelada en su estado actual (' . $reservation->estado->label() . ')'
+                    'Esta reserva no puede ser cancelada en su estado actual (' . $reservation->estado->label() . ').'
                 );
             }
 
-            // Si ya inició, cobrar penalización
-            if ($reservation->fecha_inicio->isPast()) {
+            // ⚠️ Penalización si ya inició
+            if ($reservation->fecha_inicio && $reservation->fecha_inicio->isPast()) {
                 $validator->errors()->add(
-                    'fecha',
-                    'La reserva ya ha iniciado. Se aplicará una penalización del 50%'
+                    'penalizacion',
+                    'La reserva ya ha iniciado. Se aplicará una penalización del 50% según las políticas del servicio.'
                 );
             }
         });
     }
 
     /**
-     * Prepare the data for validation.
+     * Preparar los datos antes de la validación.
      */
     protected function prepareForValidation(): void
     {

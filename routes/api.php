@@ -6,42 +6,55 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Models\Telemetria;
 
-// Controladores API
+// Controladores API existentes (Telemetría IoT)
 use App\Http\Controllers\Api\IotDataController;
 use App\Http\Controllers\Api\AzureTelemetryController;
 use App\Http\Controllers\Api\AzureDeviceController;
 use App\Http\Controllers\Api\TelemetryController;
 
+// Nuevos Controladores (Sistema de Reservas y Domicilios)
+use App\Http\Controllers\Api\ReservationController;
+use App\Http\Controllers\Api\DeliveryController;
+use App\Http\Controllers\Api\VehicleController;
+use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\BranchController;
 
 /*
 |--------------------------------------------------------------------------
 | API Routes - BgaGO
 |--------------------------------------------------------------------------
-| Rutas para gestión de telemetría IoT, integración con Azure IoT Central
-| y monitoreo en tiempo real de vehículos y conductores.
+| Sistema integrado de:
+| - Telemetría IoT (MQTT) para tracking de vehículos
+| - Gestión de reservas y domicilios
+| - Procesamiento de pagos
+| - Integración con Azure IoT Central
 */
 
 // ============================================================================
 // 🔵 AZURE IOT CENTRAL
 // ============================================================================
 
-// Registrar dispositivo en Azure
-Route::put('/azure/device/{deviceId}', [AzureDeviceController::class, 'registerDevice']);
-
-// Consultar telemetría desde Azure IoT Central
-Route::get('/azure/telemetria/{deviceId}', [AzureTelemetryController::class, 'getDeviceTelemetry']);
+Route::prefix('azure')->group(function () {
+    Route::put('/device/{deviceId}', [AzureDeviceController::class, 'registerDevice']);
+    Route::get('/telemetria/{deviceId}', [AzureTelemetryController::class, 'getDeviceTelemetry']);
+});
 
 // ============================================================================
 // 🟢 ESTADO DEL API
 // ============================================================================
 
-// Verificar que el API está funcionando
 Route::get('/status', function () {
     return response()->json([
         'status' => 'online',
-        'message' => 'API funcionando correctamente 🚀',
+        'message' => 'BgaGO API funcionando correctamente 🚀',
         'timestamp' => now()->toIso8601String(),
-        'version' => '2.0'
+        'version' => '2.0',
+        'services' => [
+            'telemetria' => 'active',
+            'reservas' => 'active',
+            'domicilios' => 'active',
+            'pagos' => 'active',
+        ]
     ]);
 });
 
@@ -57,90 +70,94 @@ Route::get('/ping', function () {
 // 📡 RECEPCIÓN DE TELEMETRÍA (MQTT → Laravel)
 // ============================================================================
 
-/**
- * Endpoint principal para recibir telemetría desde el subscriber MQTT
- * Soporta formato mejorado con todos los campos
- */
-Route::post('/telemetria', [TelemetryController::class, 'store']);
-Route::get('/telemetria/realtime', [TelemetryController::class, 'realtime']);
-
-/**
- * Endpoint legacy (mantener compatibilidad con versión anterior)
- * Soporta formato simple: {device_id, Geopoint: {lat, lon}, Battery}
- */
-Route::post('/telemetria/simple', function (Request $request) {
-    try {
-        $data = $request->all();
-        
-        Log::info('📡 Telemetría simple recibida', [
-            'device_id' => $data['device_id'] ?? 'unknown'
-        ]);
-        
-        // Extraer coordenadas (soporta ambos formatos)
-        $lat = $data['lat'] ?? $data['Geopoint']['lat'] ?? 0;
-        $lon = $data['lon'] ?? $data['Geopoint']['lon'] ?? 0;
-        $alt = $data['alt'] ?? $data['Geopoint']['alt'] ?? null;
-        $battery = $data['battery'] ?? $data['Battery'] ?? 100;
-        $deviceId = $data['device_id'] ?? 'desconocido';
-        
-        // Crear registro con campos mínimos
-        $telemetria = Telemetria::create([
-            'device_id' => $deviceId,
-            'device_type' => 'vehiculo', // Default
-            'status' => 'active', // Default
-            'lat' => (float) $lat,
-            'lon' => (float) $lon,
-            'alt' => $alt ? (float) $alt : null,
-            'battery' => (float) $battery,
-        ]);
-        
-        Log::info('✅ Telemetría simple guardada', ['id' => $telemetria->id]);
+Route::prefix('telemetria')->group(function () {
+    // Endpoint principal para telemetría completa
+    Route::post('/', [TelemetryController::class, 'store']);
+    Route::get('/realtime', [TelemetryController::class, 'realtime']);
+    
+    // Endpoint legacy (formato simple)
+    Route::post('/simple', function (Request $request) {
+        try {
+            $data = $request->all();
+            
+            Log::info('📡 Telemetría simple recibida', [
+                'device_id' => $data['device_id'] ?? 'unknown'
+            ]);
+            
+            $lat = $data['lat'] ?? $data['Geopoint']['lat'] ?? 0;
+            $lon = $data['lon'] ?? $data['Geopoint']['lon'] ?? 0;
+            $alt = $data['alt'] ?? $data['Geopoint']['alt'] ?? null;
+            $battery = $data['battery'] ?? $data['Battery'] ?? 100;
+            $deviceId = $data['device_id'] ?? 'desconocido';
+            
+            $telemetria = Telemetria::create([
+                'device_id' => $deviceId,
+                'device_type' => 'vehiculo',
+                'status' => 'active',
+                'lat' => (float) $lat,
+                'lon' => (float) $lon,
+                'alt' => $alt ? (float) $alt : null,
+                'battery' => (float) $battery,
+            ]);
+            
+            Log::info('✅ Telemetría simple guardada', ['id' => $telemetria->id]);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Telemetría guardada',
+                'data' => $telemetria
+            ], 201);
+            
+        } catch (\Throwable $e) {
+            Log::error('❌ Error en telemetría simple', ['error' => $e->getMessage()]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al guardar telemetría',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    });
+    
+    // Consultas de telemetría
+    Route::get('/latest', [TelemetryController::class, 'latest']);
+    Route::get('/{deviceId}', [TelemetryController::class, 'show']);
+    Route::get('/{deviceId}/history', [TelemetryController::class, 'history']);
+    
+    // Debug
+    Route::get('/all/debug', function (Request $request) {
+        $perPage = $request->input('per_page', 50);
+        $telemetry = Telemetria::orderByDesc('id')->paginate($perPage);
         
         return response()->json([
             'success' => true,
-            'message' => 'Telemetría guardada',
-            'data' => $telemetria
-        ], 201);
-        
-    } catch (\Throwable $e) {
-        Log::error('❌ Error en telemetría simple', [
-            'error' => $e->getMessage()
+            'data' => $telemetry->items(),
+            'pagination' => [
+                'total' => $telemetry->total(),
+                'per_page' => $telemetry->perPage(),
+                'current_page' => $telemetry->currentPage(),
+                'last_page' => $telemetry->lastPage(),
+            ]
         ]);
+    });
+    
+    // Cleanup (protegido)
+    Route::delete('/cleanup', function (Request $request) {
+        $days = $request->input('days', 7);
+        $deleted = Telemetria::where('created_at', '<', now()->subDays($days))->delete();
         
         return response()->json([
-            'success' => false,
-            'message' => 'Error al guardar telemetría',
-            'error' => $e->getMessage()
-        ], 500);
-    }
+            'success' => true,
+            'message' => "Registros eliminados correctamente",
+            'deleted_count' => $deleted,
+            'older_than_days' => $days
+        ]);
+    })->middleware('auth:sanctum');
 });
 
 // ============================================================================
-// 📊 CONSULTAS DE TELEMETRÍA
+// 🗺️ RUTAS Y TRACKING
 // ============================================================================
 
-/**
- * Obtener últimas posiciones de TODOS los dispositivos
- * Usado por el mapa para mostrar posición actual
- */
-Route::get('/telemetria/latest', [TelemetryController::class, 'latest']);
-
-/**
- * Obtener última posición de un dispositivo específico
- * GET /api/telemetria/{device_id}
- */
-Route::get('/telemetria/{deviceId}', [TelemetryController::class, 'show']);
-
-/**
- * Obtener historial completo de un dispositivo
- * GET /api/telemetria/{device_id}/history?limit=50
- */
-Route::get('/telemetria/{deviceId}/history', [TelemetryController::class, 'history']);
-
-/**
- * Ruta para obtener la ruta reciente (últimos 20 puntos)
- * Usado para dibujar el path en el mapa
- */
 Route::get('/ruta/{device_id}', function ($device_id) {
     try {
         $route = Telemetria::where('device_id', $device_id)
@@ -166,18 +183,12 @@ Route::get('/ruta/{device_id}', function ($device_id) {
     }
 });
 
-/**
- * Obtener últimas posiciones (formato legacy)
- * Mantener compatibilidad con versión anterior del mapa
- */
 Route::get('/ultimas', function () {
     try {
-        // Subconsulta para obtener el último timestamp de cada dispositivo
         $subquery = DB::table('telemetrias')
             ->select('device_id', DB::raw('MAX(created_at) as last_time'))
             ->groupBy('device_id');
         
-        // Join para obtener el registro completo
         $latest = DB::table('telemetrias')
             ->joinSub($subquery, 't2', function ($join) {
                 $join->on('telemetrias.device_id', '=', 't2.device_id')
@@ -202,232 +213,297 @@ Route::get('/ultimas', function () {
 });
 
 // ============================================================================
-// 🔍 FILTROS Y BÚSQUEDAS AVANZADAS
+// 🔍 FILTROS Y BÚSQUEDAS DE DISPOSITIVOS
 // ============================================================================
 
-/**
- * Obtener dispositivos por tipo
- * GET /api/dispositivos/tipo/{tipo}
- * Tipos: vehiculo, conductor
- */
-Route::get('/dispositivos/tipo/{tipo}', function ($tipo) {
-    if (!in_array($tipo, ['vehiculo', 'conductor'])) {
+Route::prefix('dispositivos')->group(function () {
+    Route::get('/tipo/{tipo}', function ($tipo) {
+        if (!in_array($tipo, ['vehiculo', 'conductor'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tipo inválido. Use: vehiculo o conductor'
+            ], 400);
+        }
+        
+        $devices = Telemetria::latestByDevice()
+            ->where('device_type', $tipo)
+            ->get();
+        
         return response()->json([
-            'success' => false,
-            'message' => 'Tipo inválido. Use: vehiculo o conductor'
-        ], 400);
-    }
+            'success' => true,
+            'tipo' => $tipo,
+            'data' => $devices,
+            'count' => $devices->count()
+        ]);
+    });
     
-    $devices = Telemetria::latestByDevice()
-        ->where('device_type', $tipo)
-        ->get();
-    
-    return response()->json([
-        'success' => true,
-        'tipo' => $tipo,
-        'data' => $devices,
-        'count' => $devices->count()
-    ]);
-});
-
-/**
- * Obtener dispositivos por estado
- * GET /api/dispositivos/estado/{estado}
- * Estados: active, idle, charging, maintenance, offline
- */
-Route::get('/dispositivos/estado/{estado}', function ($estado) {
-    $validStatuses = ['active', 'idle', 'charging', 'maintenance', 'offline'];
-    
-    if (!in_array($estado, $validStatuses)) {
+    Route::get('/estado/{estado}', function ($estado) {
+        $validStatuses = ['active', 'idle', 'charging', 'maintenance', 'offline'];
+        
+        if (!in_array($estado, $validStatuses)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Estado inválido',
+                'valid_states' => $validStatuses
+            ], 400);
+        }
+        
+        $devices = Telemetria::latestByDevice()
+            ->where('status', $estado)
+            ->get();
+        
         return response()->json([
-            'success' => false,
-            'message' => 'Estado inválido',
-            'valid_states' => $validStatuses
-        ], 400);
-    }
+            'success' => true,
+            'estado' => $estado,
+            'data' => $devices,
+            'count' => $devices->count()
+        ]);
+    });
     
-    $devices = Telemetria::latestByDevice()
-        ->where('status', $estado)
-        ->get();
+    Route::get('/sede/{sede}', function ($sede) {
+        $devices = Telemetria::latestByDevice()
+            ->where('current_branch', $sede)
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'sede' => $sede,
+            'data' => $devices,
+            'count' => $devices->count()
+        ]);
+    });
     
-    return response()->json([
-        'success' => true,
-        'estado' => $estado,
-        'data' => $devices,
-        'count' => $devices->count()
-    ]);
-});
-
-/**
- * Obtener dispositivos en una sede específica
- * GET /api/dispositivos/sede/{sede}
- */
-Route::get('/dispositivos/sede/{sede}', function ($sede) {
-    $devices = Telemetria::latestByDevice()
-        ->where('current_branch', $sede)
-        ->get();
-    
-    return response()->json([
-        'success' => true,
-        'sede' => $sede,
-        'data' => $devices,
-        'count' => $devices->count()
-    ]);
-});
-
-/**
- * Obtener dispositivos que necesitan mantenimiento
- * GET /api/dispositivos/mantenimiento
- */
-Route::get('/dispositivos/mantenimiento', function () {
-    $devices = Telemetria::latestByDevice()
-        ->where(function ($query) {
-            $query->where('maintenance_km_left', '<=', 100)
-                  ->orWhere('battery_health', '<=', 70);
-        })
-        ->get();
-    
-    return response()->json([
-        'success' => true,
-        'message' => 'Dispositivos que requieren mantenimiento',
-        'data' => $devices,
-        'count' => $devices->count()
-    ]);
+    Route::get('/mantenimiento', function () {
+        $devices = Telemetria::latestByDevice()
+            ->where(function ($query) {
+                $query->where('maintenance_km_left', '<=', 100)
+                      ->orWhere('battery_health', '<=', 70);
+            })
+            ->get();
+        
+        return response()->json([
+            'success' => true,
+            'message' => 'Dispositivos que requieren mantenimiento',
+            'data' => $devices,
+            'count' => $devices->count()
+        ]);
+    });
 });
 
 // ============================================================================
 // 📈 ESTADÍSTICAS
 // ============================================================================
 
-/**
- * Obtener estadísticas generales del sistema
- * GET /api/estadisticas
- */
-Route::get('/estadisticas', function () {
-    $latest = Telemetria::latestByDevice()->get();
-    
-    $stats = [
-        'total_dispositivos' => $latest->count(),
-        'vehiculos' => [
-            'total' => $latest->where('device_type', 'vehiculo')->count(),
-            'activos' => $latest->where('device_type', 'vehiculo')->where('status', 'active')->count(),
-            'en_espera' => $latest->where('device_type', 'vehiculo')->where('status', 'idle')->count(),
-            'cargando' => $latest->where('device_type', 'vehiculo')->where('status', 'charging')->count(),
-            'mantenimiento' => $latest->where('device_type', 'vehiculo')->where('status', 'maintenance')->count(),
-        ],
-        'conductores' => [
-            'total' => $latest->where('device_type', 'conductor')->count(),
-            'activos' => $latest->where('device_type', 'conductor')->where('status', 'active')->count(),
-            'en_espera' => $latest->where('device_type', 'conductor')->where('status', 'idle')->count(),
-        ],
-        'bateria' => [
-            'promedio' => round($latest->avg('battery'), 1),
-            'critica' => $latest->where('battery', '<', 20)->count(),
-            'baja' => $latest->whereBetween('battery', [20, 40])->count(),
-            'normal' => $latest->where('battery', '>=', 40)->count(),
-        ],
-        'mantenimiento' => [
-            'requerido' => $latest->filter(fn($d) => $d->needsMaintenance())->count(),
-        ],
-        'timestamp' => now()->toIso8601String(),
-    ];
-    
-    return response()->json([
-        'success' => true,
-        'data' => $stats
-    ]);
-});
-
-/**
- * Obtener estadísticas por sede
- * GET /api/estadisticas/sedes
- */
-Route::get('/estadisticas/sedes', function () {
-    $branches = \App\Models\Branch::all();
-    $latest = Telemetria::latestByDevice()->get();
-    
-    $branchStats = $branches->map(function ($branch) use ($latest) {
-        $devicesInBranch = $latest->where('current_branch', $branch->nombre);
+Route::prefix('estadisticas')->group(function () {
+    Route::get('/', function () {
+        $latest = Telemetria::latestByDevice()->get();
         
-        return [
-            'nombre' => $branch->nombre,
-            'total_dispositivos' => $devicesInBranch->count(),
-            'vehiculos' => $devicesInBranch->where('device_type', 'vehiculo')->count(),
-            'conductores' => $devicesInBranch->where('device_type', 'conductor')->count(),
-            'capacidad' => $branch->capacidad_vehiculos,
-            'ocupacion_porcentaje' => $branch->capacidad_vehiculos > 0 
-                ? round(($devicesInBranch->count() / $branch->capacidad_vehiculos) * 100, 1)
-                : 0,
-            'bateria_promedio' => round($devicesInBranch->avg('battery'), 1),
+        $stats = [
+            'total_dispositivos' => $latest->count(),
+            'vehiculos' => [
+                'total' => $latest->where('device_type', 'vehiculo')->count(),
+                'activos' => $latest->where('device_type', 'vehiculo')->where('status', 'active')->count(),
+                'en_espera' => $latest->where('device_type', 'vehiculo')->where('status', 'idle')->count(),
+                'cargando' => $latest->where('device_type', 'vehiculo')->where('status', 'charging')->count(),
+                'mantenimiento' => $latest->where('device_type', 'vehiculo')->where('status', 'maintenance')->count(),
+            ],
+            'conductores' => [
+                'total' => $latest->where('device_type', 'conductor')->count(),
+                'activos' => $latest->where('device_type', 'conductor')->where('status', 'active')->count(),
+                'en_espera' => $latest->where('device_type', 'conductor')->where('status', 'idle')->count(),
+            ],
+            'bateria' => [
+                'promedio' => round($latest->avg('battery'), 1),
+                'critica' => $latest->where('battery', '<', 20)->count(),
+                'baja' => $latest->whereBetween('battery', [20, 40])->count(),
+                'normal' => $latest->where('battery', '>=', 40)->count(),
+            ],
+            'mantenimiento' => [
+                'requerido' => $latest->filter(fn($d) => $d->needsMaintenance())->count(),
+            ],
+            'timestamp' => now()->toIso8601String(),
         ];
+        
+        return response()->json([
+            'success' => true,
+            'data' => $stats
+        ]);
     });
     
-    return response()->json([
-        'success' => true,
-        'data' => $branchStats
-    ]);
+    Route::get('/sedes', function () {
+        $branches = \App\Models\Branch::all();
+        $latest = Telemetria::latestByDevice()->get();
+        
+        $branchStats = $branches->map(function ($branch) use ($latest) {
+            $devicesInBranch = $latest->where('current_branch', $branch->nombre);
+            
+            return [
+                'nombre' => $branch->nombre,
+                'total_dispositivos' => $devicesInBranch->count(),
+                'vehiculos' => $devicesInBranch->where('device_type', 'vehiculo')->count(),
+                'conductores' => $devicesInBranch->where('device_type', 'conductor')->count(),
+                'capacidad' => $branch->capacidad_vehiculos,
+                'ocupacion_porcentaje' => $branch->capacidad_vehiculos > 0 
+                    ? round(($devicesInBranch->count() / $branch->capacidad_vehiculos) * 100, 1)
+                    : 0,
+                'bateria_promedio' => round($devicesInBranch->avg('battery'), 1),
+            ];
+        });
+        
+        return response()->json([
+            'success' => true,
+            'data' => $branchStats
+        ]);
+    });
 });
 
 // ============================================================================
-// 🧪 ENDPOINTS DE DESARROLLO/DEBUG
+// 🚗 VEHÍCULOS - CATÁLOGO Y DISPONIBILIDAD
 // ============================================================================
 
-/**
- * Obtener todos los registros de telemetría (paginado)
- * Solo para desarrollo - NO usar en producción con muchos datos
- */
-Route::get('/telemetria/all/debug', function (Request $request) {
-    $perPage = $request->input('per_page', 50);
+Route::prefix('vehicles')->group(function () {
+    // Catálogo público
+    Route::get('/', [VehicleController::class, 'index']);
+    Route::get('/{vehicle}', [VehicleController::class, 'show']);
     
-    $telemetry = Telemetria::orderByDesc('id')
-        ->paginate($perPage);
+    // Disponibilidad
+    Route::post('/{vehicle}/check-availability', [VehicleController::class, 'checkAvailability']);
+    Route::get('/{vehicle}/schedule', [VehicleController::class, 'schedule']);
+    Route::get('/{vehicle}/alternatives', [VehicleController::class, 'alternatives']);
     
-    return response()->json([
-        'success' => true,
-        'data' => $telemetry->items(),
-        'pagination' => [
-            'total' => $telemetry->total(),
-            'per_page' => $telemetry->perPage(),
-            'current_page' => $telemetry->currentPage(),
-            'last_page' => $telemetry->lastPage(),
-        ]
-    ]);
+    // Precios
+    Route::post('/compare-prices', [VehicleController::class, 'comparePrices']);
+    Route::post('/quick-estimate', [VehicleController::class, 'quickEstimate']);
+    
+    // Filtros
+    Route::get('/tipo/{tipo}', [VehicleController::class, 'byType']);
+    Route::get('/sede/{sedeId}', [VehicleController::class, 'byBranch']);
+    
+    // Tracking
+    Route::get('/{vehicle}/location', [VehicleController::class, 'location']);
+    
+    // Stats (admin)
+    Route::get('/{vehicle}/stats', [VehicleController::class, 'stats'])
+        ->middleware('auth:sanctum');
 });
 
-/**
- * Limpiar datos antiguos (solo para testing)
- * DELETE /api/telemetria/cleanup?days=7
- */
-Route::delete('/telemetria/cleanup', function (Request $request) {
-    $days = $request->input('days', 7);
+// ============================================================================
+// 🏢 SEDES - UBICACIONES Y COBERTURA
+// ============================================================================
+
+Route::prefix('branches')->group(function () {
+    Route::get('/', [BranchController::class, 'index']);
+    Route::get('/{branch}', [BranchController::class, 'show']);
+    Route::get('/{branch}/vehicles', [BranchController::class, 'vehicles']);
+    Route::get('/{branch}/stats', [BranchController::class, 'stats']);
     
-    $deleted = Telemetria::where('created_at', '<', now()->subDays($days))->delete();
-    
-    return response()->json([
-        'success' => true,
-        'message' => "Registros eliminados correctamente",
-        'deleted_count' => $deleted,
-        'older_than_days' => $days
-    ]);
-})->middleware('auth:sanctum'); // Proteger con autenticación
+    // Búsqueda geográfica
+    Route::post('/nearest', [BranchController::class, 'nearest']);
+    Route::post('/in-radius', [BranchController::class, 'inRadius']);
+});
 
 // ============================================================================
-// 🚫 RUTA 404 PERSONALIZADA PARA API
+// 📅 RESERVAS - REQUIERE AUTENTICACIÓN
+// ============================================================================
+
+Route::middleware('auth:sanctum')->prefix('reservations')->group(function () {
+    // CRUD básico (admin)
+    Route::get('/', [ReservationController::class, 'index'])
+        ->middleware('can:viewAny,App\Models\Reservation');
+    Route::post('/', [ReservationController::class, 'store']);
+    Route::get('/{reservation}', [ReservationController::class, 'show']);
+    
+    // Acciones sobre reservas
+    Route::post('/{reservation}/confirm', [ReservationController::class, 'confirm']);
+    Route::post('/{reservation}/start', [ReservationController::class, 'start']);
+    Route::post('/{reservation}/complete', [ReservationController::class, 'complete']);
+    Route::post('/{reservation}/cancel', [ReservationController::class, 'cancel']);
+    Route::post('/{reservation}/rate', [ReservationController::class, 'rate']);
+    
+    // Mis reservas
+    Route::get('/me/list', [ReservationController::class, 'myReservations']);
+    Route::get('/me/stats', [ReservationController::class, 'myStats']);
+});
+
+// ============================================================================
+// 📦 DOMICILIOS - REQUIERE AUTENTICACIÓN
+// ============================================================================
+
+Route::middleware('auth:sanctum')->prefix('deliveries')->group(function () {
+    // CRUD
+    Route::get('/', [DeliveryController::class, 'index'])
+        ->middleware('role:admin');
+    Route::post('/package', [DeliveryController::class, 'storePackage']);
+    Route::post('/vehicle', [DeliveryController::class, 'storeVehicle']);
+    Route::get('/{delivery}', [DeliveryController::class, 'show']);
+    
+    // Acciones
+    Route::post('/{delivery}/assign-driver', [DeliveryController::class, 'assignDriver'])
+        ->middleware('role:admin|dispatcher');
+    Route::post('/{delivery}/start', [DeliveryController::class, 'start']);
+    Route::post('/{delivery}/complete', [DeliveryController::class, 'complete']);
+    
+    // Tracking
+    Route::get('/{delivery}/track', [DeliveryController::class, 'track']);
+    
+    // Mis domicilios
+    Route::get('/me/list', [DeliveryController::class, 'myDeliveries']);
+    
+    // Para conductores
+    Route::get('/me/assigned', [DeliveryController::class, 'myAssignedDeliveries'])
+        ->middleware('role:conductor');
+    
+    // Para admin/dispatcher
+    Route::get('/pending/list', [DeliveryController::class, 'pending'])
+        ->middleware('role:admin|dispatcher');
+});
+
+// ============================================================================
+// 💳 PAGOS - REQUIERE AUTENTICACIÓN
+// ============================================================================
+
+Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
+    // Crear intención de pago
+    Route::post('/reservations/{reservation}/create-intent', [PaymentController::class, 'createPaymentIntent']);
+    
+    // Procesar pago
+    Route::post('/{payment}/process', [PaymentController::class, 'processPayment']);
+    
+    // Acciones de admin
+    Route::post('/{payment}/approve', [PaymentController::class, 'approve'])
+        ->middleware('can:manage-payments');
+    Route::post('/{payment}/reject', [PaymentController::class, 'reject'])
+        ->middleware('can:manage-payments');
+    Route::post('/{payment}/refund', [PaymentController::class, 'refund'])
+        ->middleware('can:manage-payments');
+    
+    // Consultas
+    Route::get('/{payment}', [PaymentController::class, 'show']);
+    Route::get('/me/list', [PaymentController::class, 'myPayments']);
+    
+    // Lista completa (admin)
+    Route::get('/', [PaymentController::class, 'index'])
+        ->middleware('can:manage-payments');
+    
+    // Métodos disponibles
+    Route::get('/methods/available', [PaymentController::class, 'paymentMethods']);
+});
+
+// ============================================================================
+// 🚫 RUTA 404 PERSONALIZADA
 // ============================================================================
 
 Route::fallback(function () {
     return response()->json([
         'success' => false,
         'message' => 'Endpoint no encontrado',
-        'available_endpoints' => [
-            'GET /api/status - Estado del API',
-            'POST /api/telemetria - Recibir telemetría',
-            'GET /api/telemetria/latest - Últimas posiciones',
-            'GET /api/telemetria/{id} - Telemetría específica',
-            'GET /api/ruta/{device_id} - Ruta de dispositivo',
-            'GET /api/estadisticas - Estadísticas generales',
-            'GET /api/dispositivos/tipo/{tipo} - Filtrar por tipo',
-            'GET /api/dispositivos/estado/{estado} - Filtrar por estado',
+        'documentation' => [
+            'telemetria' => '/api/telemetria/*',
+            'vehiculos' => '/api/vehicles/*',
+            'sedes' => '/api/branches/*',
+            'reservas' => '/api/reservations/* (auth)',
+            'domicilios' => '/api/deliveries/* (auth)',
+            'pagos' => '/api/payments/* (auth)',
         ]
     ], 404);
 });

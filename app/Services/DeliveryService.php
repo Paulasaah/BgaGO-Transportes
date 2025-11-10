@@ -23,24 +23,27 @@ class DeliveryService extends BaseService
     /**
      * Crear domicilio de paquete
      */
+/**
+ * Crear domicilio de paquete
+ */
     public function createPackageDelivery(array $data): array
     {
         return $this->executeWithTransaction(function () use ($data) {
-            // Validar campos requeridos
+            // ✅ Validar campos requeridos
             $this->validateRequired($data, [
                 'user_id',
                 'sede_id',
-                'origen_direccion',
-                'destino_direccion',
+                'direccion_origen',
+                'direccion_destino',
                 'nombre_remitente',
                 'telefono_remitente',
                 'nombre_destinatario',
                 'telefono_destinatario',
             ]);
 
-            // Calcular distancia y tiempo
-            $origenCoords = $this->parseCoordinates($data['origen_lat'] . ',' . $data['origen_lng']);
-            $destinoCoords = $this->parseCoordinates($data['destino_lat'] . ',' . $data['destino_lng']);
+            // ✅ Calcular distancia y tiempo
+            $origenCoords = $this->parseCoordinates($data['lat_origen'] . ',' . $data['lon_origen']);
+            $destinoCoords = $this->parseCoordinates($data['lat_destino'] . ',' . $data['lon_destino']);
 
             $distanciaKm = $this->calculateDistance(
                 $origenCoords['lat'],
@@ -51,23 +54,23 @@ class DeliveryService extends BaseService
 
             $tiempoEstimado = $this->calculateEstimatedTime($distanciaKm);
 
-            // Calcular precio
+            // ✅ Calcular precio
             $pricing = $this->pricingService->calculateDeliveryPrice(
                 DeliveryType::Paquete,
                 $distanciaKm
             );
 
-            // Crear reserva base
+            // ✅ Crear reserva base
             $reservation = Reservation::create([
                 'codigo' => Reservation::generateCode(),
                 'user_id' => $data['user_id'],
                 'sede_id' => $data['sede_id'],
                 'tipo' => ReservationType::Domicilio,
                 'estado' => ReservationStatus::Pendiente,
-                'origen_direccion' => $data['origen_direccion'],
+                'origen_direccion' => $data['direccion_origen'],
                 'origen_lat' => $origenCoords['lat'],
                 'origen_lng' => $origenCoords['lng'],
-                'destino_direccion' => $data['destino_direccion'],
+                'destino_direccion' => $data['direccion_destino'],
                 'destino_lat' => $destinoCoords['lat'],
                 'destino_lng' => $destinoCoords['lng'],
                 'distancia_km' => $distanciaKm,
@@ -80,10 +83,20 @@ class DeliveryService extends BaseService
                 'notas_cliente' => $data['instrucciones_especiales'] ?? null,
             ]);
 
-            // Crear delivery
+            // ✅ Crear registro en deliveries
             $delivery = Delivery::create([
+                'user_id' => $data['user_id'],
                 'reserva_id' => $reservation->id,
                 'tipo' => DeliveryType::Paquete,
+
+                // Agregados para dirección
+                'direccion_origen' => $data['direccion_origen'],
+                'lat_origen' => $data['lat_origen'],
+                'lon_origen' => $data['lon_origen'],
+                'direccion_destino' => $data['direccion_destino'],
+                'lat_destino' => $data['lat_destino'],
+                'lon_destino' => $data['lon_destino'],
+
                 'nombre_remitente' => $data['nombre_remitente'],
                 'telefono_remitente' => $data['telefono_remitente'],
                 'nombre_destinatario' => $data['nombre_destinatario'],
@@ -93,11 +106,14 @@ class DeliveryService extends BaseService
                 'requiere_firma' => $data['requiere_firma'] ?? false,
                 'es_fragil' => $data['es_fragil'] ?? false,
                 'instrucciones_especiales' => $data['instrucciones_especiales'] ?? null,
+                'costo' => $data['costo'] ?? $pricing['data']['total'] ?? 0, // agregado
             ]);
 
             return $reservation->load(['delivery', 'user', 'branch']);
         }, 'crear_domicilio_paquete');
     }
+
+
 
     /**
      * Crear domicilio de vehículo
@@ -123,8 +139,8 @@ class DeliveryService extends BaseService
 
             // Obtener sede como origen
             $origenCoords = [
-                'lat' => $data['origen_lat'],
-                'lng' => $data['origen_lng']
+                'lat' => $data['lat_origen'],
+                'lng' => $data['lng_destino']
             ];
 
             $destinoCoords = $this->parseCoordinates($data['destino_lat'] . ',' . $data['destino_lng']);
@@ -153,10 +169,10 @@ class DeliveryService extends BaseService
                 'sede_id' => $data['sede_id'],
                 'tipo' => ReservationType::Domicilio,
                 'estado' => ReservationStatus::Pendiente,
-                'origen_direccion' => $data['origen_direccion'],
-                'origen_lat' => $origenCoords['lat'],
-                'origen_lng' => $origenCoords['lng'],
-                'destino_direccion' => $data['destino_direccion'],
+                'direccion_origen' => $data['direccion_origen'],
+                'lat_origen' => $origenCoords['lat'],
+                'lng_destino' => $origenCoords['lng'],
+                'direccion_destino' => $data['direccion_destino'],
                 'destino_lat' => $destinoCoords['lat'],
                 'destino_lng' => $destinoCoords['lng'],
                 'distancia_km' => $distanciaKm,

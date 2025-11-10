@@ -6,6 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Delivery;
 use App\Models\User;
 use App\Models\Reservation;
+use App\Models\Vehicle;
 
 class DeliverySeeder extends Seeder
 {
@@ -13,6 +14,12 @@ class DeliverySeeder extends Seeder
     {
         $users = User::all();
         $reservations = Reservation::all();
+        $vehicles = Vehicle::all();
+
+        if ($users->isEmpty() || $vehicles->isEmpty()) {
+            $this->command->warn('⚠️ No hay usuarios o vehículos disponibles para crear entregas.');
+            return;
+        }
 
         $data = [
             [
@@ -50,16 +57,22 @@ class DeliverySeeder extends Seeder
         ];
 
         foreach ($data as $d) {
-            Delivery::create(array_merge($d, [
-                'user_id' => $users->random()->id,
-                'reserva_id' => $reservations->isNotEmpty() ? $reservations->random()->id : null,
-                'lat_origen' => 7.1193,
-                'lon_origen' => -73.1227,
-                'lat_destino' => 7.0738,
-                'lon_destino' => -73.1051,
-                'fecha_entrega_estimada' => now()->addHours(1),
-                'fecha_entrega_real' => null,
-            ]));
+            Delivery::updateOrCreate(
+                ['descripcion' => $d['descripcion']], // clave única
+                array_merge($d, [
+                    'vehiculo_id' => $vehicles->random()->id, // ✅ Asociación con vehículo
+                    'user_id' => $users->random()->id,
+                    'reserva_id' => $reservations->isNotEmpty() ? $reservations->random()->id : null,
+                    'lat_origen' => 7.1193,
+                    'lon_origen' => -73.1227,
+                    'lat_destino' => 7.0738,
+                    'lon_destino' => -73.1051,
+                    'fecha_entrega_estimada' => now()->addHours(1),
+                    'fecha_entrega_real' => null,
+                ])
+            );
         }
+
+        $this->command->info('✅ Entregas creadas o actualizadas correctamente con vehículos asociados.');
     }
 }
