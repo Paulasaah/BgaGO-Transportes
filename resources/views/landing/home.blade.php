@@ -46,50 +46,44 @@
 />
 
 {{-- =========================================
-     SERVICES SECTION
+     SERVICES SECTION - CORREGIDO
 ========================================= --}}
 <x-landing.services-grid
     title="Nuestros Servicios"
     subtitle="Todo lo que necesitas para moverte por la ciudad de forma inteligente y sostenible"
     :services="[
         [
-            'icon' => '<svg class=\"w-8 h-8 text-white\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\" aria-hidden=\"true\">
-                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z\" />
-            </svg>',
+            'iconType' => 'prestamo',
             'title' => 'Préstamo de Vehículos',
-            'description' => 'Reserva motos, bicicletas, patinetas eléctricas y más. Elige tu vehículo favorito y móvete por la ciudad a tu ritmo.',
+            'description' => 'Reserva motos, bicicletas, patinetas eléctricas y más. Elige tu vehículo favorito y muévete por la ciudad a tu ritmo.',
             'features' => [
-                ['text' => 'Variedad de vehículos ecológicos'],
-                ['text' => 'Reserva anticipada disponible'],
-                ['text' => 'Precios accesibles por hora/día']
+                'Variedad de vehículos ecológicos',
+                'Reserva anticipada disponible',
+                'Precios accesibles por hora/día'
             ],
             'ctaText' => 'Ver catálogo',
             'ctaRoute' => 'catalogo'
         ],
         [
-            'icon' => '<svg class=\"w-8 h-8 text-white\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\" aria-hidden=\"true\">
-                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4\" />
-            </svg>',
+            'iconType' => 'domicilio',
             'title' => 'Servicio de Domicilios',
             'description' => 'Envía paquetes y documentos de forma rápida y segura. Mensajería local confiable en todo el Área Metropolitana.',
             'features' => [
-                ['text' => 'Entregas en menos de 60 minutos'],
-                ['text' => 'Conductores verificados'],
-                ['text' => 'Rastreo GPS en tiempo real']
+                'Entregas en menos de 60 minutos',
+                'Conductores verificados',
+                'Rastreo GPS en tiempo real'
             ],
             'ctaText' => 'Enviar paquete',
             'ctaRoute' => 'register'
         ],
         [
-            'icon' => '<svg class=\"w-8 h-8 text-white\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\" aria-hidden=\"true\">
-                <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7\" />
-            </svg>',
+            'iconType' => 'gps',
             'title' => 'Seguimiento en Vivo',
             'description' => 'Rastrea tu vehículo o domicilio en tiempo real. Transparencia total desde que solicitas hasta que llegas a tu destino.',
             'features' => [
-                ['text' => 'GPS de alta precisión'],
-                ['text' => 'Actualizaciones instantáneas'],
-                ['text' => 'Historial de rutas']
+                'GPS de alta precisión',
+                'Actualizaciones instantáneas',
+                'Historial de rutas'
             ],
             'ctaText' => 'Ver mapa',
             'ctaRoute' => 'mapa'
