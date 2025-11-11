@@ -154,9 +154,13 @@ class Delivery extends Model
     /**
      * Calcular distancia desde reservation
      */
-    public function getDistanciaKm(): float
+    public function getDistanciaKm(): ?float  
     {
-        return $this->reservation ? $this->reservation->distancia_km : 0;
+        if (!$this->reservation) {
+            return 0.0;  
+        }
+        
+        return (float) ($this->reservation->distancia_km ?? 0.0);
     }
 
     /**

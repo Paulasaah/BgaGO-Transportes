@@ -77,7 +77,7 @@ class VehicleController extends BaseApiController
         ]);
 
         $result = $this->availabilityService->checkAvailability(
-            $vehicle->id,
+            $vehicle,
             $request->fecha_inicio,
             $request->fecha_fin
         );
@@ -215,7 +215,6 @@ class VehicleController extends BaseApiController
      */
     public function stats(Vehicle $vehicle): JsonResponse
     {
-        $this->authorize('viewMaintenance', $vehicle); 
         
         $this->authorize('view-vehicle-stats');
 

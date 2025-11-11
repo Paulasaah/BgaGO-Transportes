@@ -11,38 +11,38 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // 🧱 1. Crear roles base si no existen
+        // Crear roles base si no existen
         $roles = ['admin', 'cliente', 'conductor'];
         foreach ($roles as $role) {
             Role::firstOrCreate(['name' => $role, 'guard_name' => 'web']);
         }
 
-        // 👤 2. Crear usuarios base
+        // Usuarios base
         $users = [
             [
-                'name' => 'Carlos Gómez',
-                'email' => 'carlos@example.com',
+                'name' => 'Admin BgaGO',
+                'email' => 'admin@bgago.com',
                 'role' => 'admin',
             ],
             [
-                'name' => 'Laura Rojas',
-                'email' => 'laura@example.com',
+                'name' => 'Cliente Test',
+                'email' => 'cliente@bgago.com',
                 'role' => 'cliente',
             ],
             [
-                'name' => 'Andrés Díaz',
-                'email' => 'andres@example.com',
+                'name' => 'Conductor Test',
+                'email' => 'conductor@bgago.com',
                 'role' => 'conductor',
             ],
         ];
 
-        // 📂 3. Limpiar archivo previo de tokens
+        // Limpiar tokens previos
         $tokensPath = storage_path('test-tokens.txt');
         if (file_exists($tokensPath)) {
             unlink($tokensPath);
         }
 
-        // 🔑 4. Crear usuarios y generar tokens
+        // Crear usuarios y generar tokens
         foreach ($users as $data) {
             $user = User::updateOrCreate(
                 ['email' => $data['email']],
@@ -53,14 +53,14 @@ class UserSeeder extends Seeder
                 ]
             );
 
-            // Asignar o sincronizar rol
+            // Sincronizar rol
             $user->syncRoles([$data['role']]);
 
-            // Generar token de prueba
+            // Generar token
             $token = $user->createToken('test-token')->plainTextToken;
             file_put_contents($tokensPath, strtoupper($data['role']) . ": {$token}\n", FILE_APPEND);
         }
 
-        $this->command->info('✅ Usuarios, roles y tokens generados correctamente (storage/test-tokens.txt)');
+        $this->command->info('✅ Usuarios, roles y tokens generados (storage/test-tokens.txt)');
     }
 }

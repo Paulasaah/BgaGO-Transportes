@@ -462,6 +462,9 @@ Route::middleware('auth:sanctum')->prefix('deliveries')->group(function () {
 // 💳 PAGOS - REQUIERE AUTENTICACIÓN
 // ============================================================================
 
+    // Métodos disponibles
+Route::get('/payments/methods/available', [PaymentController::class, 'paymentMethods']);
+
 Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
     // Crear intención de pago
     Route::post('/reservations/{reservation}/create-intent', [PaymentController::class, 'createPaymentIntent']);
@@ -484,9 +487,7 @@ Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
     // Lista completa (admin)
     Route::get('/', [PaymentController::class, 'index'])
         ->middleware('can:manage-payments');
-    
-    // Métodos disponibles
-    Route::get('/methods/available', [PaymentController::class, 'paymentMethods']);
+
 });
 
 // ============================================================================

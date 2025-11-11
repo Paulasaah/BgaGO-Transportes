@@ -58,13 +58,4 @@ enum ReservationType: string
         ])->toArray();
     }
 
-    public function description(): string
-    {
-        return match($this) {
-            self::Domicilio => 'Domicilio',
-            self::ReservaVehiculo => 'Reserva de vehículo',
-            default => 'Otro tipo',
-        };
-    }
-
 }

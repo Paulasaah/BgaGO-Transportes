@@ -11,17 +11,16 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        // ==========================================
-        // 🧹 LIMPIAR CACHE DE PERMISOS
-        // ==========================================
         app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
 
         $this->command->warn('🔄 Verificando roles y permisos existentes...');
 
-        // ==========================================
-        // 🔐 CREAR O ACTUALIZAR PERMISOS
-        // ==========================================
+        
         $permissions = [
+            // Permisos usados en controllers
+            'manage-payments',  // Usado en PaymentController
+            'view-vehicle-stats',  // Usado en VehicleController
+            
             // Reservas
             'ver_reservas',
             'crear_reservas',
@@ -67,21 +66,15 @@ class RolePermissionSeeder extends Seeder
 
         $this->command->info('✅ Permisos creados o actualizados correctamente.');
 
-        // ==========================================
-        // 🧩 CREAR ROLES SI NO EXISTEN
-        // ==========================================
+        // Crear roles
         $adminRole = Role::firstOrCreate(['name' => 'admin', 'guard_name' => 'web']);
         $conductorRole = Role::firstOrCreate(['name' => 'conductor', 'guard_name' => 'web']);
         $clienteRole = Role::firstOrCreate(['name' => 'cliente', 'guard_name' => 'web']);
 
-        // ==========================================
-        // 🔗 ASIGNAR PERMISOS A CADA ROL
-        // ==========================================
-
-        // 🔴 ADMIN - Acceso total
+        // ADMIN - Todos los permisos
         $adminRole->syncPermissions(Permission::all());
 
-        // 🟢 CONDUCTOR - Gestión de entregas
+        // CONDUCTOR
         $conductorRole->syncPermissions([
             'ver_domicilios',
             'completar_domicilios',
@@ -89,7 +82,7 @@ class RolePermissionSeeder extends Seeder
             'ver_dashboard_conductor',
         ]);
 
-        // 🔵 CLIENTE - Usuario final
+        // CLIENTE
         $clienteRole->syncPermissions([
             'ver_reservas',
             'crear_reservas',
@@ -99,38 +92,6 @@ class RolePermissionSeeder extends Seeder
             'ver_pagos',
         ]);
 
-        $this->command->info('✅ Roles creados y permisos asignados correctamente.');
-
-        // ==========================================
-        // 👥 ASIGNAR ROLES A USUARIOS
-        // ==========================================
-
-        // Primer usuario = Admin
-        $admin = User::first();
-        if ($admin) {
-            $admin->syncRoles(['admin']);
-            $this->command->info("✅ {$admin->email} asignado como ADMIN");
-        }
-
-        // Usuarios 2–4 = Conductores
-        $conductores = User::skip(1)->take(3)->get();
-        foreach ($conductores as $conductor) {
-            $conductor->syncRoles(['conductor']);
-            $this->command->info("✅ {$conductor->email} asignado como CONDUCTOR");
-        }
-
-        // Resto = Clientes
-        $totalUsers = User::count();
-        if ($totalUsers > 4) {
-            $clientes = User::skip(4)->take($totalUsers - 4)->get();
-            foreach ($clientes as $cliente) {
-                $cliente->syncRoles(['cliente']);
-                $this->command->info("✅ {$cliente->email} asignado como CLIENTE");
-            }
-        } else {
-            $this->command->warn('⚠️ No hay usuarios adicionales para asignar como CLIENTES.');
-        }
-
-        $this->command->info('🎯 Seeder ejecutado correctamente sin duplicados.');
+        $this->command->info('✅ Roles y permisos asignados correctamente.');
     }
 }
