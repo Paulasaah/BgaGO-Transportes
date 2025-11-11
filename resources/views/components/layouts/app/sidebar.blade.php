@@ -156,7 +156,6 @@
         @fluxScripts
         @vite([
             'resources/js/app.js',
-            'resources/js/charts.js',
         ])
 
         @stack('scripts')
