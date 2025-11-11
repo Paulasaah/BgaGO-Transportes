@@ -31,16 +31,20 @@ class DeliveryPolicy
 
     public function start(User $user, Delivery $delivery): bool
     {
+        // 🛡️ Admin puede iniciar cualquier delivery
         if ($user->hasRole(['admin', 'super_admin'])) {
             return true;
         }
 
+        // ✅ Verificar que el conductor esté asignado
         $asignado = $delivery->conductor_id === $user->id
             || ($delivery->reservation && $delivery->reservation->conductor_id === $user->id);
 
+        // 🚗 Conductor: Debe estar asignado y el delivery en estado válido
+        // ✅ IDEMPOTENCIA: Incluimos 'en_camino' para permitir re-iniciar
         return $user->hasRole('conductor')
             && $asignado
-            && in_array($delivery->estado, ['asignado', 'confirmado']);
+            && in_array($delivery->estado, ['pendiente', 'asignado', 'confirmado', 'en_camino']);
     }
 
     public function complete(User $user, Delivery $delivery): bool

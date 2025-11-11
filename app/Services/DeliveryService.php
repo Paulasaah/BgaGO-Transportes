@@ -126,7 +126,7 @@ class DeliveryService extends BaseService
 
             $delivery->update([
                 'conductor_id' => $conductorId,
-                'estado' => 'asignado', // ✅ Cambiado de 'en_camino' a 'asignado'
+                'estado' => 'en_camino', // cambia de 'pendiente' a 'en_camino' al asignar
             ]);
 
             if ($delivery->reservation) {
@@ -152,16 +152,21 @@ class DeliveryService extends BaseService
 
             // 🛡️ Admin puede iniciar cualquier entrega sin validaciones de estado
             if ($user && $user->hasRole(['admin', 'super_admin'])) {
+                // ✅ Si ya está iniciado, retornar sin error
+                if ($delivery->estado === 'en_camino') {
+                    return $delivery->fresh();
+                }
+
                 $delivery->update([
                     'estado' => 'en_camino',
-                    'fecha_recogida' => now(),
+                    'fecha_recogida' => $delivery->fecha_recogida ?? now(),
                 ]);
 
                 // Actualizar reserva asociada
-                if ($delivery->reservation) {
+                if ($delivery->reservation && !$delivery->reservation->isActiva()) {
                     $delivery->reservation->update([
                         'estado' => ReservationStatus::Activa,
-                        'fecha_inicio_real' => now(),
+                        'fecha_inicio_real' => $delivery->reservation->fecha_inicio_real ?? now(),
                     ]);
                 }
 
@@ -170,8 +175,22 @@ class DeliveryService extends BaseService
 
             // 🚗 Conductor: Validar estados permitidos
             $permitidos = ['pendiente', 'asignado', 'confirmado'];
+            
+            // ✅ IDEMPOTENCIA: Si ya está en camino, asegurar que tenga fecha_recogida
+            if ($delivery->estado === 'en_camino') {
+                // Si no tiene fecha_recogida, agregarla ahora
+                if (!$delivery->fecha_recogida) {
+                    $delivery->update(['fecha_recogida' => now()]);
+                }
+                return $delivery->fresh();
+            }
+
             if (!in_array($delivery->estado, $permitidos)) {
-                throw new Exception("Solo se pueden iniciar domicilios en estados: " . implode(', ', $permitidos));
+                throw new Exception(
+                    "Solo se pueden iniciar domicilios en estados: " . 
+                    implode(', ', $permitidos) . 
+                    ". Estado actual: {$delivery->estado}"
+                );
             }
 
             $delivery->update([
@@ -200,7 +219,7 @@ class DeliveryService extends BaseService
             $delivery = Delivery::findOrFail($deliveryId);
             $user = auth()->user();
 
-            // 🛡️ Admin puede completar cualquier entrega sin validaciones de estado
+            // 👑 Admin puede completar cualquier entrega
             if ($user && $user->hasRole(['admin', 'super_admin'])) {
                 $delivery->update([
                     'estado' => 'entregado',
@@ -209,27 +228,13 @@ class DeliveryService extends BaseService
                     'foto_entrega' => $completionData['foto'] ?? null,
                     'notas_entrega' => $completionData['notas'] ?? null,
                 ]);
-
-                // Actualizar reserva asociada
-                if ($delivery->reservation) {
-                    $delivery->reservation->update([
-                        'estado' => ReservationStatus::Completada,
-                        'fecha_fin_real' => now(),
-                    ]);
-                }
-
-                // Liberar vehículo si aplica
-                if ($delivery->vehicle && $delivery->vehicle->isOcupado()) {
-                    $delivery->vehicle->update(['estado' => 'disponible']);
-                }
-
                 return $delivery->fresh();
             }
 
-            // 🚗 Conductor: Validar estado
+            // 🚗 Validar estados válidos para completar
             $permitidos = ['en_camino'];
             if (!in_array($delivery->estado, $permitidos)) {
-                throw new Exception('Solo se pueden completar domicilios que están en camino');
+                throw new Exception('Solo se pueden completar domicilios en curso');
             }
 
             $delivery->update([
@@ -258,93 +263,13 @@ class DeliveryService extends BaseService
     }
 
     /**
-     * Cancelar domicilio
-     */
-    public function cancelDelivery(int $deliveryId, int $userId, ?string $motivo = null): array
-    {
-        return $this->executeWithTransaction(function () use ($deliveryId, $userId, $motivo) {
-            $delivery = Delivery::findOrFail($deliveryId);
-            $user = \App\Models\User::find($userId);
-
-            // 🛡️ ADMIN O SUPER_ADMIN: Pueden cancelar cualquier delivery sin restricciones
-            if ($user && $user->hasRole(['admin', 'super_admin'])) {
-                $motivoFinal = $motivo ?? 'Cancelación administrativa';
-                
-                $delivery->update([
-                    'estado' => 'cancelado',
-                    'notas_entrega' => $motivoFinal,
-                ]);
-
-                // Actualizar reserva asociada
-                if ($delivery->reservation) {
-                    $delivery->reservation->update([
-                        'estado' => ReservationStatus::Cancelada,
-                        'motivo_cancelacion' => $motivoFinal,
-                        'cancelado_por' => $userId,
-                    ]);
-                }
-
-                // Liberar vehículo si aplica
-                if ($delivery->vehicle && $delivery->vehicle->isOcupado()) {
-                    $delivery->vehicle->update(['estado' => 'disponible']);
-                }
-
-                return $delivery->fresh();
-            }
-
-            // 🚗 CONDUCTOR: Solo puede cancelar si no ha iniciado
-            $permitidos = ['pendiente', 'asignado', 'confirmado'];
-            if (!in_array($delivery->estado, $permitidos)) {
-                throw new Exception('Solo puedes cancelar domicilios que aún no has iniciado');
-            }
-
-            $motivoFinal = $motivo ?? 'Cancelado por conductor';
-
-            $delivery->update([
-                'estado' => 'cancelado',
-                'notas_entrega' => $motivoFinal,
-            ]);
-
-            // Actualizar reserva asociada
-            if ($delivery->reservation) {
-                $delivery->reservation->update([
-                    'estado' => ReservationStatus::Cancelada,
-                    'motivo_cancelacion' => $motivoFinal,
-                    'cancelado_por' => $userId,
-                ]);
-            }
-
-            // Liberar vehículo si aplica
-            if ($delivery->vehicle && $delivery->vehicle->isOcupado()) {
-                $delivery->vehicle->update(['estado' => 'disponible']);
-            }
-
-            return $delivery->fresh();
-        }, 'cancelar_domicilio');
-    }
-
-    /**
-     * Obtener domicilios pendientes de asignación
-     */
-    public function getPendingDeliveries(): array
-    {
-        return $this->execute(function () {
-            return Delivery::where('estado', 'pendiente')
-                ->whereNull('conductor_id')
-                ->with(['user', 'reservation'])
-                ->orderBy('created_at', 'desc')
-                ->get();
-        }, 'obtener_domicilios_pendientes');
-    }
-
-    /**
      * Obtener domicilios activos del usuario
      */
     public function getUserActiveDeliveries(int $userId): array
     {
         return $this->execute(function () use ($userId) {
             return Delivery::where('user_id', $userId)
-                ->whereIn('estado', ['pendiente', 'asignado', 'confirmado', 'en_camino'])
+                ->whereIn('estado', ['pendiente', 'en_camino'])
                 ->with(['reservation', 'vehicle'])
                 ->orderByDesc('created_at')
                 ->get();

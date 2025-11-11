@@ -72,7 +72,6 @@ class Delivery extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-
     // ==========================================
     // SCOPES
     // ==========================================
@@ -138,9 +137,86 @@ class Delivery extends Model
     /**
      * Obtener estado del delivery (desde reservation)
      */
-    public function getEstado(): string
+    public function getEstado(): array
     {
-        return $this->reservation ? $this->reservation->estado->value : 'desconocido';
+        return [
+            'value' => $this->estado,
+            'label' => $this->getEstadoLabel(),
+            'icon' => $this->getEstadoIcon(),
+            'color' => $this->getEstadoColor(),
+        ];
+    }
+
+    /**
+     * Obtener label del estado
+     */
+    private function getEstadoLabel(): string
+    {
+        return match($this->estado) {
+            'pendiente' => 'Pendiente',
+            'asignado' => 'Asignado',
+            'confirmado' => 'Confirmado',
+            'en_camino' => 'En Camino',
+            'entregado' => 'Entregado',
+            'cancelado' => 'Cancelado',
+            default => ucfirst($this->estado ?? 'Desconocido'),
+        };
+    }
+
+    /**
+     * Obtener icono del estado
+     */
+    private function getEstadoIcon(): string
+    {
+        return match($this->estado) {
+            'pendiente' => 'clock',
+            'asignado' => 'user-check',
+            'confirmado' => 'check-circle',
+            'en_camino' => 'truck',
+            'entregado' => 'package-check',
+            'cancelado' => 'x-circle',
+            default => 'help-circle',
+        };
+    }
+
+    /**
+     * Obtener color del estado
+     */
+    private function getEstadoColor(): string
+    {
+        return match($this->estado) {
+            'pendiente' => 'gray',
+            'asignado' => 'blue',
+            'confirmado' => 'cyan',
+            'en_camino' => 'yellow',
+            'entregado' => 'green',
+            'cancelado' => 'red',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Calcular tiempo estimado en minutos
+     */
+    public function calcularTiempoEstimado(): int
+    {
+        // Si no hay reserva, retornar tiempo por defecto
+        if (!$this->reservation) {
+            return 30;
+        }
+
+        // Si hay duración en la reserva, usarla
+        if ($this->reservation->duracion_minutos) {
+            return (int) $this->reservation->duracion_minutos;
+        }
+
+        // Si hay distancia, calcular tiempo (aproximadamente 30 km/h en ciudad)
+        if ($this->reservation->distancia_km) {
+            return (int) ceil($this->reservation->distancia_km * 2);
+        }
+
+        // Tiempo por defecto: 30 minutos
+        return 30;
     }
 
     /**
@@ -154,25 +230,13 @@ class Delivery extends Model
     /**
      * Calcular distancia desde reservation
      */
-    public function getDistanciaKm(): ?float  
+    public function getDistanciaKm(): ?float
     {
         if (!$this->reservation) {
-            return 0.0;  
+            return 0.0;
         }
-        
+
         return (float) ($this->reservation->distancia_km ?? 0.0);
-    }
-
-    /**
-     * Calcular tiempo estimado de entrega (minutos)
-     */
-    public function calcularTiempoEstimado(): int
-    {
-        if (!$this->reservation) {
-            return 0;
-        }
-
-        return $this->reservation->duracion_minutos;
     }
 
     /**
@@ -233,8 +297,8 @@ class Delivery extends Model
      */
     public function canStart(): bool
     {
-        return $this->reservation && 
-               $this->reservation->isConfirmada() && 
+        return $this->reservation &&
+               $this->reservation->isConfirmada() &&
                !$this->fecha_recogida;
     }
 
@@ -243,9 +307,9 @@ class Delivery extends Model
      */
     public function canComplete(): bool
     {
-        return $this->reservation && 
-               $this->reservation->isActiva() && 
-               $this->fecha_recogida && 
+        return $this->reservation &&
+               $this->reservation->isActiva() &&
+               $this->fecha_recogida &&
                !$this->fecha_entrega;
     }
 
