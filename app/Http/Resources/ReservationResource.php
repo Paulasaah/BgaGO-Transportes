@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Carbon\Carbon;
 
 class ReservationResource extends JsonResource
 {
@@ -90,6 +91,15 @@ class ReservationResource extends JsonResource
             
             // Cancelación
             'motivo_cancelacion' => $this->motivo_cancelacion,
+            'notas_cliente' => $this->notas_cliente,
+            'notas_conductor' => $this->when(
+                $request->user()?->id === $this->conductor_id || $request->user()?->hasRole('admin'),
+                $this->notas_conductor
+            ),
+            'notas_admin' => $this->when(
+                $request->user()?->hasRole('admin'),
+                $this->notas_admin
+            ),
             
             // Flags útiles
             'is_reserva' => $this->isReserva(),
@@ -123,7 +133,13 @@ class ReservationResource extends JsonResource
             
             // Timestamps
             'created_at' => $this->created_at->format('Y-m-d H:i:s'),
+            'created_at_iso' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
+            'updated_at_iso' => $this->updated_at?->toIso8601String(),
+
+            'dias_transcurridos' => $this->created_at
+                ? $this->created_at->diffInDays(now())
+                : null,
         ];
     }
 }

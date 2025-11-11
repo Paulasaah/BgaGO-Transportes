@@ -8,12 +8,16 @@ use App\Models\Reservation;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class PaymentController extends BaseApiController
 {
     /**
      * Crear intención de pago
+     *
      */
+    use AuthorizesRequests;
+
     public function createPaymentIntent(Request $request, Reservation $reservation): JsonResponse
     {
         $this->authorize('update', $reservation);

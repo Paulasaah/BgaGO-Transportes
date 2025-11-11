@@ -12,9 +12,11 @@ use App\Models\Reservation;
 use App\Services\DeliveryService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class DeliveryController extends BaseApiController
 {
+    use AuthorizesRequests;
     public function __construct(
         protected DeliveryService $deliveryService
     ) {}
@@ -59,7 +61,10 @@ class DeliveryController extends BaseApiController
      */
     public function storePackage(StorePackageDeliveryRequest $request): JsonResponse
     {
-        $result = $this->deliveryService->createPackageDelivery($request->validated());
+        $data = $request->validated();
+        $data['user_id'] = $request->user()->id;
+        
+        $result = $this->deliveryService->createPackageDelivery($data);
 
         if (!$result['success']) {
             return $this->error($result['message']);
@@ -93,6 +98,8 @@ class DeliveryController extends BaseApiController
      */
     public function show(Delivery $delivery): JsonResponse
     {
+        $this->authorize('view', $delivery);
+
         $delivery->load([
             'user',
             'reservation.driver.driverProfile',
@@ -108,6 +115,8 @@ class DeliveryController extends BaseApiController
      */
     public function assignDriver(Request $request, Delivery $delivery): JsonResponse
     {
+        $this->authorize('assignDriver', $delivery);
+
         $request->validate([
             'conductor_id' => 'required|exists:users,id',
         ]);
@@ -125,6 +134,8 @@ class DeliveryController extends BaseApiController
      */
     public function start(Delivery $delivery): JsonResponse
     {
+        $this->authorize('start', $delivery); 
+
         $result = $this->deliveryService->startDelivery($delivery->id);
 
         return $this->handleServiceResult($result, 'Domicilio iniciado exitosamente');
@@ -135,6 +146,8 @@ class DeliveryController extends BaseApiController
      */
     public function complete(CompleteDeliveryRequest $request, Delivery $delivery): JsonResponse
     {
+        $this->authorize('complete', $delivery); 
+
         $result = $this->deliveryService->completeDelivery(
             $delivery->id,
             $request->validated()
@@ -187,6 +200,8 @@ class DeliveryController extends BaseApiController
      */
     public function pending(Request $request): JsonResponse
     {
+        $this->authorize('viewAny', Delivery::class);
+
         $result = $this->deliveryService->getPendingDeliveries();
 
         if (!$result['success']) {

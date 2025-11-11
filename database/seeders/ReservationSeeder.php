@@ -7,6 +7,9 @@ use App\Models\Reservation;
 use App\Models\Vehicle;
 use App\Models\Branch;
 use App\Models\User;
+use App\Enums\ReservationType;
+use App\Enums\ReservationStatus;
+use Carbon\Carbon;
 
 class ReservationSeeder extends Seeder
 {
@@ -28,16 +31,16 @@ class ReservationSeeder extends Seeder
                 'vehiculo_id' => $vehicles[0]->id,
                 'conductor_id' => $users[1]->id ?? null,
                 'sede_id' => $branches[0]->id,
-                'tipo' => 'domicilio',
-                'estado' => 'activa',
+                'tipo' => ReservationType::Domicilio,
+                'estado' => ReservationStatus::Activa,
                 'origen_direccion' => 'Carrera 19 #35-10, Centro',
                 'origen_lat' => 7.125420,
                 'origen_lng' => -73.119800,
                 'destino_direccion' => 'Calle 48 #29-20, Cañaveral',
                 'destino_lat' => 7.065200,
                 'destino_lng' => -73.099200,
-                'fecha_inicio' => now()->subMinutes(15),
-                'fecha_fin' => now()->addMinutes(15),
+                'fecha_inicio' => Carbon::now()->subMinutes(15),
+                'fecha_fin' => Carbon::now()->addMinutes(15),
                 'monto' => 15000,
                 'descuento' => 0,
                 'monto_final' => 15000,
@@ -51,16 +54,16 @@ class ReservationSeeder extends Seeder
                 'vehiculo_id' => $vehicles[1]->id,
                 'conductor_id' => $users[2]->id ?? null,
                 'sede_id' => $branches[1]->id ?? $branches->first()->id,
-                'tipo' => 'domicilio',
-                'estado' => 'confirmada',
+                'tipo' => ReservationType::Domicilio,
+                'estado' => ReservationStatus::Confirmada,
                 'origen_direccion' => 'Carrera 36 #48-15, Cabecera',
                 'origen_lat' => 7.119200,
                 'origen_lng' => -73.109700,
                 'destino_direccion' => 'Calle 7 #8-30, Floridablanca',
                 'destino_lat' => 7.061200,
                 'destino_lng' => -73.090100,
-                'fecha_inicio' => now()->addMinutes(10),
-                'fecha_fin' => now()->addMinutes(40),
+                'fecha_inicio' => Carbon::now()->addMinutes(10),
+                'fecha_fin' => Carbon::now()->addMinutes(40),
                 'monto' => 22000,
                 'descuento' => 2000,
                 'monto_final' => 20000,
@@ -74,16 +77,16 @@ class ReservationSeeder extends Seeder
                 'vehiculo_id' => $vehicles[2]->id,
                 'conductor_id' => null,
                 'sede_id' => $branches[2]->id ?? $branches->first()->id,
-                'tipo' => 'reserva',
-                'estado' => 'pendiente',
+                'tipo' => ReservationType::Reserva,
+                'estado' => ReservationStatus::Pendiente,
                 'origen_direccion' => 'Centro Comercial Cacique',
                 'origen_lat' => 7.094300,
                 'origen_lng' => -73.105900,
                 'destino_direccion' => 'Parque San Pío',
                 'destino_lat' => 7.116800,
                 'destino_lng' => -73.107500,
-                'fecha_inicio' => now()->addHour(),
-                'fecha_fin' => now()->addHours(2),
+                'fecha_inicio' => Carbon::now()->addHour(),
+                'fecha_fin' => Carbon::now()->addHours(2),
                 'monto' => 10000,
                 'descuento' => 0,
                 'monto_final' => 10000,
@@ -95,7 +98,7 @@ class ReservationSeeder extends Seeder
 
         foreach ($reservations as $data) {
             Reservation::updateOrCreate(
-                ['codigo' => $data['codigo']], // clave única
+                ['codigo' => $data['codigo']],
                 $data
             );
         }

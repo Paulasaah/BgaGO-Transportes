@@ -9,8 +9,12 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call([
-            UserSeeder::class,
+
+            // Seeders Base
             RolePermissionSeeder::class,
+            UserSeeder::class,
+            
+            //Seeders funcionales
             BranchSeeder::class,
             PaymentMethodSeeder::class,
             TransactionLogSeeder::class,
@@ -22,6 +26,7 @@ class DatabaseSeeder extends Seeder
             PaymentSeeder::class,
             VehicleMaintenanceSeeder::class,
             EventSeeder::class,
+
         ]);
 
         $this->command->info('✅ Todos los seeders ejecutados correctamente.');

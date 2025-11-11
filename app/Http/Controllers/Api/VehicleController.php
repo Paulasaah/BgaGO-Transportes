@@ -215,6 +215,8 @@ class VehicleController extends BaseApiController
      */
     public function stats(Vehicle $vehicle): JsonResponse
     {
+        $this->authorize('viewMaintenance', $vehicle); 
+        
         $this->authorize('view-vehicle-stats');
 
         $stats = [

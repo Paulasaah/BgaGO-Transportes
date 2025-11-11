@@ -106,10 +106,10 @@ class DeliveryService extends BaseService
                 'requiere_firma' => $data['requiere_firma'] ?? false,
                 'es_fragil' => $data['es_fragil'] ?? false,
                 'instrucciones_especiales' => $data['instrucciones_especiales'] ?? null,
-                'costo' => $data['costo'] ?? $pricing['data']['total'] ?? 0, // agregado
+                'costo' => $data['costo'] ?? $pricing['data']['total'] ?? 0, // ✅ agregado
             ]);
 
-            return $reservation->load(['delivery', 'user', 'branch']);
+            return $delivery->load(['user', 'reservation.branch']);
         }, 'crear_domicilio_paquete');
     }
 

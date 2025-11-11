@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Carbon\Carbon;
 
 class DeliveryResource extends JsonResource
 {
@@ -14,69 +15,73 @@ class DeliveryResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $delivery = $this->resource;
+
+        // Protección ante objetos inesperados
+        if (!method_exists($delivery, 'isPaquete')) {
+            return [
+                'id' => $delivery->id ?? null,
+                'warning' => 'El recurso no es una instancia de Delivery',
+                'type' => get_class($delivery),
+            ];
+        }
+
         return [
-            'id' => $this->id,
-            
-            // Tipo con info del enum
+            'id' => $delivery->id,
+
+            // Enum tipo (Paquete o Vehículo)
             'tipo' => [
-                'value' => $this->tipo->value,
-                'label' => $this->tipo->label(),
-                'description' => $this->tipo->description(),
-                'icon' => $this->tipo->icon(),
-                'color' => $this->tipo->color(),
+                'value' => $delivery->tipo->value,
+                'label' => $delivery->tipo->label(),
+                'description' => $delivery->tipo->description(),
+                'icon' => $delivery->tipo->icon(),
+                'color' => $delivery->tipo->color(),
             ],
-            
-            // Descripción y peso (solo para paquetes)
-            'descripcion' => $this->when($this->isPaquete(), $this->descripcion),
-            'peso_kg' => $this->when($this->isPaquete(), (float) $this->peso_kg),
-            
-            // Direcciones con coordenadas
-            'origen' => [
-                'direccion' => $this->direccion_origen,
-                'lat' => $this->lat_origen,
-                'lon' => $this->lon_origen,
-            ],
-            
-            'destino' => [
-                'direccion' => $this->direccion_destino,
-                'lat' => $this->lat_destino,
-                'lon' => $this->lon_destino,
-            ],
-            
+
+            // Descripción y peso (solo si es paquete)
+            'descripcion_contenido' => $this->when($delivery->isPaquete(), $delivery->descripcion_contenido),
+            'peso_estimado' => $this->when($delivery->isPaquete(), (float) $delivery->peso_estimado),
+
+            // Coordenadas (obtenidas de la reserva)
+            'origen' => $delivery->getOrigen(),
+            'destino' => $delivery->getDestino(),
+
             // Distancia y tiempos
-            'distancia_km' => $this->calcularDistancia(),
-            'tiempo_estimado_minutos' => $this->calcularTiempoEstimado(),
-            'tiempo_transcurrido_minutos' => $this->getTiempoTranscurrido(),
-            
+            'distancia_km' => $delivery->getDistanciaKm(),
+            'tiempo_estimado_minutos' => $delivery->calcularTiempoEstimado(),
+            'tiempo_transcurrido_minutos' => $delivery->getTiempoTranscurrido(),
+
             // Costo
-            'costo' => (float) $this->costo,
-            'costo_formatted' => '$' . number_format($this->costo, 0, ',', '.'),
-            
-            // Estado (desde la reserva)
-            'estado' => $this->getEstado(),
-            
+            'costo' => (float) $delivery->costo,
+            'costo_formatted' => '$' . number_format($delivery->costo, 0, ',', '.'),
+
+            // Estado (sin riesgo de null)
+            'estado' => $delivery->getEstado(),
+
             // Fechas
-            'fecha_entrega_estimada' => $this->fecha_entrega_estimada?->format('Y-m-d H:i:s'),
-            'fecha_entrega_real' => $this->fecha_entrega_real?->format('Y-m-d H:i:s'),
-            
+            'fecha_entrega_estimada' => $delivery->fecha_entrega_estimada?->format('Y-m-d H:i:s'),
+            'fecha_entrega_real' => $delivery->fecha_entrega_real?->format('Y-m-d H:i:s'),
+
             // Flags
-            'is_paquete' => $this->isPaquete(),
-            'is_vehiculo' => $this->isVehiculo(),
-            'is_entregado' => $this->isEntregado(),
-            'is_retrasado' => $this->isRetrasado(),
-            
-            // Relaciones
-            'user' => $this->whenLoaded('user', function() {
-                return new UserResource($this->user);
-            }),
-            
-            'reservation' => $this->whenLoaded('reservation', function() {
-                return new ReservationResource($this->reservation);
-            }),
-            
-            // Timestamps
-            'created_at' => $this->created_at->format('Y-m-d H:i:s'),
-            'updated_at' => $this->updated_at->format('Y-m-d H:i:s'),
+            'is_paquete' => $delivery->isPaquete(),
+            'is_vehiculo' => $delivery->isVehiculo(),
+            'is_entregado' => $delivery->isEntregado(),
+            'is_retrasado' => $delivery->isRetrasado(),
+
+            // Relaciones (limpias, sin loops)
+            'user' => $this->whenLoaded('user', fn() => new UserResource($delivery->user)),
+            'reservation' => $this->whenLoaded('reservation', fn() => new ReservationResource($delivery->reservation->withoutRelations())),
+
+            // Fecha de creación/actualización
+            'created_at' => $delivery->created_at? Carbon::parse($this->created_at)->format('Y-m-d H:i:s') : null,
+            'created_at_iso' => $delivery->created_at?->toIso8601String(),
+            'updated_at' => $delivery->updated_at? Carbon::parse($this->updated_at)->format('Y-m-d H:i:s') : null,
+            'updated_at_iso' => $delivery->updated_at?->toIso8601String(),
+
+            // Días transcurridos desde creación (para métricas)
+            'dias_transcurridos' => $delivery->created_at
+                ? $delivery->created_at->diffInDays(Carbon::now())
+                : null,
         ];
     }
 }

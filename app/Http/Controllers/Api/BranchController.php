@@ -137,6 +137,8 @@ class BranchController extends BaseApiController
      */
     public function stats(Branch $branch): JsonResponse
     {
+        $this->authorize('viewStats', $branch);
+        
         $stats = [
             'capacidad_total' => $branch->capacidad_vehiculos,
             'vehiculos_actuales' => $branch->vehicles()->count(),

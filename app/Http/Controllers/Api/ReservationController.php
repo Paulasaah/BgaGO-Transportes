@@ -11,9 +11,12 @@ use App\Models\Reservation;
 use App\Services\ReservationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class ReservationController extends BaseApiController
 {
+    use AuthorizesRequests;
+
     public function __construct(
         protected ReservationService $reservationService
     ) {}
@@ -78,7 +81,7 @@ class ReservationController extends BaseApiController
      */
     public function show(Reservation $reservation): JsonResponse
     {
-        $this->authorize('view', $reservation);
+        $this->authorize('view', $reservation); 
 
         $reservation->load([
             'user',
@@ -133,6 +136,8 @@ class ReservationController extends BaseApiController
      */
     public function cancel(CancelReservationRequest $request, Reservation $reservation): JsonResponse
     {
+        $this->authorize('cancel', $reservation);
+
         $result = $this->reservationService->cancelReservation(
             $reservation->id,
             $request->validated()
@@ -146,6 +151,8 @@ class ReservationController extends BaseApiController
      */
     public function rate(RateReservationRequest $request, Reservation $reservation): JsonResponse
     {
+        $this->authorize('rate', $reservation); // ✅ AGREGAR
+
         $reservation->update([
             'calificacion_cliente' => $request->calificacion,
             'comentario_cliente' => $request->comentario,

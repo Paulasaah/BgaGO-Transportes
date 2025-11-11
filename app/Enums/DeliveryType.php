@@ -66,4 +66,5 @@ enum DeliveryType: string
             $case->value => $case->label()
         ])->toArray();
     }
+
 }
