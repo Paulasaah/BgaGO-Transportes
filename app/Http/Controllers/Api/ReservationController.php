@@ -140,13 +140,44 @@ class ReservationController extends BaseApiController
      */
     public function cancel(CancelReservationRequest $request, Reservation $reservation): JsonResponse
     {
+        \Log::info('🔴 INICIO cancel() - Antes de authorize', [
+            'reservation_id' => $reservation->id,
+            'user_id' => auth()->id(),
+        ]);
+        
+        $user = auth()->user();
+        
+        \Log::info('🔴 Usuario obtenido', [
+            'user' => $user?->email,
+            'roles' => $user?->roles->pluck('name')->toArray(),
+        ]);
+
+        // ✅ Primero verificar autorización (Policy)
+        $this->authorize('cancel', $reservation);
+        
+        \Log::info('🔴 DESPUÉS de authorize - pasó la validación');
+        
         $user = auth()->user();
 
         // ✅ Primero verificar autorización (Policy)
         $this->authorize('cancel', $reservation);
 
+        // 🛡️ DEBUG: Log para verificar roles
+        \Log::info('Cancelar reserva - User roles', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'roles' => $user->roles->pluck('name')->toArray(),
+            'has_admin' => $user->hasRole('admin'),
+            'has_super_admin' => $user->hasRole('super_admin'),
+            'has_admin_array' => $user->hasRole(['admin', 'super_admin']),
+            'reservation_id' => $reservation->id,
+            'reservation_estado' => $reservation->estado->value
+        ]);
+
         // 🛡️ Si es admin o superadmin, cancelar directamente sin validaciones
-        if ($user->hasRole(['admin', 'super_admin'])) {
+        if ($user->hasRole('admin') || $user->hasRole('super_admin')) {
+            \Log::info('Admin cancelando reserva directamente', ['reservation_id' => $reservation->id]);
+            
             $motivoCancelacion = $request->input('motivo_cancelacion', 'Cancelación administrativa');
             
             $reservation->update([
@@ -166,6 +197,8 @@ class ReservationController extends BaseApiController
                 'Reserva cancelada por administrador.'
             );
         }
+
+        \Log::info('Usuario normal - delegando a servicio', ['user_id' => $user->id]);
 
         // 👤 Si no es admin, delegar al servicio (validará estado y permisos)
         $result = $this->reservationService->cancelReservation(

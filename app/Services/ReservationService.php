@@ -184,32 +184,11 @@ class ReservationService extends BaseService
     {
         return $this->executeWithTransaction(function () use ($reservationId, $motivo, $canceladoPor) {
             $reservation = Reservation::findOrFail($reservationId);
-            $user = auth()->user();
-
-            // 🔐 Fallback seguro: si no hay usuario autenticado
-            if (!$user && $canceladoPor) {
-                $user = \App\Models\User::find($canceladoPor);
-            }
-
-            // 🛡️ ADMIN O SUPER_ADMIN: Pueden cancelar CUALQUIER reserva, sin restricciones de estado
-            if ($user && $user->hasRole(['admin', 'super_admin'])) {
-                $motivoFinal = $motivo ?? 'Cancelación administrativa';
-                
-                $reservation->update([
-                    'estado' => ReservationStatus::Cancelada,
-                    'motivo_cancelacion' => $motivoFinal,
-                    'cancelado_por' => $canceladoPor ?? $user->id,
-                    'fecha_cancelacion' => now(),
-                ]);
-
-                // Liberar vehículo si está ocupado
-                if ($reservation->vehicle && $reservation->vehicle->isOcupado()) {
-                    $reservation->vehicle->update(['estado' => 'disponible']);
-                }
-
-                return $reservation->fresh();
-            }
-
+            
+            // ⚠️ NOTA: Este método NO debería ser llamado por admins
+            // Los admins cancelan directamente desde el Controller
+            // Este método solo se llama para usuarios normales
+            
             // 👤 USUARIOS NORMALES: Solo pueden cancelar si el estado lo permite
             if (!$reservation->canBeCancelled()) {
                 throw new Exception(
@@ -217,6 +196,7 @@ class ReservationService extends BaseService
                 );
             }
 
+            $user = auth()->user();
             $motivoFinal = $motivo ?: 'Cancelación sin motivo especificado';
 
             $reservation->update([

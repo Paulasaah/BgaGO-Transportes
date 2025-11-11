@@ -5,6 +5,7 @@ namespace App\Http\Requests\Vehicle;
 use Illuminate\Foundation\Http\FormRequest;
 use App\Enums\VehicleType;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator; 
 
 class StoreVehicleRequest extends FormRequest
 {
