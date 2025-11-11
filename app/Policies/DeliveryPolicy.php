@@ -49,19 +49,20 @@ class DeliveryPolicy
 
     public function start(User $user, Delivery $delivery): bool
     {
-        // Solo el conductor asignado puede iniciar
-        return $delivery->reservation && 
-               $delivery->reservation->conductor_id === $user->id &&
-               $delivery->canStart();
+        $asignado = $delivery->conductor_id === $user->id
+            || ($delivery->reservation && $delivery->reservation->conductor_id === $user->id);
+
+        return $asignado && in_array($delivery->estado, ['asignada', 'pendiente']);
     }
 
     public function complete(User $user, Delivery $delivery): bool
     {
-        // Solo el conductor asignado puede completar
-        return $delivery->reservation && 
-               $delivery->reservation->conductor_id === $user->id &&
-               $delivery->canComplete();
+        $asignado = $delivery->conductor_id === $user->id
+            || ($delivery->reservation && $delivery->reservation->conductor_id === $user->id);
+
+        return $asignado && in_array($delivery->estado, ['en_camino', 'en_progreso']);
     }
+
 
     public function cancel(User $user, Delivery $delivery): bool
     {

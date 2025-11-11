@@ -8,6 +8,7 @@ use App\Services\VehicleAvailabilityService;
 use App\Services\PricingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
 
 class VehicleController extends BaseApiController
 {
@@ -76,10 +77,13 @@ class VehicleController extends BaseApiController
             'fecha_fin' => 'required|date|after:fecha_inicio',
         ]);
 
+        $fechaInicio = Carbon::parse($request->fecha_inicio);
+        $fechaFin = Carbon::parse($request->fecha_fin);
+
         $result = $this->availabilityService->checkAvailability(
             $vehicle,
-            $request->fecha_inicio,
-            $request->fecha_fin
+            Carbon::parse($fechaInicio),
+            Carbon::parse($fechaFin)
         );
 
         return $this->handleServiceResult($result);

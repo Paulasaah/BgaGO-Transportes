@@ -34,7 +34,8 @@ class ReservationService extends BaseService
                 'vehiculo_id',
                 'sede_id',
                 'fecha_inicio',
-                'fecha_fin'
+                'fecha_fin',
+                'origen_direccion',
             ]);
 
             // Verificar disponibilidad
@@ -74,6 +75,8 @@ class ReservationService extends BaseService
                 'monto_final' => $pricing['data']['total'],
                 'duracion_minutos' => $fechaInicio->diffInMinutes($fechaFin),
                 'notas_cliente' => $data['notas_cliente'] ?? null,
+                'origen_direccion' => $data['origen_direccion'] ?? 'Sin dirección',
+                'destino_direccion' => $data['destino_direccion'] ?? null,
             ]);
 
             // Actualizar estado del vehículo
@@ -172,29 +175,33 @@ class ReservationService extends BaseService
     /**
      * Cancelar reserva
      */
-    public function cancelReservation(int $reservationId, string $motivo, ?int $canceladoPor = null): array
+    public function cancelReservation(int $reservationId, ?string $motivo = null, ?int $canceladoPor = null): array
     {
         return $this->executeWithTransaction(function () use ($reservationId, $motivo, $canceladoPor) {
             $reservation = Reservation::findOrFail($reservationId);
 
             if (!$reservation->canBeCancelled()) {
-                throw new Exception('Esta reserva no puede ser cancelada en su estado actual');
+                throw new \Exception('Esta reserva no puede ser cancelada en su estado actual');
             }
 
+            // Asignar motivo por defecto si no se proporcionó
+            $motivoFinal = $motivo ?: 'Cancelación sin motivo especificado';
+
             $reservation->update([
-                'estado' => ReservationStatus::Cancelada,
-                'motivo_cancelacion' => $motivo,
-                'cancelado_por' => $canceladoPor ?? auth()->id()
+                'estado' => \App\Enums\ReservationStatus::Cancelada,
+                'motivo_cancelacion' => $motivoFinal,
+                'cancelado_por' => $canceladoPor ?? auth()->id(),
             ]);
 
             // Liberar vehículo si estaba ocupado
-            if ($reservation->vehicle->isOcupado()) {
+            if ($reservation->vehicle && $reservation->vehicle->isOcupado()) {
                 $reservation->vehicle->update(['estado' => 'disponible']);
             }
 
             return $reservation->fresh();
         }, 'cancelar_reserva');
     }
+
 
     /**
      * Obtener reservas activas de un usuario

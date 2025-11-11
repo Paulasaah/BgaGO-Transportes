@@ -6,7 +6,6 @@ use App\Http\Requests\Reservation\StoreReservationRequest;
 use App\Http\Requests\Reservation\CancelReservationRequest;
 use App\Http\Requests\Reservation\RateReservationRequest;
 use App\Http\Resources\ReservationResource;
-use App\Http\Resources\Collections\ReservationCollection;
 use App\Models\Reservation;
 use App\Services\ReservationService;
 use Illuminate\Http\Request;
@@ -30,11 +29,11 @@ class ReservationController extends BaseApiController
 
         $perPage = $request->input('per_page', 15);
         $status = $request->input('status');
-        $type = $request->input('type');
+        $type   = $request->input('type');
 
         $query = Reservation::with(['user', 'vehicle', 'driver', 'branch', 'delivery']);
 
-        // Filtros
+        // Filtros opcionales
         if ($status) {
             $query->where('estado', $status);
         }
@@ -43,18 +42,16 @@ class ReservationController extends BaseApiController
             $query->where('tipo', $type);
         }
 
-        // Ordenar por más reciente
         $query->orderByDesc('created_at');
-
         $reservations = $query->paginate($perPage);
 
         return $this->success([
             'reservations' => ReservationResource::collection($reservations),
             'pagination' => [
-                'total' => $reservations->total(),
-                'per_page' => $reservations->perPage(),
-                'current_page' => $reservations->currentPage(),
-                'last_page' => $reservations->lastPage(),
+                'total'         => $reservations->total(),
+                'per_page'      => $reservations->perPage(),
+                'current_page'  => $reservations->currentPage(),
+                'last_page'     => $reservations->lastPage(),
             ],
         ]);
     }
@@ -64,7 +61,14 @@ class ReservationController extends BaseApiController
      */
     public function store(StoreReservationRequest $request): JsonResponse
     {
-        $result = $this->reservationService->createReservation($request->validated());
+        if (!auth()->check()) {
+            return $this->error('Usuario no autenticado', 401);
+        }
+
+        $data = $request->validated();
+        $data['user_id'] = auth()->id(); // ✅ Corregido
+
+        $result = $this->reservationService->createReservation($data);
 
         if (!$result['success']) {
             return $this->error($result['message']);
@@ -81,7 +85,7 @@ class ReservationController extends BaseApiController
      */
     public function show(Reservation $reservation): JsonResponse
     {
-        $this->authorize('view', $reservation); 
+        $this->authorize('view', $reservation);
 
         $reservation->load([
             'user',
@@ -100,7 +104,7 @@ class ReservationController extends BaseApiController
      */
     public function confirm(Reservation $reservation): JsonResponse
     {
-        $this->authorize('update', $reservation);
+        $this->authorize('confirm', $reservation);
 
         $result = $this->reservationService->confirmReservation($reservation->id);
 
@@ -112,7 +116,7 @@ class ReservationController extends BaseApiController
      */
     public function start(Reservation $reservation): JsonResponse
     {
-        $this->authorize('update', $reservation);
+        $this->authorize('start', $reservation);
 
         $result = $this->reservationService->startReservation($reservation->id);
 
@@ -124,7 +128,7 @@ class ReservationController extends BaseApiController
      */
     public function complete(Reservation $reservation): JsonResponse
     {
-        $this->authorize('update', $reservation);
+        $this->authorize('complete', $reservation);
 
         $result = $this->reservationService->completeReservation($reservation->id);
 
@@ -151,11 +155,11 @@ class ReservationController extends BaseApiController
      */
     public function rate(RateReservationRequest $request, Reservation $reservation): JsonResponse
     {
-        $this->authorize('rate', $reservation); // ✅ AGREGAR
+        $this->authorize('rate', $reservation);
 
         $reservation->update([
             'calificacion_cliente' => $request->calificacion,
-            'comentario_cliente' => $request->comentario,
+            'comentario_cliente'   => $request->comentario,
         ]);
 
         return $this->success(
@@ -169,9 +173,9 @@ class ReservationController extends BaseApiController
      */
     public function myReservations(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user   = $request->user();
         $status = $request->input('status');
-        $type = $request->input('type', 'reserva');
+        $type   = $request->input('type', 'reserva');
 
         $query = Reservation::where('user_id', $user->id)
             ->where('tipo', $type)
@@ -194,7 +198,7 @@ class ReservationController extends BaseApiController
     }
 
     /**
-     * Estadísticas del usuario
+     * Estadísticas del usuario autenticado
      */
     public function myStats(Request $request): JsonResponse
     {

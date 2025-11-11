@@ -55,6 +55,11 @@ class RolePermissionSeeder extends Seeder
             // Reportes
             'ver_reportes',
             'exportar_reportes',
+
+            'start-reservation',
+            'complete-reservation',
+            'start-delivery',
+            'complete-delivery',
         ];
 
         foreach ($permissions as $permission) {
@@ -80,6 +85,10 @@ class RolePermissionSeeder extends Seeder
             'completar_domicilios',
             'ver_reservas',
             'ver_dashboard_conductor',
+            'start-reservation',
+            'complete-reservation',
+            'start-delivery',
+            'complete-delivery',
         ]);
 
         // CLIENTE

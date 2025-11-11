@@ -19,22 +19,30 @@ class PaymentSeeder extends Seeder
             return;
         }
 
-        foreach ($reservations as $reservation) {
+        foreach ($reservations as $index => $reservation) {
+            // Alternar entre pagos aprobados y pendientes
+            $estado = ($index === 0) ? 'pendiente' : (($index % 2 === 0) ? 'pendiente' : 'aprobado');
+
             Payment::updateOrCreate(
-                ['reserva_id' => $reservation->id], // clave única
+                ['reserva_id' => $reservation->id],
                 [
                     'codigo_transaccion' => 'TX-' . strtoupper(uniqid()),
                     'user_id' => $users->random()->id,
                     'metodo_pago' => 'tarjeta',
                     'monto' => $reservation->monto_final ?? 0,
-                    'estado' => 'aprobado',
-                    'referencia_externa' => 'STRIPE-' . rand(10000, 99999),
-                    'datos_transaccion' => json_encode(['gateway' => 'Stripe', 'currency' => 'COP']),
-                    'fecha_aprobacion' => now()->subDays(rand(1, 10)),
+                    'estado' => $estado,
+                    'referencia_externa' => $estado === 'aprobado'
+                        ? 'STRIPE-' . rand(10000, 99999)
+                        : null,
+                    'datos_transaccion' => json_encode([
+                        'gateway' => 'Stripe',
+                        'currency' => 'COP',
+                    ]),
+                    'fecha_aprobacion' => $estado === 'aprobado' ? now()->subDays(rand(1, 10)) : null,
                 ]
             );
         }
 
-        $this->command->info('✅ Pagos creados o actualizados correctamente.');
+        $this->command->info('✅ Pagos creados o actualizados correctamente (pendientes y aprobados).');
     }
 }

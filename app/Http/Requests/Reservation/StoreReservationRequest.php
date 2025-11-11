@@ -43,6 +43,16 @@ class StoreReservationRequest extends FormRequest
                 'date',
                 'after:fecha_inicio',
             ],
+            'origen_direccion'   => [
+                'required',
+                'string',
+                'max:255',
+            ],
+            'destino_direccion'  => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
             'notas_cliente' => [
                 'nullable',
                 'string',
