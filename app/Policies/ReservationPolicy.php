@@ -4,129 +4,96 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Models\Reservation;
-use App\Enums\ReservationStatus;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class ReservationPolicy
 {
     use HandlesAuthorization;
 
-    /**
-     * Determinar si el usuario puede ver TODAS las reservas (admin)
-     */
+    /** Ver todas las reservas (solo admin o super_admin) */
     public function viewAny(User $user): bool
     {
         return $user->hasRole(['admin', 'super_admin']);
     }
 
-    /**
-     * Determinar si el usuario puede ver UNA reserva específica
-     */
+    /** Ver una reserva específica */
     public function view(User $user, Reservation $reservation): bool
     {
-        // Admin puede ver cualquier reserva
-        if ($user->hasRole(['admin', 'super_admin'])) {
-            return true;
-        }
-
-        // Cliente puede ver sus propias reservas
-        if ($reservation->user_id === $user->id) {
-            return true;
-        }
-
-        // Conductor puede ver reservas asignadas a él
-        if ($reservation->conductor_id === $user->id) {
-            return true;
-        }
-
-        return false;
+        return $user->hasRole(['admin', 'super_admin'])
+            || $reservation->user_id === $user->id
+            || $reservation->conductor_id === $user->id;
     }
 
-    /**
-     * Determinar si el usuario puede crear reservas
-     */
+    /** Crear reservas */
     public function create(User $user): bool
     {
-        // Clientes y admins pueden crear reservas
-        return $user->hasRole(['cliente', 'admin', 'super_admin']) || 
-               $user->hasPermissionTo('crear_reservas');
+        return $user->hasRole(['cliente', 'admin', 'super_admin'])
+            || $user->hasPermissionTo('crear_reservas');
     }
 
-    /**
-     * Determinar si el usuario puede actualizar una reserva
-     */
+    /** Actualizar una reserva */
     public function update(User $user, Reservation $reservation): bool
     {
-        // Admin puede actualizar cualquier reserva
         if ($user->hasRole(['admin', 'super_admin'])) {
             return true;
         }
 
-        // Cliente puede actualizar su propia reserva si no está finalizada
+        // Cliente puede editar su propia reserva si no está finalizada
         if ($reservation->user_id === $user->id) {
             return !$reservation->isFinal();
         }
 
-        // Conductor asignado puede actualizar estado
+        // Conductor asignado puede modificar estados operativos
         if ($reservation->conductor_id === $user->id) {
-            return true;
+            return !$reservation->isFinal();
         }
 
         return false;
     }
 
-    /**
-     * Determinar si el usuario puede cancelar una reserva
-     */
+    /** Cancelar una reserva */
     public function cancel(User $user, Reservation $reservation): bool
     {
-        // Admin puede cancelar cualquier reserva
+        // 👑 Admin o SuperAdmin pueden cancelar cualquier reserva (independiente del estado)
         if ($user->hasRole(['admin', 'super_admin'])) {
             return true;
         }
 
-        // Cliente puede cancelar su propia reserva si está en estado cancelable
+        // 👥 Cliente puede cancelar su propia reserva si el estado lo permite
         if ($reservation->user_id === $user->id) {
             return $reservation->canBeCancelled();
         }
 
+        // 🚗 Conductor normalmente no puede cancelar
         return false;
     }
 
-    /**
-     * Determinar si el usuario puede confirmar una reserva (después del pago)
-     */
+    /** Confirmar una reserva */
     public function confirm(User $user, Reservation $reservation): bool
     {
-        // Solo admin o el sistema pueden confirmar
         if ($user->hasRole(['admin', 'super_admin'])) {
             return true;
         }
 
-        // El cliente dueño puede confirmar si tiene pago aprobado
-        if ($reservation->user_id === $user->id && $reservation->hasPaidPayment()) {
-            return $reservation->isPendiente();
-        }
-
-        return false;
+        return $reservation->user_id === $user->id
+            && $reservation->hasPaidPayment()
+            && $reservation->isPendiente();
     }
 
-    /**
-     * Determinar si el usuario puede iniciar una reserva
-     */
+    /** Iniciar una reserva */
     public function start(User $user, Reservation $reservation): bool
     {
-        // Admin puede iniciar cualquier reserva
+        // 👑 Admin o SuperAdmin pueden iniciar cualquier reserva
         if ($user->hasRole(['admin', 'super_admin'])) {
             return true;
         }
 
-        // Conductor asignado puede iniciar
+        // 🚗 Conductor asignado puede iniciar si está confirmada o pendiente
         if ($reservation->conductor_id === $user->id) {
-            return $reservation->isConfirmada();
+            return $reservation->isConfirmada() || $reservation->isPendiente();
         }
 
-        // Cliente puede iniciar su propia reserva confirmada
+        // 👤 Cliente puede iniciar su propia reserva confirmada
         if ($reservation->user_id === $user->id) {
             return $reservation->isConfirmada();
         }
@@ -134,22 +101,20 @@ class ReservationPolicy
         return false;
     }
 
-    /**
-     * Determinar si el usuario puede completar una reserva
-     */
+    /** Completar una reserva */
     public function complete(User $user, Reservation $reservation): bool
     {
-        // Admin puede completar cualquier reserva
+        // 👑 Admin o SuperAdmin pueden completar cualquier reserva
         if ($user->hasRole(['admin', 'super_admin'])) {
             return true;
         }
 
-        // Conductor asignado puede completar
+        // 🚗 Conductor asignado puede completar si la reserva está activa o en curso
         if ($reservation->conductor_id === $user->id) {
-            return $reservation->isActiva();
+            return $reservation->isActiva() || $reservation->isEnCurso();
         }
 
-        // Cliente puede completar su propia reserva activa
+        // 👤 Cliente puede completar su propia reserva activa
         if ($reservation->user_id === $user->id) {
             return $reservation->isActiva();
         }
@@ -157,58 +122,44 @@ class ReservationPolicy
         return false;
     }
 
-    /**
-     * Determinar si el usuario puede calificar una reserva
-     */
+    /** Calificar una reserva (solo cliente) */
     public function rate(User $user, Reservation $reservation): bool
     {
-        // Solo el cliente que hizo la reserva puede calificar
-        return $reservation->user_id === $user->id && 
+        return $reservation->user_id === $user->id &&
                $reservation->isCompletada() &&
                is_null($reservation->calificacion_cliente);
     }
 
-    /**
-     * Determinar si el usuario puede eliminar una reserva
-     */
+    /** Eliminar (soft delete) */
     public function delete(User $user, Reservation $reservation): bool
     {
-        // Solo admin puede eliminar (soft delete)
         return $user->hasRole(['admin', 'super_admin']);
     }
 
-    /**
-     * Determinar si el usuario puede restaurar una reserva eliminada
-     */
+    /** Restaurar reserva eliminada */
     public function restore(User $user, Reservation $reservation): bool
     {
         return $user->hasRole(['admin', 'super_admin']);
     }
 
-    /**
-     * Determinar si el usuario puede eliminar permanentemente
-     */
+    /** Eliminación permanente */
     public function forceDelete(User $user, Reservation $reservation): bool
     {
         return $user->hasRole('super_admin');
     }
 
-    /**
-     * Determinar si el usuario puede ver estadísticas de reservas
-     */
+    /** Ver estadísticas */
     public function viewStats(User $user): bool
     {
-        return $user->hasRole(['admin', 'super_admin']) || 
-               $user->hasPermissionTo('ver_reportes');
+        return $user->hasRole(['admin', 'super_admin'])
+            || $user->hasPermissionTo('ver_reportes');
     }
 
-    /**
-     * Determinar si el usuario puede asignar conductor
-     */
+    /** Asignar conductor */
     public function assignDriver(User $user, Reservation $reservation): bool
     {
-        return $user->hasRole(['admin', 'super_admin']) && 
-               $reservation->isDomicilio() &&
-               $reservation->isPendiente();
+        return $user->hasRole(['admin', 'super_admin'])
+            && $reservation->isDomicilio()
+            && $reservation->isPendiente();
     }
 }

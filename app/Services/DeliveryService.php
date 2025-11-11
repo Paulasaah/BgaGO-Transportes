@@ -6,7 +6,6 @@ use App\Models\Reservation;
 use App\Models\Delivery;
 use App\Models\Vehicle;
 use App\Enums\ReservationStatus;
-use App\Enums\ReservationType;
 use App\Enums\DeliveryType;
 use Carbon\Carbon;
 use Exception;
@@ -23,9 +22,6 @@ class DeliveryService extends BaseService
     /**
      * Crear domicilio de paquete
      */
-/**
- * Crear domicilio de paquete
- */
     public function createPackageDelivery(array $data): array
     {
         return $this->executeWithTransaction(function () use ($data) {
@@ -65,7 +61,7 @@ class DeliveryService extends BaseService
                 'codigo' => Reservation::generateCode(),
                 'user_id' => $data['user_id'],
                 'sede_id' => $data['sede_id'],
-                'tipo' => ReservationType::Domicilio,
+                'tipo' => \App\Enums\ReservationType::Domicilio,
                 'estado' => ReservationStatus::Pendiente,
                 'origen_direccion' => $data['direccion_origen'],
                 'origen_lat' => $origenCoords['lat'],
@@ -89,7 +85,7 @@ class DeliveryService extends BaseService
                 'reserva_id' => $reservation->id,
                 'tipo' => DeliveryType::Paquete,
 
-                // Agregados para dirección
+                // Direcciones
                 'direccion_origen' => $data['direccion_origen'],
                 'lat_origen' => $data['lat_origen'],
                 'lon_origen' => $data['lon_origen'],
@@ -97,110 +93,23 @@ class DeliveryService extends BaseService
                 'lat_destino' => $data['lat_destino'],
                 'lon_destino' => $data['lon_destino'],
 
+                // Datos de contacto
                 'nombre_remitente' => $data['nombre_remitente'],
                 'telefono_remitente' => $data['telefono_remitente'],
                 'nombre_destinatario' => $data['nombre_destinatario'],
                 'telefono_destinatario' => $data['telefono_destinatario'],
+
+                // Detalles adicionales
                 'descripcion_contenido' => $data['descripcion_contenido'] ?? null,
                 'peso_estimado' => $data['peso_kg'] ?? null,
                 'requiere_firma' => $data['requiere_firma'] ?? false,
                 'es_fragil' => $data['es_fragil'] ?? false,
                 'instrucciones_especiales' => $data['instrucciones_especiales'] ?? null,
-                'costo' => $data['costo'] ?? $pricing['data']['total'] ?? 0, // ✅ agregado
+                'costo' => $data['costo'] ?? $pricing['data']['total'] ?? 0,
             ]);
 
             return $delivery->load(['user', 'reservation.branch']);
         }, 'crear_domicilio_paquete');
-    }
-
-
-
-    /**
-     * Crear domicilio de vehículo
-     */
-    public function createVehicleDelivery(array $data): array
-    {
-        return $this->executeWithTransaction(function () use ($data) {
-            // Validar campos requeridos
-            $this->validateRequired($data, [
-                'user_id',
-                'vehiculo_id',
-                'sede_id',
-                'destino_direccion',
-                'nombre_destinatario',
-                'telefono_destinatario',
-            ]);
-
-            // Verificar vehículo disponible
-            $vehicle = Vehicle::findOrFail($data['vehiculo_id']);
-            if (!$vehicle->isDisponible()) {
-                throw new Exception('El vehículo no está disponible');
-            }
-
-            // Obtener sede como origen
-            $origenCoords = [
-                'lat' => $data['lat_origen'],
-                'lng' => $data['lng_destino']
-            ];
-
-            $destinoCoords = $this->parseCoordinates($data['destino_lat'] . ',' . $data['destino_lng']);
-
-            $distanciaKm = $this->calculateDistance(
-                $origenCoords['lat'],
-                $origenCoords['lng'],
-                $destinoCoords['lat'],
-                $destinoCoords['lng']
-            );
-
-            $tiempoEstimado = $this->calculateEstimatedTime($distanciaKm);
-
-            // Calcular precio
-            $pricing = $this->pricingService->calculateDeliveryPrice(
-                DeliveryType::Vehiculo,
-                $distanciaKm,
-                $vehicle
-            );
-
-            // Crear reserva
-            $reservation = Reservation::create([
-                'codigo' => Reservation::generateCode(),
-                'user_id' => $data['user_id'],
-                'vehiculo_id' => $vehicle->id,
-                'sede_id' => $data['sede_id'],
-                'tipo' => ReservationType::Domicilio,
-                'estado' => ReservationStatus::Pendiente,
-                'direccion_origen' => $data['direccion_origen'],
-                'lat_origen' => $origenCoords['lat'],
-                'lng_destino' => $origenCoords['lng'],
-                'direccion_destino' => $data['direccion_destino'],
-                'destino_lat' => $destinoCoords['lat'],
-                'destino_lng' => $destinoCoords['lng'],
-                'distancia_km' => $distanciaKm,
-                'duracion_minutos' => $tiempoEstimado,
-                'fecha_inicio' => Carbon::parse($data['fecha_entrega'] ?? now()),
-                'fecha_fin' => Carbon::parse($data['fecha_entrega'] ?? now())->addMinutes($tiempoEstimado),
-                'monto' => $pricing['data']['subtotal'],
-                'descuento' => $pricing['data']['descuento'] ?? 0,
-                'monto_final' => $pricing['data']['total'],
-                'notas_cliente' => $data['instrucciones_especiales'] ?? null,
-            ]);
-
-            // Crear delivery
-            $delivery = Delivery::create([
-                'reserva_id' => $reservation->id,
-                'tipo' => DeliveryType::Vehiculo,
-                'vehiculo_id' => $vehicle->id,
-                'nombre_destinatario' => $data['nombre_destinatario'],
-                'telefono_destinatario' => $data['telefono_destinatario'],
-                'requiere_firma' => true, // Siempre requiere firma para vehículos
-                'instrucciones_especiales' => $data['instrucciones_especiales'] ?? null,
-            ]);
-
-            // Marcar vehículo como ocupado
-            $vehicle->update(['estado' => 'ocupado']);
-
-            return $reservation->load(['delivery', 'vehicle', 'user', 'branch']);
-        }, 'crear_domicilio_vehiculo');
     }
 
     /**
@@ -210,40 +119,55 @@ class DeliveryService extends BaseService
     {
         return $this->executeWithTransaction(function () use ($deliveryId, $conductorId) {
             $delivery = Delivery::findOrFail($deliveryId);
-            
+
             if ($delivery->conductor_id) {
                 throw new Exception('Ya existe un conductor asignado');
             }
 
-            $delivery->reservation->update([
+            $delivery->update([
                 'conductor_id' => $conductorId,
-                'estado' => ReservationStatus::Confirmada,
-                'fecha_confirmacion' => now()
+                'estado' => 'en_camino', // cambia de 'pendiente' a 'en_camino' al asignar
             ]);
+
+            if ($delivery->reservation) {
+                $delivery->reservation->update([
+                    'conductor_id' => $conductorId,
+                    'estado' => ReservationStatus::Confirmada,
+                    'fecha_confirmacion' => now(),
+                ]);
+            }
 
             return $delivery->fresh()->load('reservation.driver');
         }, 'asignar_conductor');
     }
 
     /**
-     * Iniciar domicilio (conductor recoge)
+     * Iniciar domicilio (conductor o admin)
      */
     public function startDelivery(int $deliveryId): array
     {
         return $this->executeWithTransaction(function () use ($deliveryId) {
             $delivery = Delivery::findOrFail($deliveryId);
+            $user = auth()->user();
 
-            if (!$delivery->reservation->isConfirmada()) {
-                throw new Exception('Solo se pueden iniciar domicilios confirmados');
+            // 👑 Admin puede iniciar cualquier entrega
+            if ($user && $user->hasRole(['admin', 'super_admin'])) {
+                $delivery->update([
+                    'estado' => 'en_camino',
+                    'fecha_recogida' => now(),
+                ]);
+                return $delivery->fresh();
+            }
+
+            // 🚗 Estados válidos para iniciar
+            $permitidos = ['pendiente', 'asignada', 'confirmada'];
+            if (!in_array($delivery->estado, $permitidos)) {
+                throw new Exception('Solo se pueden iniciar domicilios confirmados o asignados');
             }
 
             $delivery->update([
+                'estado' => 'en_camino',
                 'fecha_recogida' => now(),
-            ]);
-
-            $delivery->reservation->update([
-                'estado' => ReservationStatus::Activa,
-                'fecha_inicio_real' => now()
             ]);
 
             return $delivery->fresh();
@@ -257,25 +181,44 @@ class DeliveryService extends BaseService
     {
         return $this->executeWithTransaction(function () use ($deliveryId, $completionData) {
             $delivery = Delivery::findOrFail($deliveryId);
+            $user = auth()->user();
 
-            if (!$delivery->reservation->isActiva()) {
-                throw new Exception('Solo se pueden completar domicilios activos');
+            // 👑 Admin puede completar cualquier entrega
+            if ($user && $user->hasRole(['admin', 'super_admin'])) {
+                $delivery->update([
+                    'estado' => 'entregado',
+                    'fecha_entrega' => now(),
+                    'firma_destinatario' => $completionData['firma'] ?? null,
+                    'foto_entrega' => $completionData['foto'] ?? null,
+                    'notas_entrega' => $completionData['notas'] ?? null,
+                ]);
+                return $delivery->fresh();
+            }
+
+            // 🚗 Validar estados válidos para completar
+            $permitidos = ['en_camino'];
+            if (!in_array($delivery->estado, $permitidos)) {
+                throw new Exception('Solo se pueden completar domicilios en curso');
             }
 
             $delivery->update([
+                'estado' => 'entregado',
                 'fecha_entrega' => now(),
                 'firma_destinatario' => $completionData['firma'] ?? null,
                 'foto_entrega' => $completionData['foto'] ?? null,
                 'notas_entrega' => $completionData['notas'] ?? null,
             ]);
 
-            $delivery->reservation->update([
-                'estado' => ReservationStatus::Completada,
-                'fecha_fin_real' => now()
-            ]);
+            // Actualizar reserva asociada
+            if ($delivery->reservation) {
+                $delivery->reservation->update([
+                    'estado' => ReservationStatus::Completada,
+                    'fecha_fin_real' => now(),
+                ]);
+            }
 
-            // Liberar vehículo si es delivery de vehículo
-            if ($delivery->tipo === DeliveryType::Vehiculo && $delivery->vehicle) {
+            // Liberar vehículo si aplica
+            if ($delivery->vehicle && $delivery->vehicle->isOcupado()) {
                 $delivery->vehicle->update(['estado' => 'disponible']);
             }
 
@@ -289,62 +232,36 @@ class DeliveryService extends BaseService
     public function getUserActiveDeliveries(int $userId): array
     {
         return $this->execute(function () use ($userId) {
-            return Reservation::where('user_id', $userId)
-                ->where('tipo', ReservationType::Domicilio)
-                ->whereIn('estado', [
-                    ReservationStatus::Pendiente,
-                    ReservationStatus::Confirmada,
-                    ReservationStatus::Activa
-                ])
-                ->with(['delivery', 'driver', 'vehicle'])
+            return Delivery::where('user_id', $userId)
+                ->whereIn('estado', ['pendiente', 'en_camino'])
+                ->with(['reservation', 'vehicle'])
                 ->orderByDesc('created_at')
                 ->get();
         }, 'obtener_domicilios_activos_usuario');
     }
 
     /**
-     * Obtener domicilios pendientes de asignación
-     */
-    public function getPendingDeliveries(): array
-    {
-        return $this->execute(function () {
-            return Reservation::where('tipo', ReservationType::Domicilio)
-                ->where('estado', ReservationStatus::Pendiente)
-                ->whereNull('conductor_id')
-                ->with(['delivery', 'user', 'vehicle'])
-                ->orderBy('created_at')
-                ->get();
-        }, 'obtener_domicilios_pendientes');
-    }
-
-    /**
-     * Rastrear domicilio en tiempo real
+     * Rastrear domicilio
      */
     public function trackDelivery(int $deliveryId): array
     {
         return $this->execute(function () use ($deliveryId) {
             $delivery = Delivery::with([
                 'reservation.driver',
-                'reservation.gpsTracks' => function ($query) {
-                    $query->latest()->limit(1);
-                }
+                'reservation.gpsTracks' => fn($q) => $q->latest()->limit(1),
             ])->findOrFail($deliveryId);
 
             $lastTrack = $delivery->reservation->gpsTracks->first();
 
             return [
                 'delivery' => $delivery,
-                'estado' => $delivery->reservation->estado,
+                'estado' => $delivery->estado,
                 'ultima_ubicacion' => $lastTrack ? [
                     'lat' => $lastTrack->latitud,
                     'lng' => $lastTrack->longitud,
                     'velocidad' => $lastTrack->velocidad,
-                    'timestamp' => $lastTrack->fecha_registro
+                    'timestamp' => $lastTrack->fecha_registro,
                 ] : null,
-                'tiempo_transcurrido' => $delivery->fecha_recogida 
-                    ? $delivery->fecha_recogida->diffInMinutes(now()) 
-                    : null,
-                'tiempo_estimado_restante' => $delivery->reservation->duracion_minutos
             ];
         }, 'rastrear_domicilio');
     }

@@ -157,6 +157,40 @@ class DeliveryController extends BaseApiController
     }
 
     /**
+     * Cancelar domicilio
+     */
+    public function cancel(Request $request, Delivery $delivery): JsonResponse
+    {
+        $user = $request->user();
+
+        $this->authorize('cancel', $delivery);
+
+        // 👑 Admin o SuperAdmin pueden cancelar en cualquier estado
+        if ($user->hasRole(['admin', 'super_admin'])) {
+            $delivery->update([
+                'estado' => 'cancelado',
+                'notas_entrega' => 'Cancelado por administrador' .
+                    ($request->has('motivo') ? ': ' . $request->input('motivo') : ''),
+            ]);
+
+            return $this->success(
+                new DeliveryResource($delivery->fresh()),
+                'Domicilio cancelado por administrador.'
+            );
+        }
+
+        // 🚗 Conductor solo puede cancelar si no ha iniciado
+        $result = $this->deliveryService->cancelDelivery(
+            $delivery->id,
+            $user->id,
+            $request->input('motivo', null)
+        );
+
+        return $this->handleServiceResult($result, 'Domicilio cancelado exitosamente');
+    }
+ 
+
+    /**
      * Tracking del domicilio
      */
     public function track(Delivery $delivery): JsonResponse

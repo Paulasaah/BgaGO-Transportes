@@ -16,8 +16,8 @@ class ReservationSeeder extends Seeder
     public function run(): void
     {
         $branches = Branch::all();
-        $vehicles = Vehicle::limit(3)->get();
-        $users = User::limit(3)->get();
+        $vehicles = Vehicle::take(3)->get();
+        $users = User::take(3)->get();
 
         if ($branches->isEmpty() || $vehicles->isEmpty() || $users->isEmpty()) {
             $this->command->warn('⚠️ No hay suficientes datos en branches, vehicles o users para crear reservas.');

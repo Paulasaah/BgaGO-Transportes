@@ -13,7 +13,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('vehiculo_id')->nullable()->constrained('vehicles');
             $table->foreignId('reserva_id')->nullable()->constrained('reservations')->nullOnDelete();
-
+            $table->foreignId('conductor_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('tipo', 50);
             $table->text('descripcion')->nullable();
 
@@ -37,8 +37,15 @@ return new class extends Migration
             $table->decimal('lat_destino', 10, 7)->nullable();
             $table->decimal('lon_destino', 10, 7)->nullable();
 
-            $table->decimal('costo', 10, 2);
-            $table->enum('estado', ['pendiente', 'en_camino', 'entregado', 'cancelado'])->default('pendiente');
+            $table->decimal('costo', 10, 2)->default(0);
+            $table->enum('estado', [
+                'pendiente', 
+                'asignado',
+                'confirmado',
+                'en_camino', 
+                'entregado', 
+                'cancelado'])->default('pendiente');
+
             $table->dateTime('fecha_entrega_estimada')->nullable();
             $table->dateTime('fecha_entrega_real')->nullable();
 

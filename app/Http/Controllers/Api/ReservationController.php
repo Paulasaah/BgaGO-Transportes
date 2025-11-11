@@ -140,11 +140,28 @@ class ReservationController extends BaseApiController
      */
     public function cancel(CancelReservationRequest $request, Reservation $reservation): JsonResponse
     {
+        $user = auth()->user();
+
         $this->authorize('cancel', $reservation);
 
+        // 👑 Si es admin o superadmin, puede cancelar sin importar el estado
+        if ($user->hasRole(['admin', 'super_admin'])) {
+            $reservation->update([
+                'estado' => 'cancelada',
+                'motivo_cancelacion' => $request->input('motivo_cancelacion'),
+            ]);
+
+            return $this->success(
+                new ReservationResource($reservation->fresh()),
+                'Reserva cancelada por administrador.'
+            );
+        }
+
+        // 🔒 Si no es admin, delegar la lógica al servicio (validará estado y permisos)
         $result = $this->reservationService->cancelReservation(
             $reservation->id,
-            $request->validated()
+            $request->input('motivo_cancelacion'),
+            $user->id
         );
 
         return $this->handleServiceResult($result, 'Reserva cancelada exitosamente');

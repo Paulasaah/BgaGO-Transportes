@@ -12,57 +12,50 @@ class DeliveryPolicy
 
     public function viewAny(User $user): bool
     {
-        return $user->hasRole(['admin', 'super_admin', 'dispatcher']);
+        return $user->hasRole(['admin', 'super_admin']);
     }
 
     public function view(User $user, Delivery $delivery): bool
     {
-        // Admin puede ver cualquier delivery
-        if ($user->hasRole(['admin', 'super_admin', 'dispatcher'])) {
-            return true;
-        }
-
-        // Cliente puede ver sus propios deliveries
-        if ($delivery->user_id === $user->id) {
-            return true;
-        }
-
-        // Conductor puede ver deliveries asignados
-        if ($delivery->reservation && $delivery->reservation->conductor_id === $user->id) {
-            return true;
-        }
-
-        return false;
+        return $user->hasRole(['admin', 'super_admin'])
+            || $delivery->conductor_id === $user->id
+            || ($delivery->reservation && $delivery->reservation->user_id === $user->id);
     }
 
-    public function create(User $user): bool
+    public function accept(User $user, Delivery $delivery): bool
     {
-        return $user->hasRole(['cliente', 'admin', 'super_admin']) || 
-               $user->hasPermissionTo('crear_domicilios');
-    }
-
-    public function assignDriver(User $user, Delivery $delivery): bool
-    {
-        return $user->hasRole(['admin', 'super_admin', 'dispatcher']) &&
-               $delivery->reservation->isPendiente();
+        return $user->hasRole('conductor')
+            && $delivery->estado === 'pendiente'
+            && is_null($delivery->conductor_id);
     }
 
     public function start(User $user, Delivery $delivery): bool
     {
+        if ($user->hasRole(['admin', 'super_admin'])) {
+            return true;
+        }
+
         $asignado = $delivery->conductor_id === $user->id
             || ($delivery->reservation && $delivery->reservation->conductor_id === $user->id);
 
-        return $asignado && in_array($delivery->estado, ['asignada', 'pendiente']);
+        return $user->hasRole('conductor')
+            && $asignado
+            && in_array($delivery->estado, ['asignado', 'confirmado']);
     }
 
     public function complete(User $user, Delivery $delivery): bool
     {
+        if ($user->hasRole(['admin', 'super_admin'])) {
+            return true;
+        }
+
         $asignado = $delivery->conductor_id === $user->id
             || ($delivery->reservation && $delivery->reservation->conductor_id === $user->id);
 
-        return $asignado && in_array($delivery->estado, ['en_camino', 'en_progreso']);
+        return $user->hasRole('conductor')
+            && $asignado
+            && in_array($delivery->estado, ['en_camino']);
     }
-
 
     public function cancel(User $user, Delivery $delivery): bool
     {
@@ -70,7 +63,13 @@ class DeliveryPolicy
             return true;
         }
 
-        return $delivery->user_id === $user->id && 
-               $delivery->reservation->canBeCancelled();
+        return $user->hasRole('conductor')
+            && in_array($delivery->estado, ['pendiente', 'asignado', 'confirmado']);
+    }
+
+    public function viewStats(User $user): bool
+    {
+        return $user->hasRole(['admin', 'super_admin'])
+            || $user->hasPermissionTo('ver_reportes');
     }
 }

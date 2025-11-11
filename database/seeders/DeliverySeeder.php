@@ -30,28 +30,35 @@ class DeliverySeeder extends Seeder
                 'descripcion' => 'Entrega de casco adicional.',
                 'direccion_origen' => 'Sucursal Cabecera',
                 'direccion_destino' => 'Calle 45 #28-90, Bucaramanga',
-                'estado' => 'entregado',
+                'estado' => 'pendiente',
             ],
             [
                 'tipo' => 'vehiculo',
                 'descripcion' => 'Entrega de motocicleta al cliente.',
                 'direccion_origen' => 'Sucursal Cañaveral',
                 'direccion_destino' => 'Calle 105 #30-45, Floridablanca',
-                'estado' => 'en_camino',
+                'estado' => 'confirmado', // ✅ lista para iniciar
             ],
             [
                 'tipo' => 'paquete',
                 'descripcion' => 'Entrega de documento olvidado.',
                 'direccion_origen' => 'Sucursal Floridablanca',
                 'direccion_destino' => 'Av. La Rosita #22-15, Bucaramanga',
-                'estado' => 'asignada', // 👈 importante para pruebas start/complete
+                'estado' => 'asignado',
             ],
             [
                 'tipo' => 'vehiculo',
                 'descripcion' => 'Entrega del vehículo Honda Wave.',
                 'direccion_origen' => 'Sucursal Piedecuesta',
                 'direccion_destino' => 'Cra 27 #18-60, Girón',
-                'estado' => 'asignada',
+                'estado' => 'en_camino',
+            ],
+            [
+                'tipo' => 'paquete',
+                'descripcion' => 'Entrega de accesorios adicionales.',
+                'direccion_origen' => 'Sucursal Real de Minas',
+                'direccion_destino' => 'Carrera 29 #45-32, Bucaramanga',
+                'estado' => 'entregado',
             ],
         ];
 
@@ -65,17 +72,18 @@ class DeliverySeeder extends Seeder
                 array_merge($d, [
                     'vehiculo_id' => $vehiculo->id,
                     'user_id' => $cliente->id,
-                    'conductor_id' => $conductor->id, // ✅ asignar conductor real
+                    'conductor_id' => $conductor->id,
                     'lat_origen' => 7.1193,
                     'lon_origen' => -73.1227,
                     'lat_destino' => 7.0738,
                     'lon_destino' => -73.1051,
+                    'costo' => fake()->randomFloat(2, 15000, 70000),
                     'fecha_entrega_estimada' => now()->addHours(1),
                     'fecha_entrega_real' => null,
+                    'notas_entrega' => fake()->sentence(),
                 ])
             );
 
-            // También vincular a una reserva si existe
             if ($reservations->isNotEmpty()) {
                 $reservation = $reservations->random();
                 $reservation->update(['conductor_id' => $conductor->id]);
@@ -83,6 +91,6 @@ class DeliverySeeder extends Seeder
             }
         }
 
-        $this->command->info('✅ Entregas creadas con clientes, conductores y estados coherentes.');
+        $this->command->info('✅ Entregas creadas con estados pendientes, confirmadas, asignadas, en curso y completadas.');
     }
 }
