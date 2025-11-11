@@ -17,6 +17,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 class DeliveryController extends BaseApiController
 {
     use AuthorizesRequests;
+    
     public function __construct(
         protected DeliveryService $deliveryService
     ) {}
@@ -38,9 +39,7 @@ class DeliveryController extends BaseApiController
         }
 
         if ($status) {
-            $query->whereHas('reservation', function($q) use ($status) {
-                $q->where('estado', $status);
-            });
+            $query->where('estado', $status);
         }
 
         $deliveries = $query->orderByDesc('created_at')->paginate($perPage);
@@ -163,15 +162,31 @@ class DeliveryController extends BaseApiController
     {
         $user = $request->user();
 
+        // ✅ Verificar autorización primero
         $this->authorize('cancel', $delivery);
 
-        // 👑 Admin o SuperAdmin pueden cancelar en cualquier estado
+        // 🛡️ Admin o SuperAdmin: Pueden cancelar sin restricciones
         if ($user->hasRole(['admin', 'super_admin'])) {
+            $motivoCancelacion = $request->input('motivo', 'Cancelación administrativa');
+            
             $delivery->update([
                 'estado' => 'cancelado',
-                'notas_entrega' => 'Cancelado por administrador' .
-                    ($request->has('motivo') ? ': ' . $request->input('motivo') : ''),
+                'notas_entrega' => $motivoCancelacion,
             ]);
+
+            // Actualizar reserva asociada si existe
+            if ($delivery->reservation) {
+                $delivery->reservation->update([
+                    'estado' => \App\Enums\ReservationStatus::Cancelada,
+                    'motivo_cancelacion' => $motivoCancelacion,
+                    'cancelado_por' => $user->id,
+                ]);
+            }
+
+            // Liberar vehículo si aplica
+            if ($delivery->vehicle && $delivery->vehicle->isOcupado()) {
+                $delivery->vehicle->update(['estado' => 'disponible']);
+            }
 
             return $this->success(
                 new DeliveryResource($delivery->fresh()),
@@ -179,7 +194,7 @@ class DeliveryController extends BaseApiController
             );
         }
 
-        // 🚗 Conductor solo puede cancelar si no ha iniciado
+        // 🚗 Conductor: Delegar al servicio (validará estados permitidos)
         $result = $this->deliveryService->cancelDelivery(
             $delivery->id,
             $user->id,
@@ -188,7 +203,6 @@ class DeliveryController extends BaseApiController
 
         return $this->handleServiceResult($result, 'Domicilio cancelado exitosamente');
     }
- 
 
     /**
      * Tracking del domicilio
@@ -212,19 +226,17 @@ class DeliveryController extends BaseApiController
             ->with(['reservation.driver', 'reservation.vehicle', 'reservation.payments']);
 
         if ($status) {
-            $query->whereHas('reservation', function($q) use ($status) {
-                $q->where('estado', $status);
-            });
+            $query->where('estado', $status);
         }
 
         $deliveries = $query->orderByDesc('created_at')->get();
 
         return $this->success([
             'activos' => DeliveryResource::collection(
-                $deliveries->filter(fn($d) => in_array($d->reservation->estado->value, ['confirmada', 'activa']))
+                $deliveries->filter(fn($d) => in_array($d->estado, ['pendiente', 'asignado', 'confirmado', 'en_camino']))
             ),
             'historial' => DeliveryResource::collection(
-                $deliveries->filter(fn($d) => in_array($d->reservation->estado->value, ['completada', 'cancelada']))
+                $deliveries->filter(fn($d) => in_array($d->estado, ['entregado', 'cancelado']))
             ),
         ]);
     }
@@ -255,10 +267,13 @@ class DeliveryController extends BaseApiController
     {
         $driver = $request->user();
         
-        $deliveries = Delivery::whereHas('reservation', function($q) use ($driver) {
+        $deliveries = Delivery::where(function($q) use ($driver) {
             $q->where('conductor_id', $driver->id)
-              ->whereIn('estado', ['confirmada', 'activa']);
+              ->orWhereHas('reservation', function($query) use ($driver) {
+                  $query->where('conductor_id', $driver->id);
+              });
         })
+        ->whereIn('estado', ['asignado', 'confirmado', 'en_camino'])
         ->with(['user', 'reservation.vehicle'])
         ->orderByDesc('created_at')
         ->get();

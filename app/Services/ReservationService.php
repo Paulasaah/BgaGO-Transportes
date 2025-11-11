@@ -174,6 +174,11 @@ class ReservationService extends BaseService
 
     /**
      * Cancelar reserva
+     * 
+     * @param int $reservationId
+     * @param string|null $motivo
+     * @param int|null $canceladoPor
+     * @return array
      */
     public function cancelReservation(int $reservationId, ?string $motivo = null, ?int $canceladoPor = null): array
     {
@@ -181,22 +186,23 @@ class ReservationService extends BaseService
             $reservation = Reservation::findOrFail($reservationId);
             $user = auth()->user();
 
-            // 🧩 Fallback seguro: si no hay usuario autenticado, intenta obtener uno admin o super_admin
-            if (!$user) {
-                $user = \App\Models\User::whereHas('roles', fn($q) =>
-                    $q->whereIn('name', ['admin', 'super_admin'])
-                )->first();
+            // 🔐 Fallback seguro: si no hay usuario autenticado
+            if (!$user && $canceladoPor) {
+                $user = \App\Models\User::find($canceladoPor);
             }
 
-            // 👑 Admin o super_admin: cancelar sin restricciones
+            // 🛡️ ADMIN O SUPER_ADMIN: Pueden cancelar CUALQUIER reserva, sin restricciones de estado
             if ($user && $user->hasRole(['admin', 'super_admin'])) {
+                $motivoFinal = $motivo ?? 'Cancelación administrativa';
+                
                 $reservation->update([
                     'estado' => ReservationStatus::Cancelada,
-                    'motivo_cancelacion' => $motivo ?? 'Cancelación administrativa',
+                    'motivo_cancelacion' => $motivoFinal,
                     'cancelado_por' => $canceladoPor ?? $user->id,
                     'fecha_cancelacion' => now(),
                 ]);
 
+                // Liberar vehículo si está ocupado
                 if ($reservation->vehicle && $reservation->vehicle->isOcupado()) {
                     $reservation->vehicle->update(['estado' => 'disponible']);
                 }
@@ -204,10 +210,10 @@ class ReservationService extends BaseService
                 return $reservation->fresh();
             }
 
-            // 🚫 Usuarios normales
+            // 👤 USUARIOS NORMALES: Solo pueden cancelar si el estado lo permite
             if (!$reservation->canBeCancelled()) {
                 throw new Exception(
-                    "Esta reserva no puede ser cancelada en su estado actual ({$reservation->estado})."
+                    "Esta reserva no puede ser cancelada en su estado actual ({$reservation->estado->label()})."
                 );
             }
 
@@ -220,6 +226,7 @@ class ReservationService extends BaseService
                 'fecha_cancelacion' => now(),
             ]);
 
+            // Liberar vehículo si está ocupado
             if ($reservation->vehicle && $reservation->vehicle->isOcupado()) {
                 $reservation->vehicle->update(['estado' => 'disponible']);
             }

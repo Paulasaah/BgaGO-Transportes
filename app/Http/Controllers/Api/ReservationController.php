@@ -66,7 +66,7 @@ class ReservationController extends BaseApiController
         }
 
         $data = $request->validated();
-        $data['user_id'] = auth()->id(); // ✅ Corregido
+        $data['user_id'] = auth()->id();
 
         $result = $this->reservationService->createReservation($data);
 
@@ -142,14 +142,24 @@ class ReservationController extends BaseApiController
     {
         $user = auth()->user();
 
+        // ✅ Primero verificar autorización (Policy)
         $this->authorize('cancel', $reservation);
 
-        // 👑 Si es admin o superadmin, puede cancelar sin importar el estado
+        // 🛡️ Si es admin o superadmin, cancelar directamente sin validaciones
         if ($user->hasRole(['admin', 'super_admin'])) {
+            $motivoCancelacion = $request->input('motivo_cancelacion', 'Cancelación administrativa');
+            
             $reservation->update([
-                'estado' => 'cancelada',
-                'motivo_cancelacion' => $request->input('motivo_cancelacion'),
+                'estado' => \App\Enums\ReservationStatus::Cancelada,
+                'motivo_cancelacion' => $motivoCancelacion,
+                'cancelado_por' => $user->id,
+                'fecha_cancelacion' => now(),
             ]);
+
+            // Liberar vehículo si está ocupado
+            if ($reservation->vehicle && $reservation->vehicle->isOcupado()) {
+                $reservation->vehicle->update(['estado' => 'disponible']);
+            }
 
             return $this->success(
                 new ReservationResource($reservation->fresh()),
@@ -157,7 +167,7 @@ class ReservationController extends BaseApiController
             );
         }
 
-        // 🔒 Si no es admin, delegar la lógica al servicio (validará estado y permisos)
+        // 👤 Si no es admin, delegar al servicio (validará estado y permisos)
         $result = $this->reservationService->cancelReservation(
             $reservation->id,
             $request->input('motivo_cancelacion'),
