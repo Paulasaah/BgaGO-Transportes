@@ -10,16 +10,16 @@
                 <div>
                     <div class="text-sm text-zinc-600 dark:text-zinc-400">Total de Ingresos</div>
                     <div class="text-2xl font-bold text-zinc-900 dark:text-white">
-                        ${{ number_format($ingresos['total'] ?? 0) }}
+                        ${{ number_format($reporte['total'] ?? 0) }}
                     </div>
                 </div>
             </div>
             
-            @if(isset($ingresos['cambio_porcentual']) && $ingresos['cambio_porcentual'] > 0)
+            @if(isset($reporte['cambio_porcentual']) && $reporte['cambio_porcentual'] != 0)
                 <div class="flex items-center gap-2 text-sm">
-                    <flux:badge variant="success" size="sm">
+                    <flux:badge variant="{{ $reporte['cambio_porcentual'] > 0 ? 'success' : 'danger' }}" size="sm">
                         <flux:icon.arrow-trending-up class="size-3" />
-                        +{{ $ingresos['cambio_porcentual'] }}%
+                        {{ $reporte['cambio_porcentual'] > 0 ? '+' : '' }}{{ $reporte['cambio_porcentual'] }}%
                     </flux:badge>
                     <span class="text-zinc-600 dark:text-zinc-400">vs período anterior</span>
                 </div>
@@ -27,8 +27,8 @@
         </div>
 
         {{-- Distribución por Tipo --}}
-        @if(isset($ingresos['por_tipo']) && count($ingresos['por_tipo']) > 0)
-            @foreach($ingresos['por_tipo'] as $tipo)
+        @if(isset($reporte['por_tipo']) && count($reporte['por_tipo']) > 0)
+            @foreach($reporte['por_tipo'] as $tipo)
                 <div class="bg-white dark:bg-zinc-800 rounded-lg p-6 border border-zinc-200 dark:border-zinc-700">
                     <div class="flex items-center justify-between mb-4">
                         <div>
@@ -58,19 +58,28 @@
     </div>
 
     {{-- Gráfico de Ingresos por Día --}}
-    <div class="bg-white dark:bg-zinc-800 rounded-lg p-6 border border-zinc-200 dark:border-zinc-700">
-        <div class="mb-6">
-            <flux:heading size="lg">Evolución de Ingresos</flux:heading>
-            <flux:subheading>Ingresos diarios durante el período seleccionado</flux:subheading>
-        </div>
+    @if(isset($reporte['por_dia']) && count($reporte['por_dia']) > 0)
+        <div class="bg-white dark:bg-zinc-800 rounded-lg p-6 border border-zinc-200 dark:border-zinc-700">
+            <div class="mb-6">
+                <flux:heading size="lg">Evolución de Ingresos</flux:heading>
+                <flux:subheading>Ingresos diarios durante el período seleccionado</flux:subheading>
+            </div>
 
-        <div class="relative h-80">
-            <canvas id="revenueChart"></canvas>
+            <div class="relative h-80">
+                <canvas id="revenueChart"></canvas>
+            </div>
         </div>
-    </div>
+    @else
+        <div class="bg-white dark:bg-zinc-800 rounded-lg p-6 border border-zinc-200 dark:border-zinc-700">
+            <div class="text-center py-8">
+                <flux:icon.currency-dollar class="size-12 mx-auto text-zinc-400 mb-4" />
+                <p class="text-zinc-600 dark:text-zinc-400">No hay datos de ingresos para mostrar</p>
+            </div>
+        </div>
+    @endif
 
     {{-- Tabla Detallada --}}
-    @if(isset($ingresos['por_dia']) && count($ingresos['por_dia']) > 0)
+    @if(isset($reporte['por_dia']) && count($reporte['por_dia']) > 0)
         <div class="bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden">
             <div class="p-6 border-b border-zinc-200 dark:border-zinc-700">
                 <flux:heading size="lg">Detalle Diario</flux:heading>
@@ -92,7 +101,7 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                        @foreach($ingresos['por_dia'] as $dia)
+                        @foreach($reporte['por_dia'] as $dia)
                             <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-900 dark:text-white">
                                     {{ \Carbon\Carbon::parse($dia['fecha'])->format('d/m/Y') }}
@@ -101,7 +110,7 @@
                                     ${{ number_format($dia['monto']) }}
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-right text-zinc-600 dark:text-zinc-400">
-                                    {{ $ingresos['total'] > 0 ? round(($dia['monto'] / $ingresos['total']) * 100, 1) : 0 }}%
+                                    {{ $reporte['total'] > 0 ? round(($dia['monto'] / $reporte['total']) * 100, 1) : 0 }}%
                                 </td>
                             </tr>
                         @endforeach
@@ -112,7 +121,7 @@
                                 TOTAL
                             </td>
                             <td class="px-6 py-4 text-sm text-right text-zinc-900 dark:text-white">
-                                ${{ number_format($ingresos['total'] ?? 0) }}
+                                ${{ number_format($reporte['total'] ?? 0) }}
                             </td>
                             <td class="px-6 py-4 text-sm text-right text-zinc-900 dark:text-white">
                                 100%
@@ -130,39 +139,47 @@
 document.addEventListener('livewire:initialized', () => {
     const ctx = document.getElementById('revenueChart');
     if (ctx) {
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: @json($chartData),
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true,
-                        position: 'top',
-                    },
-                    tooltip: {
-                        mode: 'index',
-                        intersect: false,
-                        callbacks: {
-                            label: function(context) {
-                                return context.dataset.label + ': $' + context.parsed.y.toLocaleString();
+        // Datos pasados desde Livewire como propiedad pública
+        const chartData = @js($this->chartData);
+        
+        // Verificar que hay datos antes de crear el gráfico
+        if (chartData && chartData.labels && chartData.labels.length > 0) {
+            const chart = new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': 
+ + context.parsed.y.toLocaleString();
+                                }
                             }
                         }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            callback: function(value) {
-                                return '$' + value.toLocaleString();
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return '
+ + value.toLocaleString();
+                                }
                             }
                         }
                     }
                 }
-            }
-        });
+            });
+        }
     }
 });
 </script>
