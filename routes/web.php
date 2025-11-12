@@ -3,9 +3,12 @@
 use Illuminate\Support\Facades\Route;
 use Livewire\Volt\Volt;
 
-Route::get('/', function () {
-    return view('welcome');
-})->name('home');
+Route::view('/', 'landing.home')->name('home');
+
+// Secciones públicas
+Route::view('mapa', 'landing.mapa')->name('mapa');
+Route::view('servicios', 'landing.servicios')->name('servicios');
+Route::view('catalogo', 'landing.catalogo')->name('catalogo');
 
 Route::view('dashboard', 'dashboard')
     ->middleware(['auth', 'verified'])
@@ -17,6 +20,15 @@ Route::middleware(['auth', 'verified'])->prefix('admin')->name('admin.')->group(
     Route::view('vehicles', 'admin.vehicles.index')->name('vehicles.index');
     Route::view('reservations', 'admin.reservations.index')->name('reservations.index');
 });
+
+// Rutas de Usuario autenticado para Reservas y Pagos
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::view('reservar', 'usuario.reservar')->name('reservar');
+    Route::view('mis-reservas', 'usuario.mis-reservas')->name('mis-reservas');
+    Route::view('pago/{reserva}', 'usuario.pago')->name('pago');
+    Route::view('confirmacion-pago/{pago}', 'usuario.confirmacion')->name('confirmacion-pago');
+});
+
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
