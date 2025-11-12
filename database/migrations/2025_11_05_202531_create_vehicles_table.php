@@ -39,6 +39,7 @@ return new class extends Migration
             $table->softDeletes();
 
             // Índices
+            $table->index(['tipo', 'estado']);
             $table->index(['estado', 'sede_id']);
         });
     }

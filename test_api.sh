@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==========================================================
-# 🚀 Test Script API BgaGO - VERSIÓN 3.2 (Tolerante y Optimizado)
+# 🚀 Test Script API BgaGO - VERSIÓN 3.3 (Corregido)
 # ==========================================================
 set -u
 trap 'echo -e "\n❌ ${RED}Error inesperado en la línea $LINENO${RESET}"; exit 1' ERR
@@ -164,10 +164,23 @@ test_request "Verificar disponibilidad de vehículo" \
 test_request "Crear domicilio de paquete" \
 "curl -L -X POST $URL/api/deliveries/package \
 -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization: Bearer $CLIENTE_TOKEN' \
--d '{\"sede_id\":1,\"origen_direccion\":\"Carrera 33 #42-123, Bucaramanga\",\"origen_lat\":7.119349,\"origen_lon\":-73.122742,\
-\"destino_direccion\":\"Calle 56 #23-45, Floridablanca\",\"destino_lat\":7.065394,\"destino_lon\":-73.086609,\
-\"descripcion\":\"Documentos importantes\",\"peso_kg\":2,\"requiere_firma\":true,\
-\"contacto_nombre\":\"Juan Pérez\",\"contacto_telefono\":\"3001234567\"}'"
+-d '{
+  \"sede_id\": 1,
+  \"direccion_origen\": \"Calle 45 #27-10, Bucaramanga\",
+  \"lat_origen\": 7.119349,
+  \"lon_origen\": -73.122742,
+  \"direccion_destino\": \"Carrera 27 #34-20, Bucaramanga\",
+  \"lat_destino\": 7.125000,
+  \"lon_destino\": -73.120000,
+  \"nombre_remitente\": \"Juan Pérez\",
+  \"telefono_remitente\": \"+57 300 123 4567\",
+  \"nombre_destinatario\": \"María García\",
+  \"telefono_destinatario\": \"+57 301 987 6543\",
+  \"descripcion_contenido\": \"Documentos importantes\",
+  \"peso_estimado\": 2.5,
+  \"es_fragil\": false,
+  \"requiere_firma\": true
+}'"
 
 test_request "Ver mis domicilios" \
 "curl -L -X GET $URL/api/deliveries/me/list -H 'Accept: application/json' -H 'Authorization: Bearer $CLIENTE_TOKEN'"
@@ -201,7 +214,7 @@ else
   test_request "Completar entrega" \
   "curl -L -X POST $URL/api/deliveries/$DELIVERY_ID/complete \
   -H 'Accept: application/json' -H 'Content-Type: application/json' -H 'Authorization: Bearer $CONDUCTOR_TOKEN' \
-  -d '{\"firma_recibido\":\"Juan Pérez\",\"comentario\":\"Entrega exitosa\"}'"
+  -d '{\"notas\":\"Entrega exitosa sin novedad\"}'"
 
   test_request "Tracking de entrega" \
   "curl -L -X GET $URL/api/deliveries/$DELIVERY_ID/track -H 'Accept: application/json' -H 'Authorization: Bearer $CONDUCTOR_TOKEN'"
