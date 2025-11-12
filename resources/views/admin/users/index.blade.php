@@ -1,156 +1,214 @@
-{{-- resources/views/admin/users/index.blade.php --}}
-
 @php
-    use App\Services\MockDataService;
-    
-    $stats = MockDataService::getUserStats();
-    $users = MockDataService::getUsers();
-    
-    $tableColumns = [
-        ['label' => 'Usuario'],
-        ['label' => 'Contacto'],
-        ['label' => 'Estado'],
-        ['label' => 'Reservas'],
-        ['label' => 'Última Reserva'],
-        ['label' => 'Sede'],
-        ['label' => 'Acciones', 'class' => 'text-right'],
-    ];
+use App\Facades\Data;
+
+// Obtener stats agrupados por rol
+$allUsers = \App\Models\User::with('roles')->get();
+$stats = [
+    'total' => $allUsers->count(),
+    'clientes' => $allUsers->filter(fn($u) => $u->hasRole('cliente'))->count(),
+    'conductores' => $allUsers->filter(fn($u) => $u->hasRole('conductor'))->count(),
+    'admins' => $allUsers->filter(fn($u) => $u->hasRole('admin'))->count(),
+];
+
+// Obtener usuarios con roles y paginación
+$users = \App\Models\User::with('roles')
+    ->when(request('search'), function($query, $search) {
+        $query->where('name', 'like', "%{$search}%")
+              ->orWhere('email', 'like', "%{$search}%");
+    })
+    ->when(request('role'), function($query, $role) {
+        $query->role($role);
+    })
+    ->orderBy('created_at', 'desc')
+    ->paginate(15);
 @endphp
 
 <x-layouts.app>
     <div class="flex h-full w-full flex-1 flex-col gap-6 p-6 lg:p-8">
         
         {{-- Header --}}
-        <x-page-header
-            title="Gestión de Usuarios"
-            subtitle="Administra los usuarios registrados en BgaGo"
-            button-text="Nuevo Usuario"
-        />
+        <div class="flex items-center justify-between">
+            <div>
+                <flux:heading size="xl">Gestión de Usuarios</flux:heading>
+                <flux:subheading>Administra los usuarios registrados en BgaGo</flux:subheading>
+            </div>
+        </div>
 
-        {{-- Estadísticas --}}
-        <x-dashboard.stats-grid>
-            <x-stats.card
-                title="Total Usuarios"
-                :value="$stats['total']"
-                icon="users"
-                color="blue"
+        {{-- Tarjetas de estadísticas --}}
+        <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <x-stats.card 
+                title="Total Usuarios" 
+                :value="$stats['total']" 
+                icon="users" 
+                color="blue" 
             />
-
-            <x-stats.card
-                title="Activos"
-                :value="$stats['activos']"
-                icon="check-circle"
-                color="green"
+            <x-stats.card 
+                title="Clientes" 
+                :value="$stats['clientes']" 
+                icon="user-group" 
+                color="green" 
             />
-
-            <x-stats.card
-                title="Nuevos (Mes)"
-                :value="$stats['nuevos_mes']"
-                icon="user-plus"
-                color="purple"
+            <x-stats.card 
+                title="Conductores" 
+                :value="$stats['conductores']" 
+                icon="user-circle" 
+                color="orange" 
             />
-
-            <x-stats.card
-                title="Inactivos"
-                :value="$stats['inactivos']"
-                icon="x-circle"
-                color="red"
+            <x-stats.card 
+                title="Administradores" 
+                :value="$stats['admins']" 
+                icon="shield-check" 
+                color="purple" 
             />
-        </x-dashboard.stats-grid>
+        </div>
 
-        {{-- Tabla --}}
-        <x-table.container>
-            <x-slot:filters>
-                <x-filters.bar search-placeholder="Buscar por nombre o email...">
-                    <flux:select placeholder="Estado" class="min-w-[140px]">
-                        <option value="">Todos</option>
-                        <option value="active">Activos</option>
-                        <option value="inactive">Inactivos</option>
-                    </flux:select>
-
-                    <flux:select placeholder="Sede" class="min-w-[140px]">
-                        <option value="">Todas</option>
-                        <option value="Norte">Norte</option>
-                        <option value="Sur">Sur</option>
-                        <option value="Centro">Centro</option>
-                        <option value="Oriente">Oriente</option>
-                    </flux:select>
-
-                    <flux:button icon="funnel" variant="ghost">
-                        Filtros
-                    </flux:button>
-                </x-filters.bar>
-            </x-slot:filters>
-
-            <table class="w-full">
-                <x-table.header :columns="$tableColumns" />
-                
-                <tbody class="divide-y divide-zinc-200 dark:divide-zinc-800">
-                    @foreach($users as $user)
-                    <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
-                        <td class="px-4 py-4">
-                            <div class="flex items-center gap-3">
-                                <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                                    <span class="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                                        {{ strtoupper(substr($user['name'], 0, 2)) }}
-                                    </span>
-                                </div>
-                                <div>
-                                    <div class="font-semibold text-zinc-900 dark:text-zinc-100">
-                                        {{ $user['name'] }}
-                                    </div>
-                                    <div class="text-sm text-zinc-500 dark:text-zinc-400">
-                                        Registro: {{ date('d/m/Y', strtotime($user['registered_at'])) }}
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-4 py-4">
-                            <div class="text-sm">
-                                <div class="text-zinc-900 dark:text-zinc-100">{{ $user['email'] }}</div>
-                                <div class="text-zinc-500 dark:text-zinc-400">{{ $user['phone'] }}</div>
-                            </div>
-                        </td>
-                        <td class="px-4 py-4">
-                            <x-badges.status 
-                                :status="$user['status']"
-                                :label="MockDataService::getStatusLabel($user['status'])"
-                            />
-                        </td>
-                        <td class="px-4 py-4">
-                            <div class="flex items-center gap-2">
-                                <span class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                                    {{ $user['reservas_count'] }}
-                                </span>
-                                <span class="text-sm text-zinc-500 dark:text-zinc-400">reservas</span>
-                            </div>
-                        </td>
-                        <td class="px-4 py-4">
-                            <div class="text-sm text-zinc-600 dark:text-zinc-400">
-                                {{ date('d/m/Y', strtotime($user['ultima_reserva'])) }}
-                            </div>
-                        </td>
-                        <td class="px-4 py-4">
-                            <span class="text-sm text-zinc-600 dark:text-zinc-400">
-                                {{ $user['sede'] }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-4">
-                            <x-table.actions />
-                        </td>
-                    </tr>
-                    @endforeach
-                </tbody>
-            </table>
-
-            <x-slot:pagination>
-                <x-table.pagination 
-                    :current-count="count($users)" 
-                    :total="$stats['total']"
-                    label="usuarios"
+        {{-- Filtros --}}
+        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-4">
+            <form method="GET" class="flex flex-wrap gap-3">
+                <flux:input 
+                    name="search" 
+                    placeholder="Buscar por nombre o email..."
+                    value="{{ request('search') }}"
+                    class="flex-1 min-w-[200px]"
                 />
-            </x-slot:pagination>
-        </x-table.container>
+                
+                <flux:select name="role" placeholder="Filtrar por rol" class="min-w-[140px]">
+                    <option value="">Todos los roles</option>
+                    <option value="cliente" {{ request('role') === 'cliente' ? 'selected' : '' }}>Cliente</option>
+                    <option value="conductor" {{ request('role') === 'conductor' ? 'selected' : '' }}>Conductor</option>
+                    <option value="admin" {{ request('role') === 'admin' ? 'selected' : '' }}>Admin</option>
+                </flux:select>
+
+                <flux:button type="submit" icon="magnifying-glass">
+                    Buscar
+                </flux:button>
+                
+                @if(request()->hasAny(['search', 'role']))
+                    <flux:button href="{{ url()->current() }}" variant="ghost">
+                        Limpiar
+                    </flux:button>
+                @endif
+            </form>
+        </div>
+
+        {{-- Tabla de usuarios --}}
+        <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 overflow-hidden">
+            @if($users->isEmpty())
+                <div class="text-center py-12 text-zinc-500 dark:text-zinc-400">
+                    <flux:icon.users class="size-12 mx-auto mb-3 opacity-50" />
+                    <p class="text-lg font-medium">No hay usuarios registrados</p>
+                    <p class="text-sm mt-2">Comienza agregando un nuevo usuario</p>
+                </div>
+            @else
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800">
+                        <thead class="bg-zinc-50 dark:bg-zinc-800/50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    Usuario
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    Correo
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    Rol
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    Registro
+                                </th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                                    Acciones
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white dark:bg-zinc-900 divide-y divide-zinc-200 dark:divide-zinc-800">
+                            @foreach($users as $user)
+                            <tr class="hover:bg-zinc-50 dark:hover:bg-zinc-800/30 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-10 w-10">
+                                            <div class="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                                                <span class="text-white font-semibold text-sm">
+                                                    {{ strtoupper(substr($user->name, 0, 2)) }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div class="ml-4">
+                                            <div class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                                                {{ $user->name }}
+                                            </div>
+                                            <div class="text-sm text-zinc-500 dark:text-zinc-400">
+                                                ID: {{ $user->id }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm text-zinc-900 dark:text-zinc-100">{{ $user->email }}</div>
+                                    @if($user->phone)
+                                        <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ $user->phone }}</div>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    @if($user->roles->isNotEmpty())
+                                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium
+                                            @if($user->hasRole('admin'))
+                                                bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400
+                                            @elseif($user->hasRole('conductor'))
+                                                bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400
+                                            @else
+                                                bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400
+                                            @endif
+                                        ">
+                                            {{ ucfirst($user->roles->first()->name) }}
+                                        </span>
+                                    @else
+                                        <span class="text-zinc-400 dark:text-zinc-500 text-xs italic">
+                                            Sin rol
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-zinc-500 dark:text-zinc-400">
+                                    {{ $user->created_at->format('d/m/Y') }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <flux:button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            icon="eye"
+                                            title="Ver detalles"
+                                            class="text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400"
+                                        />
+                                        <flux:button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            icon="pencil"
+                                            title="Editar"
+                                            class="text-zinc-600 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-400"
+                                        />
+                                        <flux:button 
+                                            size="sm" 
+                                            variant="ghost" 
+                                            icon="trash"
+                                            title="Eliminar"
+                                            onclick="return confirm('¿Estás seguro de eliminar este usuario?')"
+                                            class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+                                        />
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                {{-- Paginación --}}
+                <div class="px-6 py-4 bg-zinc-50 dark:bg-zinc-800/50 border-t border-zinc-200 dark:border-zinc-800">
+                    {{ $users->links() }}
+                </div>
+            @endif
+        </div>
 
     </div>
 </x-layouts.app>

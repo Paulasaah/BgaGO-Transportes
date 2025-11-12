@@ -22,3 +22,7 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+
+# Mosquitto MQTT data
+iot/mosquitto/data/
+iot/mosquitto/log/

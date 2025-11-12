@@ -1,0 +1,270 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Requests\Reservation\StoreReservationRequest;
+use App\Http\Requests\Reservation\CancelReservationRequest;
+use App\Http\Requests\Reservation\RateReservationRequest;
+use App\Http\Resources\ReservationResource;
+use App\Models\Reservation;
+use App\Services\ReservationService;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
+class ReservationController extends BaseApiController
+{
+    use AuthorizesRequests;
+
+    public function __construct(
+        protected ReservationService $reservationService
+    ) {}
+
+    /**
+     * Listar todas las reservas (admin)
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $this->authorize('viewAny', Reservation::class);
+
+        $perPage = $request->input('per_page', 15);
+        $status = $request->input('status');
+        $type   = $request->input('type');
+
+        $query = Reservation::with(['user', 'vehicle', 'driver', 'branch', 'delivery']);
+
+        // Filtros opcionales
+        if ($status) {
+            $query->where('estado', $status);
+        }
+
+        if ($type) {
+            $query->where('tipo', $type);
+        }
+
+        $query->orderByDesc('created_at');
+        $reservations = $query->paginate($perPage);
+
+        return $this->success([
+            'reservations' => ReservationResource::collection($reservations),
+            'pagination' => [
+                'total'         => $reservations->total(),
+                'per_page'      => $reservations->perPage(),
+                'current_page'  => $reservations->currentPage(),
+                'last_page'     => $reservations->lastPage(),
+            ],
+        ]);
+    }
+
+    /**
+     * Crear nueva reserva
+     */
+    public function store(StoreReservationRequest $request): JsonResponse
+    {
+        if (!auth()->check()) {
+            return $this->error('Usuario no autenticado', 401);
+        }
+
+        $data = $request->validated();
+        $data['user_id'] = auth()->id();
+
+        $result = $this->reservationService->createReservation($data);
+
+        if (!$result['success']) {
+            return $this->error($result['message']);
+        }
+
+        return $this->created(
+            new ReservationResource($result['data']),
+            'Reserva creada exitosamente'
+        );
+    }
+
+    /**
+     * Ver detalle de reserva
+     */
+    public function show(Reservation $reservation): JsonResponse
+    {
+        $this->authorize('view', $reservation);
+
+        $reservation->load([
+            'user',
+            'vehicle.branch',
+            'driver.driverProfile',
+            'branch',
+            'delivery',
+            'payments',
+        ]);
+
+        return $this->success(new ReservationResource($reservation));
+    }
+
+    /**
+     * Confirmar reserva (después del pago)
+     */
+    public function confirm(Reservation $reservation): JsonResponse
+    {
+        $this->authorize('confirm', $reservation);
+
+        $result = $this->reservationService->confirmReservation($reservation->id);
+
+        return $this->handleServiceResult($result, 'Reserva confirmada exitosamente');
+    }
+
+    /**
+     * Iniciar reserva
+     */
+    public function start(Reservation $reservation): JsonResponse
+    {
+        $this->authorize('start', $reservation);
+
+        $result = $this->reservationService->startReservation($reservation->id);
+
+        return $this->handleServiceResult($result, 'Reserva iniciada exitosamente');
+    }
+
+    /**
+     * Completar reserva
+     */
+    public function complete(Reservation $reservation): JsonResponse
+    {
+        $this->authorize('complete', $reservation);
+
+        $result = $this->reservationService->completeReservation($reservation->id);
+
+        return $this->handleServiceResult($result, 'Reserva completada exitosamente');
+    }
+
+    /**
+     * Cancelar reserva
+     */
+    public function cancel(CancelReservationRequest $request, Reservation $reservation): JsonResponse
+    {
+        \Log::info('🔴 INICIO cancel() - Antes de authorize', [
+            'reservation_id' => $reservation->id,
+            'user_id' => auth()->id(),
+        ]);
+        
+        $user = auth()->user();
+        
+        \Log::info('🔴 Usuario obtenido', [
+            'user' => $user?->email,
+            'roles' => $user?->roles->pluck('name')->toArray(),
+        ]);
+
+        // ✅ Primero verificar autorización (Policy)
+        $this->authorize('cancel', $reservation);
+        
+        \Log::info('🔴 DESPUÉS de authorize - pasó la validación');
+        
+        $user = auth()->user();
+
+        // ✅ Primero verificar autorización (Policy)
+        $this->authorize('cancel', $reservation);
+
+        // 🛡️ DEBUG: Log para verificar roles
+        \Log::info('Cancelar reserva - User roles', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'roles' => $user->roles->pluck('name')->toArray(),
+            'has_admin' => $user->hasRole('admin'),
+            'has_super_admin' => $user->hasRole('super_admin'),
+            'has_admin_array' => $user->hasRole(['admin', 'super_admin']),
+            'reservation_id' => $reservation->id,
+            'reservation_estado' => $reservation->estado->value
+        ]);
+
+        // 🛡️ Si es admin o superadmin, cancelar directamente sin validaciones
+        if ($user->hasRole('admin') || $user->hasRole('super_admin')) {
+            \Log::info('Admin cancelando reserva directamente', ['reservation_id' => $reservation->id]);
+            
+            $motivoCancelacion = $request->input('motivo_cancelacion', 'Cancelación administrativa');
+            
+            $reservation->update([
+                'estado' => \App\Enums\ReservationStatus::Cancelada,
+                'motivo_cancelacion' => $motivoCancelacion,
+                'cancelado_por' => $user->id,
+                'fecha_cancelacion' => now(),
+            ]);
+
+            // Liberar vehículo si está ocupado
+            if ($reservation->vehicle && $reservation->vehicle->isOcupado()) {
+                $reservation->vehicle->update(['estado' => 'disponible']);
+            }
+
+            return $this->success(
+                new ReservationResource($reservation->fresh()),
+                'Reserva cancelada por administrador.'
+            );
+        }
+
+        \Log::info('Usuario normal - delegando a servicio', ['user_id' => $user->id]);
+
+        // 👤 Si no es admin, delegar al servicio (validará estado y permisos)
+        $result = $this->reservationService->cancelReservation(
+            $reservation->id,
+            $request->input('motivo_cancelacion'),
+            $user->id
+        );
+
+        return $this->handleServiceResult($result, 'Reserva cancelada exitosamente');
+    }
+
+    /**
+     * Calificar reserva
+     */
+    public function rate(RateReservationRequest $request, Reservation $reservation): JsonResponse
+    {
+        $this->authorize('rate', $reservation);
+
+        $reservation->update([
+            'calificacion_cliente' => $request->calificacion,
+            'comentario_cliente'   => $request->comentario,
+        ]);
+
+        return $this->success(
+            new ReservationResource($reservation->fresh()),
+            'Calificación registrada exitosamente'
+        );
+    }
+
+    /**
+     * Obtener reservas del usuario autenticado
+     */
+    public function myReservations(Request $request): JsonResponse
+    {
+        $user   = $request->user();
+        $status = $request->input('status');
+        $type   = $request->input('type', 'reserva');
+
+        $query = Reservation::where('user_id', $user->id)
+            ->where('tipo', $type)
+            ->with(['vehicle', 'driver', 'branch', 'delivery', 'payments']);
+
+        if ($status) {
+            $query->where('estado', $status);
+        }
+
+        $reservations = $query->orderByDesc('created_at')->get();
+
+        return $this->success([
+            'activas' => ReservationResource::collection(
+                $reservations->whereIn('estado.value', ['confirmada', 'activa'])
+            ),
+            'historial' => ReservationResource::collection(
+                $reservations->whereIn('estado.value', ['completada', 'cancelada'])
+            ),
+        ]);
+    }
+
+    /**
+     * Estadísticas del usuario autenticado
+     */
+    public function myStats(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $result = $this->reservationService->getUserStats($user->id);
+
+        return $this->handleServiceResult($result);
+    }
+}
