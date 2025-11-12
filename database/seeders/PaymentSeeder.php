@@ -6,6 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\User;
+use Carbon\Carbon;
 
 class PaymentSeeder extends Seeder
 {
@@ -19,30 +20,52 @@ class PaymentSeeder extends Seeder
             return;
         }
 
-        foreach ($reservations as $index => $reservation) {
-            // Alternar entre pagos aprobados y pendientes
-            $estado = ($index === 0) ? 'pendiente' : (($index % 2 === 0) ? 'pendiente' : 'aprobado');
+        $metodos = ['efectivo', 'tarjeta', 'transferencia'];
+        $estados = ['pendiente', 'aprobado', 'rechazado', 'reembolsado'];
 
-            Payment::updateOrCreate(
-                ['reserva_id' => $reservation->id],
-                [
-                    'codigo_transaccion' => 'TX-' . strtoupper(uniqid()),
-                    'user_id' => $users->random()->id,
-                    'metodo_pago' => 'tarjeta',
-                    'monto' => $reservation->monto_final ?? 0,
-                    'estado' => $estado,
-                    'referencia_externa' => $estado === 'aprobado'
-                        ? 'STRIPE-' . rand(10000, 99999)
-                        : null,
-                    'datos_transaccion' => json_encode([
-                        'gateway' => 'Stripe',
-                        'currency' => 'COP',
-                    ]),
-                    'fecha_aprobacion' => $estado === 'aprobado' ? now()->subDays(rand(1, 10)) : null,
-                ]
-            );
+        $count = 0;
+
+        foreach ($reservations as $reservation) {
+            $estado = match (rand(1, 10)) {
+                1, 2 => 'pendiente',      // 20%
+                3, 4 => 'rechazado',      // 20%
+                5 => 'reembolsado',       // 10%
+                default => 'aprobado',    // 50%
+            };
+
+            $metodo = $metodos[array_rand($metodos)];
+            $montoBase = $reservation->monto_final ?? rand(15000, 70000);
+
+            $paymentData = [
+                'codigo_transaccion' => 'TX-' . strtoupper(bin2hex(random_bytes(4))),
+                'user_id' => $users->random()->id,
+                'reserva_id' => $reservation->id,
+                'metodo_pago' => $metodo,
+                'monto' => $montoBase,
+                'estado' => $estado,
+                'referencia_externa' => $estado === 'aprobado'
+                    ? strtoupper($metodo) . '-' . rand(10000, 99999)
+                    : null,
+                'datos_transaccion' => json_encode([
+                    'gateway' => match ($metodo) {
+                        'tarjeta' => 'Stripe',
+                        'paypal' => 'PayPal',
+                        default => 'PayU',
+                    },
+                    'currency' => 'COP',
+                    'device' => fake()->randomElement(['mobile', 'desktop']),
+                ]),
+                'fecha_aprobacion' => $estado === 'aprobado'
+                    ? Carbon::now()->subDays(rand(1, 90))->setTime(rand(6, 22), rand(0, 59))
+                    : null,
+                'created_at' => $reservation->created_at ?? now()->subDays(rand(10, 90)),
+                'updated_at' => now(),
+            ];
+
+            Payment::updateOrCreate(['reserva_id' => $reservation->id], $paymentData);
+            $count++;
         }
 
-        $this->command->info('✅ Pagos creados o actualizados correctamente (pendientes y aprobados).');
+        $this->command->info("✅ Pagos generados: {$count} (con métodos y estados variados).");
     }
 }

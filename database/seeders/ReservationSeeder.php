@@ -16,93 +16,89 @@ class ReservationSeeder extends Seeder
     public function run(): void
     {
         $branches = Branch::all();
-        $vehicles = Vehicle::take(3)->get();
-        $users = User::take(3)->get();
+        $vehicles = Vehicle::all();
+        $clientes = User::role('cliente')->pluck('id')->toArray();
+        $conductores = User::role('conductor')->pluck('id')->toArray();
 
-        if ($branches->isEmpty() || $vehicles->isEmpty() || $users->isEmpty()) {
-            $this->command->warn('⚠️ No hay suficientes datos en branches, vehicles o users para crear reservas.');
+        if ($branches->isEmpty() || $vehicles->isEmpty() || empty($clientes) || empty($conductores)) {
+            $this->command->warn('⚠️ No hay suficientes datos en Branch, Vehicle o User para crear reservas.');
             return;
         }
 
-        $reservations = [
-            [
-                'codigo' => 'RES-' . now()->format('Y') . '-001',
-                'user_id' => $users[0]->id,
-                'vehiculo_id' => $vehicles[0]->id,
-                'conductor_id' => $users[1]->id ?? null,
-                'sede_id' => $branches[0]->id,
-                'tipo' => ReservationType::Domicilio,
-                'estado' => ReservationStatus::Activa,
-                'origen_direccion' => 'Carrera 19 #35-10, Centro',
-                'origen_lat' => 7.125420,
-                'origen_lng' => -73.119800,
-                'destino_direccion' => 'Calle 48 #29-20, Cañaveral',
-                'destino_lat' => 7.065200,
-                'destino_lng' => -73.099200,
-                'fecha_inicio' => Carbon::now()->subMinutes(15),
-                'fecha_fin' => Carbon::now()->addMinutes(15),
-                'monto' => 15000,
-                'descuento' => 0,
-                'monto_final' => 15000,
-                'distancia_km' => 3,
-                'duracion_minutos' => 30,
-                'notas_cliente' => 'Entregar paquete pequeño en recepción.',
-            ],
-            [
-                'codigo' => 'RES-' . now()->format('Y') . '-002',
-                'user_id' => $users[1]->id,
-                'vehiculo_id' => $vehicles[1]->id,
-                'conductor_id' => $users[2]->id ?? null,
-                'sede_id' => $branches[1]->id ?? $branches->first()->id,
-                'tipo' => ReservationType::Domicilio,
-                'estado' => ReservationStatus::Confirmada,
-                'origen_direccion' => 'Carrera 36 #48-15, Cabecera',
-                'origen_lat' => 7.119200,
-                'origen_lng' => -73.109700,
-                'destino_direccion' => 'Calle 7 #8-30, Floridablanca',
-                'destino_lat' => 7.061200,
-                'destino_lng' => -73.090100,
-                'fecha_inicio' => Carbon::now()->addMinutes(10),
-                'fecha_fin' => Carbon::now()->addMinutes(40),
-                'monto' => 22000,
-                'descuento' => 2000,
-                'monto_final' => 20000,
-                'distancia_km' => 6,
-                'duracion_minutos' => 30,
-                'notas_cliente' => 'Entrega de alimentos, manejar con cuidado.',
-            ],
-            [
-                'codigo' => 'RES-' . now()->format('Y') . '-003',
-                'user_id' => $users[2]->id,
-                'vehiculo_id' => $vehicles[2]->id,
-                'conductor_id' => null,
-                'sede_id' => $branches[2]->id ?? $branches->first()->id,
-                'tipo' => ReservationType::Reserva,
-                'estado' => ReservationStatus::Pendiente,
-                'origen_direccion' => 'Centro Comercial Cacique',
-                'origen_lat' => 7.094300,
-                'origen_lng' => -73.105900,
-                'destino_direccion' => 'Parque San Pío',
-                'destino_lat' => 7.116800,
-                'destino_lng' => -73.107500,
-                'fecha_inicio' => Carbon::now()->addHour(),
-                'fecha_fin' => Carbon::now()->addHours(2),
-                'monto' => 10000,
-                'descuento' => 0,
-                'monto_final' => 10000,
-                'distancia_km' => 2,
-                'duracion_minutos' => 60,
-                'notas_cliente' => 'Esperar en la entrada principal del centro comercial.',
-            ],
-        ];
+        $reservations = [];
 
-        foreach ($reservations as $data) {
-            Reservation::updateOrCreate(
-                ['codigo' => $data['codigo']],
-                $data
-            );
+        // 🔹 Generar 120 reservas realistas distribuidas en los últimos 6 meses
+        for ($i = 1; $i <= 120; $i++) {
+            $vehiculo = $vehicles->random();
+            $clienteId = $clientes[array_rand($clientes)];
+            $conductorId = $conductores[array_rand($conductores)];
+            $sede = $branches->random();
+
+            // Fecha aleatoria (últimos 6 meses)
+            $fechaInicio = Carbon::now()->subDays(rand(0, 180))->addHours(rand(6, 22));
+            $duracion = rand(15, 180); // minutos
+            $fechaFin = (clone $fechaInicio)->addMinutes($duracion);
+
+            // Tipo y estado aleatorio
+            $tipo = rand(0, 1) ? ReservationType::Reserva : ReservationType::Domicilio;
+            $estados = [
+                ReservationStatus::Pendiente,
+                ReservationStatus::Activa,
+                ReservationStatus::Confirmada,
+                ReservationStatus::Completada,
+                ReservationStatus::Cancelada,
+            ];
+            $estado = $estados[array_rand($estados)];
+
+            // Cálculos
+            $distanciaKm = rand(2, 15);
+            $monto = $distanciaKm * rand(2500, 3500);
+            $descuento = rand(0, 3) ? 0 : rand(1000, 3000);
+            $montoFinal = $monto - $descuento;
+
+            // Direcciones simuladas por sede
+            $direcciones = [
+                'Centro' => 'Carrera 19 #35-10, Centro',
+                'Cabecera' => 'Calle 36 #48-15, Cabecera',
+                'Floridablanca' => 'Carrera 7 #8-30, Floridablanca',
+                'Girón' => 'Carrera 23 #20-15, Girón',
+            ];
+            $origen = $direcciones[array_rand($direcciones)];
+            $destino = $direcciones[array_rand($direcciones)];
+
+            $reservations[] = [
+                'codigo' => 'RES-' . now()->format('Y') . '-' . str_pad($i, 3, '0', STR_PAD_LEFT),
+                'user_id' => $clienteId,
+                'vehiculo_id' => $vehiculo->id,
+                'conductor_id' => $conductorId,
+                'sede_id' => $sede->id,
+                'tipo' => $tipo,
+                'estado' => $estado,
+                'origen_direccion' => $origen,
+                'origen_lat' => 7.12 + mt_rand(-100, 100) / 1000,
+                'origen_lng' => -73.12 + mt_rand(-100, 100) / 1000,
+                'destino_direccion' => $destino,
+                'destino_lat' => 7.10 + mt_rand(-100, 100) / 1000,
+                'destino_lng' => -73.10 + mt_rand(-100, 100) / 1000,
+                'fecha_inicio' => $fechaInicio,
+                'fecha_fin' => $fechaFin,
+                'monto' => $monto,
+                'descuento' => $descuento,
+                'monto_final' => $montoFinal,
+                'distancia_km' => $distanciaKm,
+                'duracion_minutos' => $duracion,
+                'notas_cliente' => $tipo === ReservationType::Domicilio
+                    ? 'Entrega de paquete o envío particular.'
+                    : 'Reserva estándar de vehículo para traslado urbano.',
+                'created_at' => $fechaInicio,
+                'updated_at' => $fechaFin,
+            ];
         }
 
-        $this->command->info('✅ Reservas creadas o actualizadas correctamente sin duplicados.');
+        foreach ($reservations as $data) {
+            Reservation::updateOrCreate(['codigo' => $data['codigo']], $data);
+        }
+
+        $this->command->info('✅ 120 reservas creadas con variedad de fechas, estados y tipos.');
     }
 }
