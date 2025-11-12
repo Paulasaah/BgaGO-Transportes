@@ -2,19 +2,17 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Models\Driver;
 use App\Models\Vehicle;
 use App\Models\Reservation;
-use App\Models\Sede;
+use App\Models\Delivery;
+use App\Models\User;
+use App\Models\Branch;
+use App\Enums\ReservationStatus;
+use App\Enums\VehicleStatus;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
+use Carbon\Carbon;
 
-/**
- * Servicio de datos con base de datos real
- * 
- * IMPORTANTE: Este archivo está preparado para cuando tengas tus modelos y migraciones.
- * Los métodos tienen la misma firma que MockDataService, solo cambia la implementación.
- */
 class DataService
 {
     // ==========================================
@@ -23,141 +21,125 @@ class DataService
     
     public static function getDashboardStats(): array
     {
-        return [
-            'reservas_activas' => [
-                'value' => Reservation::where('status', 'active')->count(),
-                'change' => '+' . self::calculateChange('reservas', 'day'),
-                'change_text' => 'desde ayer',
-                'change_type' => 'positive'
-            ],
-            'domicilios_hoy' => [
-                'value' => Reservation::where('tipo', 'domicilio')
-                    ->whereDate('fecha_inicio', today())
-                    ->count(),
-                'change' => '+' . self::calculateChange('domicilios', 'day'),
-                'change_text' => 'en progreso',
-                'change_type' => 'positive'
-            ],
-            'ingresos_mes' => [
-                'value' => '$' . number_format(
-                    Reservation::whereMonth('created_at', now()->month)
-                        ->sum('monto') / 1000000,
-                    1
-                ) . 'M',
-                'change' => '+' . self::calculateChange('ingresos', 'month') . '%',
-                'change_text' => 'vs mes anterior',
-                'change_type' => 'positive'
-            ],
-            'en_mantenimiento' => [
-                'value' => Vehicle::where('status', 'maintenance')->count(),
-                'change' => Vehicle::where('status', 'maintenance')
-                    ->where('requiere_atencion', true)
-                    ->count(),
-                'change_text' => 'requieren atención',
-                'change_type' => 'neutral'
-            ]
-        ];
+        \Log::info('[DataService] Ejecutando getDashboardStats()');
+        try {
+            return Cache::remember('dashboard_stats', 300, function () {
+                // Reservas activas
+                $reservasActivas = Reservation::whereIn('estado', [
+                    ReservationStatus::Pendiente,
+                    ReservationStatus::Confirmada,
+                    ReservationStatus::Activa
+                ])->count();
+
+                $reservasAyer = Reservation::whereIn('estado', [
+                    ReservationStatus::Pendiente,
+                    ReservationStatus::Confirmada,
+                    ReservationStatus::Activa
+                ])->whereDate('created_at', today()->subDay())->count();
+
+                // Domicilios hoy
+                $domiciliosHoy = Delivery::whereDate('created_at', today())->count();
+                $domiciliosEnProgreso = Delivery::whereIn('estado', ['pendiente', 'en_camino'])->count();
+
+                // Ingresos del mes
+                $ingresosMes = Reservation::whereMonth('created_at', now()->month)
+                    ->where('estado', ReservationStatus::Completada)
+                    ->sum('monto_final');
+
+                $ingresosMesAnterior = Reservation::whereMonth('created_at', now()->subMonth()->month)
+                    ->where('estado', ReservationStatus::Completada)
+                    ->sum('monto_final');
+
+                // Vehículos en mantenimiento
+                $vehiculosMantenimiento = Vehicle::where('estado', VehicleStatus::Mantenimiento)->count();
+                $vehiculosAtencion = Vehicle::where('estado', VehicleStatus::Mantenimiento)
+                    ->whereHas('maintenances', fn($q) => $q->where('estado', 'pendiente'))
+                    ->count();
+
+                return [
+                    'reservas_activas' => [
+                        'value' => $reservasActivas,
+                        'change' => $reservasActivas - $reservasAyer >= 0 
+                            ? '+' . ($reservasActivas - $reservasAyer) 
+                            : ($reservasActivas - $reservasAyer),
+                        'change_text' => 'desde ayer',
+                        'change_type' => $reservasActivas >= $reservasAyer ? 'positive' : 'negative'
+                    ],
+                    'domicilios_hoy' => [
+                        'value' => $domiciliosHoy,
+                        'change' => '+' . $domiciliosEnProgreso,
+                        'change_text' => 'en progreso',
+                        'change_type' => 'positive'
+                    ],
+                    'ingresos_mes' => [
+                        'value' => '$' . number_format($ingresosMes / 1000000, 1) . 'M',
+                        'change' => $ingresosMesAnterior > 0 
+                            ? '+' . round((($ingresosMes - $ingresosMesAnterior) / $ingresosMesAnterior) * 100, 1) . '%'
+                            : '+100%',
+                        'change_text' => 'vs mes anterior',
+                        'change_type' => $ingresosMes >= $ingresosMesAnterior ? 'positive' : 'negative'
+                    ],
+                    'en_mantenimiento' => [
+                        'value' => $vehiculosMantenimiento,
+                        'change' => $vehiculosAtencion,
+                        'change_text' => 'requieren atención',
+                        'change_type' => 'neutral'
+                    ]
+                ];
+            });
+        } catch (\Exception $e) {
+            \Log::error('Error en getDashboardStats: ' . $e->getMessage());
+            return [];
+        }
     }
 
     public static function getReservasPorMes(): array
     {
-        $reservas = Reservation::select(
-            DB::raw('MONTH(created_at) as mes'),
-            DB::raw('COUNT(*) as total')
-        )
-        ->whereYear('created_at', date('Y'))
-        ->groupBy('mes')
-        ->orderBy('mes')
-        ->get();
+        \Log::info('[DataService] Ejecutando getReservasPorMes()');
+        try {
+            $reservas = Reservation::select(
+                DB::raw('MONTH(created_at) as mes'),
+                DB::raw('COUNT(*) as total')
+            )
+            ->whereYear('created_at', date('Y'))
+            ->groupBy('mes')
+            ->orderBy('mes')
+            ->get();
 
-        $meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-        $data = array_fill(0, 12, 0);
+            $meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+            $data = array_fill(0, 12, 0);
 
-        foreach ($reservas as $reserva) {
-            $data[$reserva->mes - 1] = $reserva->total;
+            foreach ($reservas as $reserva) {
+                $data[$reserva->mes - 1] = $reserva->total;
+            }
+
+            return [
+                'labels' => $meses,
+                'data' => $data
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Error en getReservasPorMes: ' . $e->getMessage());
+            return ['labels' => [], 'data' => []];
         }
-
-        return [
-            'labels' => $meses,
-            'data' => $data
-        ];
     }
 
     public static function getDistribucionSedes(): array
     {
-        $distribucion = Reservation::join('sedes', 'reservations.sede_id', '=', 'sedes.id')
-            ->select('sedes.nombre', DB::raw('COUNT(*) as total'))
-            ->groupBy('sedes.id', 'sedes.nombre')
-            ->get();
+        \Log::info('[DataService] Ejecutando getDistribucionSedes()');
+        try {
+            $distribucion = Reservation::join('branches', 'reservations.sede_id', '=', 'branches.id')
+                ->select('branches.nombre', DB::raw('COUNT(*) as total'))
+                ->groupBy('branches.id', 'branches.nombre')
+                ->get();
 
-        return [
-            'labels' => $distribucion->pluck('nombre')->toArray(),
-            'data' => $distribucion->pluck('total')->toArray()
-        ];
-    }
-
-    // ==========================================
-    // MAPA
-    // ==========================================
-    
-    public static function getVehicleLocations(): array
-    {
-        return Vehicle::with(['conductor', 'ubicacionActual'])
-            ->whereIn('status', ['available', 'busy'])
-            ->get()
-            ->map(function ($vehicle) {
-                return [
-                    'id' => $vehicle->id,
-                    'placa' => $vehicle->placa,
-                    'conductor' => $vehicle->conductor?->name,
-                    'lat' => $vehicle->ubicacionActual->latitud ?? 0,
-                    'lng' => $vehicle->ubicacionActual->longitud ?? 0,
-                    'status' => $vehicle->status,
-                    'velocidad' => $vehicle->ubicacionActual->velocidad ?? 0,
-                    'rumbo' => $vehicle->ubicacionActual->rumbo ?? 'N',
-                    'servicio_activo' => $vehicle->reservaActiva?->codigo
-                ];
-            })
-            ->toArray();
-    }
-
-    public static function getActiveRoutes(): array
-    {
-        return Reservation::with(['vehiculo.ubicacionActual', 'origen', 'destino'])
-            ->where('status', 'active')
-            ->whereNotNull('vehiculo_id')
-            ->get()
-            ->map(function ($reserva) {
-                return [
-                    'servicio_id' => $reserva->codigo,
-                    'vehiculo_id' => $reserva->vehiculo_id,
-                    'origen' => [
-                        'lat' => $reserva->origen->latitud,
-                        'lng' => $reserva->origen->longitud,
-                        'nombre' => $reserva->origen->direccion
-                    ],
-                    'destino' => [
-                        'lat' => $reserva->destino->latitud,
-                        'lng' => $reserva->destino->longitud,
-                        'nombre' => $reserva->destino->direccion
-                    ],
-                    'waypoints' => $reserva->waypoints ?? [],
-                    'progreso' => $reserva->calcularProgreso()
-                ];
-            })
-            ->toArray();
-    }
-
-    public static function getMapFilters(): array
-    {
-        return [
-            'sedes' => Sede::pluck('nombre')->toArray(),
-            'estados' => [
-                'available' => 'Disponible',
-                'busy' => 'Ocupado',
-                'maintenance' => 'Mantenimiento'
-            ]
-        ];
+            return [
+                'labels' => $distribucion->pluck('nombre')->toArray(),
+                'data' => $distribucion->pluck('total')->toArray()
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Error en getDistribucionSedes: ' . $e->getMessage());
+            return ['labels' => [], 'data' => []];
+        }
     }
 
     // ==========================================
@@ -166,228 +148,222 @@ class DataService
     
     public static function getLiveServices(): array
     {
-        return Reservation::with(['usuario', 'conductor', 'vehiculo'])
-            ->where('status', 'active')
-            ->whereDate('fecha_inicio', today())
-            ->get()
-            ->map(function ($reserva) {
-                return [
-                    'id' => $reserva->id,
-                    'codigo' => $reserva->codigo,
-                    'tipo' => $reserva->tipo,
-                    'usuario' => $reserva->usuario->name,
-                    'conductor' => $reserva->conductor?->name,
-                    'vehiculo' => $reserva->vehiculo?->placa,
-                    'origen' => $reserva->origen_direccion,
-                    'destino' => $reserva->destino_direccion,
-                    'hora_inicio' => $reserva->fecha_inicio->format('H:i'),
-                    'eta' => $reserva->calcularETA(),
-                    'progreso' => $reserva->calcularProgreso(),
-                    'distancia_restante' => $reserva->calcularDistanciaRestante(),
-                    'status' => $reserva->status,
-                    'prioridad' => $reserva->prioridad
-                ];
-            })
-            ->toArray();
+        \Log::info('[DataService] Ejecutando getLiveServices()');
+        try {
+            return Reservation::with(['user:id,name', 'driver:id,name', 'vehicle:id,placa'])
+                ->where('estado', ReservationStatus::Activa)
+                ->whereDate('fecha_inicio', today())
+                ->get()
+                ->map(function ($reserva) {
+                    return [
+                        'id' => $reserva->id,
+                        'codigo' => $reserva->codigo,
+                        'tipo' => $reserva->tipo->value,
+                        'usuario' => $reserva->user->name,
+                        'conductor' => $reserva->driver?->name ?? 'Sin asignar',
+                        'vehiculo' => $reserva->vehicle?->placa ?? 'Sin asignar',
+                        'origen' => $reserva->origen_direccion,
+                        'destino' => $reserva->destino_direccion ?? 'Sin destino',
+                        'hora_inicio' => $reserva->fecha_inicio->format('H:i'),
+                        'eta' => $reserva->fecha_fin->format('H:i'),
+                        'progreso' => self::calcularProgreso($reserva),
+                        'distancia_restante' => $reserva->distancia_km ? round($reserva->distancia_km, 1) . ' km' : 'N/A',
+                        'status' => 'en_ruta',
+                        'prioridad' => self::determinarPrioridad($reserva)
+                    ];
+                })
+                ->toArray();
+        } catch (\Exception $e) {
+            \Log::error('Error en getLiveServices: ' . $e->getMessage());
+            return [];
+        }
     }
 
     public static function getVehicleStatusSummary(): array
     {
-        return [
-            'disponibles' => [
-                'count' => Vehicle::where('status', 'available')->count(),
-                'vehiculos' => Vehicle::where('status', 'available')
-                    ->limit(3)
-                    ->pluck('placa')
-                    ->toArray()
-            ],
-            'en_servicio' => [
-                'count' => Vehicle::where('status', 'busy')->count(),
-                'vehiculos' => Vehicle::where('status', 'busy')
-                    ->limit(3)
-                    ->pluck('placa')
-                    ->toArray()
-            ],
-            'mantenimiento' => [
-                'count' => Vehicle::where('status', 'maintenance')->count(),
-                'vehiculos' => Vehicle::where('status', 'maintenance')
-                    ->limit(3)
-                    ->pluck('placa')
-                    ->toArray()
-            ]
-        ];
-    }
+        \Log::info('[DataService] Ejecutando getVehicleStatusSummary()');
+        try {
+            $disponibles = Vehicle::where('estado', VehicleStatus::Disponible)->limit(3)->pluck('placa')->toArray();
+            $enServicio = Vehicle::where('estado', VehicleStatus::Ocupado)->limit(3)->pluck('placa')->toArray();
+            $mantenimiento = Vehicle::where('estado', VehicleStatus::Mantenimiento)->limit(3)->pluck('placa')->toArray();
 
-    public static function getAlerts(): array
-    {
-        // Implementar lógica de alertas desde tabla 'alerts' o calcular dinámicamente
-        return DB::table('alerts')
-            ->where('leida', false)
-            ->orderBy('created_at', 'desc')
-            ->limit(10)
-            ->get()
-            ->toArray();
-    }
-
-    public static function getEventTimeline(): array
-    {
-        // Implementar timeline de eventos desde tabla 'events'
-        return DB::table('events')
-            ->whereDate('created_at', today())
-            ->orderBy('created_at', 'desc')
-            ->limit(20)
-            ->get()
-            ->map(function ($event) {
-                return [
-                    'id' => $event->id,
-                    'tipo' => $event->tipo,
-                    'icono' => self::getEventIcon($event->tipo),
-                    'titulo' => $event->titulo,
-                    'descripcion' => $event->descripcion,
-                    'timestamp' => $event->created_at,
-                    'color' => self::getEventColor($event->tipo)
-                ];
-            })
-            ->toArray();
-    }
-
-    // ==========================================
-    // CATÁLOGO
-    // ==========================================
-    
-    public static function getCatalogVehicles(array $filters = []): array
-    {
-        $query = Vehicle::with(['imagenes', 'caracteristicas', 'sede'])
-            ->where('visible_catalogo', true);
-
-        if (!empty($filters['tipo'])) {
-            $query->where('tipo', $filters['tipo']);
-        }
-
-        if (!empty($filters['disponible'])) {
-            $query->where('status', 'available');
-        }
-
-        if (!empty($filters['capacidad'])) {
-            $query->where('capacidad', '>=', $filters['capacidad']);
-        }
-
-        if (!empty($filters['precio_max'])) {
-            $query->where('precio_dia', '<=', $filters['precio_max']);
-        }
-
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('nombre', 'like', "%{$search}%")
-                  ->orWhere('marca', 'like', "%{$search}%")
-                  ->orWhere('modelo', 'like', "%{$search}%");
-            });
-        }
-
-        return $query->get()->map(function ($vehicle) {
             return [
-                'id' => $vehicle->id,
-                'nombre' => $vehicle->nombre,
-                'placa' => $vehicle->placa,
-                'tipo' => $vehicle->tipo,
-                'marca' => $vehicle->marca,
-                'modelo' => $vehicle->modelo,
-                'year' => $vehicle->year,
-                'capacidad' => $vehicle->capacidad,
-                'precio_hora' => $vehicle->precio_hora,
-                'precio_dia' => $vehicle->precio_dia,
-                'caracteristicas' => $vehicle->caracteristicas->pluck('nombre')->toArray(),
-                'imagenes' => $vehicle->imagenes->pluck('url')->toArray(),
-                'disponible' => $vehicle->status === 'available',
-                'calificacion' => $vehicle->calificacion_promedio,
-                'num_reviews' => $vehicle->reviews_count,
-                'sede' => $vehicle->sede->nombre
+                'disponibles' => [
+                    'count' => Vehicle::where('estado', VehicleStatus::Disponible)->count(),
+                    'vehiculos' => $disponibles
+                ],
+                'en_servicio' => [
+                    'count' => Vehicle::where('estado', VehicleStatus::Ocupado)->count(),
+                    'vehiculos' => $enServicio
+                ],
+                'mantenimiento' => [
+                    'count' => Vehicle::where('estado', VehicleStatus::Mantenimiento)->count(),
+                    'vehiculos' => $mantenimiento
+                ]
             ];
-        })->toArray();
-    }
-
-    public static function getVehicleById(int $id): ?array
-    {
-        $vehicle = Vehicle::with(['imagenes', 'caracteristicas', 'sede', 'reviews'])
-            ->find($id);
-
-        if (!$vehicle) {
-            return null;
+        } catch (\Exception $e) {
+            \Log::error('Error en getVehicleStatusSummary: ' . $e->getMessage());
+            return [];
         }
-
-        return [
-            'id' => $vehicle->id,
-            'nombre' => $vehicle->nombre,
-            'placa' => $vehicle->placa,
-            'tipo' => $vehicle->tipo,
-            'marca' => $vehicle->marca,
-            'modelo' => $vehicle->modelo,
-            'year' => $vehicle->year,
-            'capacidad' => $vehicle->capacidad,
-            'precio_hora' => $vehicle->precio_hora,
-            'precio_dia' => $vehicle->precio_dia,
-            'caracteristicas' => $vehicle->caracteristicas->pluck('nombre')->toArray(),
-            'imagenes' => $vehicle->imagenes->pluck('url')->toArray(),
-            'disponible' => $vehicle->status === 'available',
-            'calificacion' => $vehicle->calificacion_promedio,
-            'num_reviews' => $vehicle->reviews_count,
-            'sede' => $vehicle->sede->nombre
-        ];
     }
 
-    public static function getVehicleAvailability(int $vehicleId, string $fecha): array
+    public static function getVehicleLocations(): array
     {
-        $reservas = Reservation::where('vehiculo_id', $vehicleId)
-            ->whereDate('fecha_inicio', $fecha)
-            ->get();
+        \Log::info('[DataService] Ejecutando getVehicleLocations()');
+        
+        try {
+            return Vehicle::with(['driver:id,name', 'reservations' => function($q) {
+                    $q->where('estado', ReservationStatus::Activa)
+                      ->whereDate('fecha_inicio', today())
+                      ->latest()
+                      ->limit(1);
+                }])
+                ->get()
+                ->map(function ($vehicle) {
+                    $activeReservation = $vehicle->reservations->first();
+                    
+                    $status = match($vehicle->estado) {
+                        VehicleStatus::Ocupado => 'busy',
+                        VehicleStatus::Disponible => 'available',
+                        VehicleStatus::Mantenimiento => 'maintenance',
+                        default => 'offline'
+                    };
 
-        $slots = [];
-        for ($hora = 8; $hora <= 18; $hora++) {
-            $horaStr = str_pad($hora, 2, '0', STR_PAD_LEFT) . ':00';
-            $disponible = true;
+                    return [
+                        'id' => $vehicle->id,
+                        'placa' => $vehicle->placa,
+                        'conductor' => $vehicle->driver?->name ?? null,
+                        'status' => $status,
+                        'velocidad' => $activeReservation ? rand(20, 60) : 0,
+                        'rumbo' => $activeReservation ? self::getRandomDirection() : null,
+                        'servicio_activo' => $activeReservation?->codigo ?? null,
+                        'lat' => $activeReservation?->origen_lat ?? null,
+                        'lng' => $activeReservation?->origen_lng ?? null,
+                    ];
+                })
+                ->toArray();
+        } catch (\Exception $e) {
+            \Log::error('Error en getVehicleLocations: ' . $e->getMessage());
+            return [];
+        }
+    }
 
-            foreach ($reservas as $reserva) {
-                if ($reserva->horaOcupada($horaStr)) {
-                    $disponible = false;
-                    break;
-                }
+    public static function getActiveAlerts(): array
+    {
+        \Log::info('[DataService] Ejecutando getActiveAlerts()');
+        
+        try {
+            $alerts = [];
+
+            // Verificar vehículos en mantenimiento urgente
+            $vehiculosMantenimiento = Vehicle::where('estado', VehicleStatus::Mantenimiento)
+                ->whereHas('maintenances', function($q) {
+                    $q->where('estado', 'pendiente')
+                      ->where('fecha_programada', '<=', now()->addDays(3));
+                })
+                ->count();
+
+            if ($vehiculosMantenimiento > 0) {
+                $alerts[] = [
+                    'id' => 'maint_' . time(),
+                    'titulo' => 'Mantenimientos Programados',
+                    'mensaje' => "{$vehiculosMantenimiento} vehículo(s) requieren mantenimiento en los próximos 3 días",
+                    'severidad' => 'warning',
+                    'timestamp' => now()->format('H:i')
+                ];
             }
 
-            $slots[] = [
-                'hora' => $horaStr,
-                'disponible' => $disponible
-            ];
-        }
+            // Verificar reservas sin conductor asignado
+            $reservasSinConductor = Reservation::where('estado', ReservationStatus::Pendiente)
+                ->whereNull('conductor_id')
+                ->whereDate('fecha_inicio', '<=', now()->addDay())
+                ->count();
 
-        return [
-            'fecha' => $fecha,
-            'slots' => $slots
-        ];
+            if ($reservasSinConductor > 0) {
+                $alerts[] = [
+                    'id' => 'driver_' . time(),
+                    'titulo' => 'Reservas Sin Asignar',
+                    'mensaje' => "{$reservasSinConductor} reserva(s) pendiente(s) sin conductor asignado",
+                    'severidad' => 'error',
+                    'timestamp' => now()->format('H:i')
+                ];
+            }
+
+            // Verificar servicios con retraso
+            $serviciosRetrasados = Reservation::where('estado', ReservationStatus::Activa)
+                ->where('fecha_fin', '<', now())
+                ->count();
+
+            if ($serviciosRetrasados > 0) {
+                $alerts[] = [
+                    'id' => 'delay_' . time(),
+                    'titulo' => 'Servicios Retrasados',
+                    'mensaje' => "{$serviciosRetrasados} servicio(s) excedieron su tiempo estimado",
+                    'severidad' => 'warning',
+                    'timestamp' => now()->format('H:i')
+                ];
+            }
+
+            return $alerts;
+
+        } catch (\Exception $e) {
+            \Log::error('Error en getActiveAlerts: ' . $e->getMessage());
+            return [];
+        }
     }
 
-    public static function getUserReservations(int $userId): array
+    public static function getRecentEvents(int $limit = 10): array
     {
-        return Reservation::with(['vehiculo'])
-            ->where('user_id', $userId)
-            ->orderBy('fecha_inicio', 'desc')
-            ->get()
-            ->map(function ($reserva) {
-                return [
-                    'id' => $reserva->id,
-                    'codigo' => $reserva->codigo,
-                    'vehiculo' => $reserva->vehiculo->nombre,
-                    'vehiculo_imagen' => $reserva->vehiculo->imagen_principal,
-                    'fecha_inicio' => $reserva->fecha_inicio->format('Y-m-d H:i'),
-                    'fecha_fin' => $reserva->fecha_fin->format('Y-m-d H:i'),
-                    'origen' => $reserva->origen_direccion,
-                    'destino' => $reserva->destino_direccion,
-                    'monto' => $reserva->monto,
-                    'status' => $reserva->status,
-                    'puede_cancelar' => $reserva->puedeCancelar()
+        \Log::info('[DataService] Ejecutando getRecentEvents()');
+        
+        try {
+            $events = [];
+
+            $recentReservations = Reservation::with('user:id,name')
+                ->whereIn('estado', [
+                    ReservationStatus::Activa,
+                    ReservationStatus::Confirmada,
+                    ReservationStatus::Completada
+                ])
+                ->whereDate('created_at', today())
+                ->orderBy('created_at', 'desc')
+                ->limit($limit)
+                ->get();
+
+            foreach ($recentReservations as $reserva) {
+                $events[] = [
+                    'id' => 'res_' . $reserva->id,
+                    'titulo' => match($reserva->estado) {
+                        ReservationStatus::Confirmada => 'Reserva Confirmada',
+                        ReservationStatus::Activa => 'Servicio Iniciado',
+                        ReservationStatus::Completada => 'Servicio Completado',
+                        default => 'Nueva Reserva'
+                    },
+                    'descripcion' => "{$reserva->codigo} - {$reserva->user->name}",
+                    'timestamp' => $reserva->created_at->toDateTimeString(),
+                    'icono' => match($reserva->estado) {
+                        ReservationStatus::Confirmada => 'check',
+                        ReservationStatus::Activa => 'play',
+                        ReservationStatus::Completada => 'flag',
+                        default => 'user'
+                    },
+                    'color' => match($reserva->estado) {
+                        ReservationStatus::Confirmada => 'blue',
+                        ReservationStatus::Activa => 'orange',
+                        ReservationStatus::Completada => 'green',
+                        default => 'gray'
+                    }
                 ];
-            })
-            ->toArray();
+            }
+
+            usort($events, fn($a, $b) => strtotime($b['timestamp']) - strtotime($a['timestamp']));
+
+            return array_slice($events, 0, $limit);
+
+        } catch (\Exception $e) {
+            \Log::error('Error en getRecentEvents: ' . $e->getMessage());
+            return [];
+        }
     }
 
     // ==========================================
@@ -396,363 +372,341 @@ class DataService
     
     public static function getRevenueReport(string $periodo = 'mes'): array
     {
-        $fechaInicio = $periodo === 'mes' 
-            ? now()->startOfMonth() 
-            : now()->startOfYear();
+        \Log::info("[DataService] Ejecutando getRevenueReport($periodo)");
+        
+        try {
+            $fechaInicio = match($periodo) {
+                'mes' => now()->startOfMonth(),
+                'trimestre' => now()->startOfQuarter(),
+                'año' => now()->startOfYear(),
+                default => now()->startOfMonth()
+            };
 
-        $total = Reservation::where('status', 'completed')
-            ->where('created_at', '>=', $fechaInicio)
-            ->sum('monto');
+            $total = Reservation::where('estado', ReservationStatus::Completada)
+                ->where('created_at', '>=', $fechaInicio)
+                ->sum('monto_final');
 
-        $porTipo = Reservation::select('tipo', DB::raw('SUM(monto) as total'))
-            ->where('status', 'completed')
-            ->where('created_at', '>=', $fechaInicio)
-            ->groupBy('tipo')
-            ->get();
+            $porTipo = Reservation::select('tipo', DB::raw('SUM(monto_final) as total'))
+                ->where('estado', ReservationStatus::Completada)
+                ->where('created_at', '>=', $fechaInicio)
+                ->groupBy('tipo')
+                ->get();
 
-        $totalGeneral = $porTipo->sum('total');
+            $totalGeneral = $porTipo->sum('total');
 
-        return [
-            'total' => $total,
-            'cambio_porcentual' => self::calculateChange('ingresos', $periodo),
-            'por_tipo' => $porTipo->map(function ($item) use ($totalGeneral) {
-                return [
-                    'tipo' => ucfirst($item->tipo),
-                    'monto' => $item->total,
-                    'porcentaje' => $totalGeneral > 0 
-                        ? round(($item->total / $totalGeneral) * 100) 
-                        : 0
-                ];
-            })->toArray(),
-            'por_dia' => self::getRevenueByDay($fechaInicio)
-        ];
+            $porDia = Reservation::select(
+                    DB::raw('DATE(fecha_inicio) as fecha'),
+                    DB::raw('SUM(monto_final) as monto')
+                )
+                ->where('estado', ReservationStatus::Completada)
+                ->where('created_at', '>=', $fechaInicio)
+                ->groupBy('fecha')
+                ->orderBy('fecha')
+                ->get()
+                ->map(function ($item) {
+                    return [
+                        'fecha' => $item->fecha,
+                        'monto' => (float) $item->monto
+                    ];
+                })
+                ->toArray();
+
+            $diasPeriodo = now()->diffInDays($fechaInicio);
+            $fechaInicioAnterior = $fechaInicio->copy()->subDays($diasPeriodo);
+            
+            $totalAnterior = Reservation::where('estado', ReservationStatus::Completada)
+                ->whereBetween('created_at', [$fechaInicioAnterior, $fechaInicio])
+                ->sum('monto_final');
+
+            $cambioPortentual = 0;
+            if ($totalAnterior > 0) {
+                $cambioPortentual = (int) round((($total - $totalAnterior) / $totalAnterior) * 100);
+            } elseif ($total > 0) {
+                $cambioPortentual = 100;
+            }
+
+            return [
+                'total' => (float) $total,
+                'cambio_porcentual' => $cambioPortentual,
+                'por_tipo' => $porTipo->map(function ($item) use ($totalGeneral) {
+                    return [
+                        'tipo' => ucfirst($item->tipo->value ?? $item->tipo),
+                        'monto' => (float) $item->total,
+                        'porcentaje' => $totalGeneral > 0 
+                            ? round(($item->total / $totalGeneral) * 100) 
+                            : 0
+                    ];
+                })->toArray(),
+                'por_dia' => $porDia
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Error en getRevenueReport: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
+            
+            return [
+                'total' => 0,
+                'cambio_porcentual' => 0,
+                'por_tipo' => [],
+                'por_dia' => []
+            ];
+        }
     }
 
     public static function getVehicleUsageReport(): array
     {
-        return Vehicle::withCount('reservations')
-            ->with(['reservations' => function ($query) {
-                $query->where('status', 'completed')
-                    ->whereMonth('created_at', now()->month);
-            }])
-            ->get()
-            ->map(function ($vehicle) {
-                $horasUso = $vehicle->reservations->sum(function ($reserva) {
-                    return $reserva->fecha_inicio->diffInHours($reserva->fecha_fin);
+        \Log::info('[DataService] Ejecutando getVehicleUsageReport()');
+        
+        try {
+            $vehicles = Vehicle::with(['reservations' => function ($query) {
+                    $query->where('estado', ReservationStatus::Completada)
+                        ->whereMonth('created_at', now()->month);
+                }])
+                ->get();
+
+            return $vehicles->map(function ($vehicle) {
+                $reservations = $vehicle->reservations;
+                $servicios = $reservations->count();
+                
+                $horasUso = $reservations->sum(function($r) {
+                    return ($r->duracion_minutos ?? 0) / 60;
                 });
+                
+                $ingresos = $reservations->sum('monto_final');
+                
+                $diasConServicio = $reservations
+                    ->pluck('fecha_inicio')
+                    ->map(fn($fecha) => $fecha->format('Y-m-d'))
+                    ->unique()
+                    ->count();
+                    
+                $diasDelMes = now()->daysInMonth;
+                $tasaOcupacion = $diasDelMes > 0 
+                    ? round(($diasConServicio / $diasDelMes) * 100) 
+                    : 0;
 
                 return [
                     'vehiculo' => "{$vehicle->placa} - {$vehicle->marca} {$vehicle->modelo}",
-                    'servicios' => $vehicle->reservations_count,
-                    'horas_uso' => $horasUso,
-                    'ingresos' => $vehicle->reservations->sum('monto'),
-                    'tasa_ocupacion' => $vehicle->calcularTasaOcupacion()
+                    'servicios' => $servicios,
+                    'horas_uso' => round($horasUso, 1),
+                    'ingresos' => (float) $ingresos,
+                    'tasa_ocupacion' => $tasaOcupacion
                 ];
             })
+            ->sortByDesc('servicios')
+            ->values()
             ->toArray();
+
+        } catch (\Exception $e) {
+            \Log::error('Error en getVehicleUsageReport: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
+            
+            return [];
+        }
     }
 
     public static function getDriverPerformance(): array
     {
-        return Driver::withCount(['reservations' => function ($query) {
-                $query->where('status', 'completed')
-                    ->whereMonth('created_at', now()->month);
-            }])
-            ->with(['reservations' => function ($query) {
-                $query->where('status', 'completed')
-                    ->whereMonth('created_at', now()->month);
-            }])
-            ->get()
-            ->map(function ($driver) {
-                $horasTrabajo = $driver->reservations->sum(function ($reserva) {
-                    return $reserva->fecha_inicio->diffInHours($reserva->fecha_fin);
+        \Log::info('[DataService] Ejecutando getDriverPerformance()');
+        
+        try {
+            $drivers = User::role('conductor')
+                ->with(['conductorReservations' => function ($query) {
+                    $query->where('estado', ReservationStatus::Completada)
+                        ->whereMonth('created_at', now()->month);
+                }])
+                ->get();
+
+            return $drivers->map(function ($driver) {
+                $reservations = $driver->conductorReservations;
+                $serviciosCompletados = $reservations->count();
+                
+                $horasTrabajo = $reservations->sum(function($r) {
+                    return ($r->duracion_minutos ?? 0) / 60;
                 });
+                
+                $calificaciones = $reservations
+                    ->whereNotNull('calificacion_conductor')
+                    ->pluck('calificacion_conductor');
+                    
+                $calificacionPromedio = $calificaciones->count() > 0 
+                    ? $calificaciones->avg() 
+                    : 0;
+                
+                $ingresosGenerados = $reservations->sum('monto_final');
 
                 return [
                     'conductor' => $driver->name,
-                    'servicios_completados' => $driver->reservations_count,
-                    'calificacion_promedio' => $driver->calificacion_promedio,
-                    'horas_trabajo' => $horasTrabajo,
-                    'ingresos_generados' => $driver->reservations->sum('monto')
+                    'servicios_completados' => $serviciosCompletados,
+                    'calificacion_promedio' => round($calificacionPromedio, 1),
+                    'horas_trabajo' => round($horasTrabajo, 1),
+                    'ingresos_generados' => (float) $ingresosGenerados
                 ];
             })
+            ->sortByDesc('servicios_completados')
+            ->values()
             ->toArray();
-    }
 
-    // ==========================================
-    // USUARIOS
-    // ==========================================
-    
-    public static function getUserStats(): array
-    {
-        return [
-            'total' => User::count(),
-            'activos' => User::where('status', 'active')->count(),
-            'nuevos_mes' => User::whereMonth('created_at', now()->month)->count(),
-            'inactivos' => User::where('status', 'inactive')->count()
-        ];
-    }
-
-    public static function getUsers(array $filters = []): array
-    {
-        $query = User::with(['sede']);
-
-        if (!empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+        } catch (\Exception $e) {
+            \Log::error('Error en getDriverPerformance: ' . $e->getMessage());
+            \Log::error($e->getTraceAsString());
+            
+            return [];
         }
-
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%");
-            });
-        }
-
-        return $query->get()->map(function ($user) {
-            return [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'status' => $user->status,
-                'reservas_count' => $user->reservations_count,
-                'ultima_reserva' => $user->ultima_reserva?->format('Y-m-d'),
-                'registered_at' => $user->created_at->format('Y-m-d'),
-                'sede' => $user->sede?->nombre
-            ];
-        })->toArray();
     }
 
     // ==========================================
-    // CONDUCTORES
+    // ESTADÍSTICAS ADMINISTRATIVAS
     // ==========================================
-    
-    public static function getDriverStats(): array
-    {
-        return [
-            'total' => Driver::count(),
-            'disponibles' => Driver::where('status', 'available')->count(),
-            'en_servicio' => Driver::where('status', 'busy')->count(),
-            'inactivos' => Driver::where('status', 'inactive')->count()
-        ];
-    }
 
-    public static function getDrivers(array $filters = []): array
-    {
-        $query = Driver::with(['vehiculoAsignado', 'sede']);
-
-        if (!empty($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('license', 'like', "%{$search}%");
-            });
-        }
-
-        return $query->get()->map(function ($driver) {
-            return [
-                'id' => $driver->id,
-                'name' => $driver->name,
-                'email' => $driver->email,
-                'phone' => $driver->phone,
-                'license' => $driver->license,
-                'status' => $driver->status,
-                'vehiculo_asignado' => $driver->vehiculoAsignado?->placa,
-                'servicios_completados' => $driver->servicios_completados,
-                'calificacion' => $driver->calificacion_promedio,
-                'ultima_actividad' => $driver->ultima_actividad?->format('Y-m-d H:i'),
-                'sede' => $driver->sede?->nombre
-            ];
-        })->toArray();
-    }
-
-    // ==========================================
-    // VEHÍCULOS
-    // ==========================================
-    
     public static function getVehicleStats(): array
     {
-        return [
-            'total' => Vehicle::count(),
-            'disponibles' => Vehicle::where('status', 'available')->count(),
-            'en_servicio' => Vehicle::where('status', 'busy')->count(),
-            'mantenimiento' => Vehicle::where('status', 'maintenance')->count()
-        ];
-    }
+        try {
+            $total = Vehicle::count();
+            $disponibles = Vehicle::where('estado', VehicleStatus::Disponible)->count();
+            $ocupados = Vehicle::where('estado', VehicleStatus::Ocupado)->count();
+            $mantenimiento = Vehicle::where('estado', VehicleStatus::Mantenimiento)->count();
 
-    public static function getVehicles(array $filters = []): array
-    {
-        $query = Vehicle::with(['conductorAsignado', 'sede']);
-
-        if (!empty($filters['status'])) {
-            $query->where('status', $filters['status']);
-        }
-
-        if (!empty($filters['tipo'])) {
-            $query->where('tipo', $filters['tipo']);
-        }
-
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('placa', 'like', "%{$search}%")
-                  ->orWhere('marca', 'like', "%{$search}%")
-                  ->orWhere('modelo', 'like', "%{$search}%");
-            });
-        }
-
-        return $query->get()->map(function ($vehicle) {
             return [
-                'id' => $vehicle->id,
-                'placa' => $vehicle->placa,
-                'marca' => $vehicle->marca,
-                'modelo' => $vehicle->modelo,
-                'year' => $vehicle->year,
-                'tipo' => $vehicle->tipo,
-                'capacidad' => $vehicle->capacidad,
-                'status' => $vehicle->status,
-                'conductor_asignado' => $vehicle->conductorAsignado?->name,
-                'kilometraje' => $vehicle->kilometraje,
-                'ultimo_mantenimiento' => $vehicle->ultimo_mantenimiento?->format('Y-m-d'),
-                'proximo_mantenimiento' => $vehicle->proximo_mantenimiento?->format('Y-m-d'),
-                'sede' => $vehicle->sede?->nombre
+                'total' => $total,
+                'disponibles' => $disponibles,
+                'ocupados' => $ocupados,
+                'mantenimiento' => $mantenimiento,
             ];
-        })->toArray();
+        } catch (\Exception $e) {
+            \Log::error('Error en getVehicleStats: ' . $e->getMessage());
+            return ['total' => 0, 'disponibles' => 0, 'ocupados' => 0, 'mantenimiento' => 0];
+        }
     }
 
-    // ==========================================
-    // RESERVAS
-    // ==========================================
-    
+    public static function getDriverStats(): array
+    {
+        try {
+            $total = User::role('conductor')->count();
+            $activos = User::role('conductor')
+                ->whereHas('driverProfile', fn($q) => $q->where('is_active', true))
+                ->count();
+            $inactivos = $total - $activos;
+
+            return [
+                'total' => $total,
+                'activos' => $activos,
+                'inactivos' => $inactivos,
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Error en getDriverStats: ' . $e->getMessage());
+            return ['total' => 0, 'activos' => 0, 'inactivos' => 0];
+        }
+    }
+
     public static function getReservationStats(): array
     {
-        return [
-            'pendientes' => Reservation::where('status', 'pending')->count(),
-            'activas' => Reservation::where('status', 'active')->count(),
-            'completadas_hoy' => Reservation::where('status', 'completed')
-                ->whereDate('fecha_fin', today())
-                ->count(),
-            'canceladas_mes' => Reservation::where('status', 'cancelled')
+        try {
+            $total = Reservation::count();
+            $activas = Reservation::whereIn('estado', [
+                ReservationStatus::Pendiente,
+                ReservationStatus::Confirmada,
+                ReservationStatus::Activa
+            ])->count();
+            
+            $completadas = Reservation::where('estado', ReservationStatus::Completada)
+                ->whereDate('created_at', today())
+                ->count();
+                
+            $canceladas = Reservation::where('estado', ReservationStatus::Cancelada)
                 ->whereMonth('created_at', now()->month)
-                ->count()
-        ];
+                ->count();
+
+            return [
+                'total' => $total,
+                'activas' => $activas,
+                'completadas' => $completadas,
+                'completadas_hoy' => $completadas,
+                'canceladas' => $canceladas,
+                'canceladas_mes' => $canceladas,
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Error en getReservationStats: ' . $e->getMessage());
+            
+            return [
+                'total' => 0,
+                'activas' => 0,
+                'completadas' => 0,
+                'completadas_hoy' => 0,
+                'canceladas' => 0,
+                'canceladas_mes' => 0,
+            ];
+        }
     }
 
-    public static function getReservations(array $filters = []): array
+    public static function getUserStats(): array
     {
-        $query = Reservation::with(['usuario', 'conductor', 'vehiculo', 'sede']);
+        try {
+            $total = User::count();
+            $clientes = User::role('cliente')->count();
+            $conductores = User::role('conductor')->count();
+            $admins = User::role('admin')->count();
 
-        if (!empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            return [
+                'total' => $total,
+                'clientes' => $clientes,
+                'conductores' => $conductores,
+                'admins' => $admins,
+            ];
+        } catch (\Exception $e) {
+            \Log::error('Error en getUserStats: ' . $e->getMessage());
+            return ['total' => 0, 'clientes' => 0, 'conductores' => 0, 'admins' => 0];
         }
+    }
 
-        if (!empty($filters['tipo'])) {
-            $query->where('tipo', $filters['tipo']);
-        }
+    // ==========================================
+    // LISTADOS ADMIN
+    // ==========================================
 
-        if (!empty($filters['search'])) {
-            $search = $filters['search'];
-            $query->where(function ($q) use ($search) {
-                $q->where('codigo', 'like', "%{$search}%")
-                  ->orWhereHas('usuario', function ($sq) use ($search) {
-                      $sq->where('name', 'like', "%{$search}%");
-                  });
-            });
-        }
+    public static function getUsers()
+    {
+        return User::with('roles')->orderBy('id', 'desc')->get();
+    }
 
-        return $query->orderBy('fecha_inicio', 'desc')
-            ->get()
-            ->map(function ($reserva) {
-                return [
-                    'id' => $reserva->id,
-                    'codigo' => $reserva->codigo,
-                    'usuario' => $reserva->usuario->name,
-                    'conductor' => $reserva->conductor?->name,
-                    'vehiculo' => $reserva->vehiculo ? 
-                        "{$reserva->vehiculo->placa} - {$reserva->vehiculo->marca} {$reserva->vehiculo->modelo}" : 
-                        null,
-                    'origen' => $reserva->origen_direccion,
-                    'destino' => $reserva->destino_direccion,
-                    'fecha_inicio' => $reserva->fecha_inicio->format('Y-m-d H:i'),
-                    'fecha_fin' => $reserva->fecha_fin->format('Y-m-d H:i'),
-                    'tipo' => $reserva->tipo,
-                    'status' => $reserva->status,
-                    'monto' => $reserva->monto,
-                    'sede' => $reserva->sede?->nombre
-                ];
-            })
-            ->toArray();
+    public static function getDrivers()
+    {
+        return User::role('conductor')->with('roles')->orderBy('id', 'desc')->get();
+    }
+
+    public static function getVehicles()
+    {
+        return Vehicle::orderBy('id', 'desc')->get();
+    }
+
+    public static function getReservations()
+    {
+        return Reservation::with(['user', 'vehicle', 'driver'])
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 
     // ==========================================
     // HELPERS PRIVADOS
     // ==========================================
     
-    private static function calculateChange(string $type, string $period): int
+    private static function calcularProgreso(Reservation $reserva): int
     {
-        // Implementar lógica de cálculo de cambios
-        return 0;
+        if (!$reserva->fecha_inicio_real) return 0;
+
+        $totalMinutos = $reserva->fecha_inicio_real->diffInMinutes($reserva->fecha_fin);
+        $minutosTranscurridos = $reserva->fecha_inicio_real->diffInMinutes(now());
+        if ($totalMinutos <= 0) return 0;
+
+        return min(100, (int) (($minutosTranscurridos / $totalMinutos) * 100));
     }
 
-    private static function getRevenueByDay($fechaInicio): array
+    private static function determinarPrioridad(Reservation $reserva): string
     {
-        return Reservation::select(
-                DB::raw('DATE(fecha_inicio) as fecha'),
-                DB::raw('SUM(monto) as monto')
-            )
-            ->where('status', 'completed')
-            ->where('created_at', '>=', $fechaInicio)
-            ->groupBy('fecha')
-            ->orderBy('fecha')
-            ->get()
-            ->toArray();
+        return self::calcularProgreso($reserva) > 80 ? 'alta' : 'normal';
     }
 
-    private static function getEventIcon(string $tipo): string
+    private static function getRandomDirection(): string
     {
-        $icons = [
-            'servicio_iniciado' => 'play',
-            'servicio_completado' => 'check',
-            'conductor_disponible' => 'user',
-            'mantenimiento' => 'wrench'
-        ];
-
-        return $icons[$tipo] ?? 'circle';
-    }
-
-    private static function getEventColor(string $tipo): string
-    {
-        $colors = [
-            'servicio_iniciado' => 'blue',
-            'servicio_completado' => 'green',
-            'conductor_disponible' => 'gray',
-            'mantenimiento' => 'orange'
-        ];
-
-        return $colors[$tipo] ?? 'gray';
-    }
-
-    // ==========================================
-    // HELPERS PÚBLICOS (mantener compatibilidad)
-    // ==========================================
-    
-    public static function getStatusLabel(string $status): string
-    {
-        return MockDataService::getStatusLabel($status);
-    }
-
-    public static function getStatusColor(string $status): string
-    {
-        return MockDataService::getStatusColor($status);
-    }
-
-    public static function getSeverityColor(string $severity): string
-    {
-        return MockDataService::getSeverityColor($severity);
+        $directions = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'];
+        return $directions[array_rand($directions)];
     }
 }

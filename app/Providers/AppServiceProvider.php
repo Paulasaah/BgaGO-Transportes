@@ -15,9 +15,6 @@ class AppServiceProvider extends ServiceProvider
             $useMock = config('app.use_mock_data', true);
             return $useMock ? new MockDataService() : new DataService();
         });
-
-        // Registrar el alias de clase
-        $this->app->alias('data.service', MockDataService::class);
     }
 
     public function boot(): void

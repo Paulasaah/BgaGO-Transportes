@@ -53,7 +53,9 @@ class PaymentMethodSeeder extends Seeder
         ];
 
         foreach ($metodos as $m) {
-            PaymentMethod::create($m);
+            PaymentMethod::updateOrCreate(['tipo' => $m['tipo']], $m);
         }
+
+        $this->command->info('✅ Métodos de pago creados o actualizados correctamente.');
     }
 }

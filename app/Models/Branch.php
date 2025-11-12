@@ -14,25 +14,24 @@ class Branch extends Model
         'nombre',
         'direccion',
         'ciudad',
-        'telefono',
-        'email',
-        'latitud',
-        'longitud',
+        'lat',
+        'lon',
         'radio',
         'color',
         'descripcion',
         'capacidad_vehiculos',
-        'activa',
     ];
 
     protected $casts = [
-        'latitud' => 'float',
-        'longitud' => 'float',
+        'lat' => 'float',
+        'lon' => 'float',
         'radio' => 'integer',
-        'activa' => 'boolean',
+        'capacidad_vehiculos' => 'integer',
     ];
 
-    // Relaciones
+    /**
+     * Relación con vehículos
+     */
     public function vehicles()
     {
         return $this->hasMany(Vehicle::class, 'sede_id');
@@ -41,5 +40,26 @@ class Branch extends Model
     public function reservations()
     {
         return $this->hasMany(Reservation::class, 'sede_id');
+    }
+
+    /**
+     * Obtener dispositivos actualmente en esta sede
+     */
+    public function getCurrentDevices()
+    {
+        return \App\Models\Telemetria::latestByDevice()
+            ->where('current_branch', $this->nombre)
+            ->get();
+    }
+
+    /**
+     * Calcular porcentaje de ocupación
+     */
+    public function getOccupancyPercentage()
+    {
+        $currentDevices = $this->getCurrentDevices()->count();
+        return $this->capacidad_vehiculos > 0 
+            ? round(($currentDevices / $this->capacidad_vehiculos) * 100, 1)
+            : 0;
     }
 }

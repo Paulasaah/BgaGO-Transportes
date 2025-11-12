@@ -9,7 +9,7 @@ class ConfiguracionSeeder extends Seeder
 {
     public function run(): void
     {
-        Configuracion::insert([
+        $configs = [
             [
                 'clave' => 'mercadopago_public_key',
                 'valor' => 'TEST-1234567890',
@@ -35,6 +35,12 @@ class ConfiguracionSeeder extends Seeder
                 'valor' => '+57 607 1234567',
                 'descripcion' => 'Teléfono principal de atención al cliente.',
             ],
-        ]);
+        ];
+
+        foreach ($configs as $config) {
+            Configuracion::updateOrCreate(['clave' => $config['clave']], $config);
+        }
+
+        $this->command->info('✅ Configuraciones creadas o actualizadas correctamente.');
     }
 }

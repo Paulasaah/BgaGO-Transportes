@@ -73,6 +73,8 @@ return new class extends Migration
             $table->index(['user_id', 'estado']);
             $table->index(['vehiculo_id', 'estado']);
             $table->index(['fecha_inicio', 'fecha_fin']);
+            $table->index(['sede_id', 'estado']); // útil para filtrar reservas por sede
+
         });
     }
 
