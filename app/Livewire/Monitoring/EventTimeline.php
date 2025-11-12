@@ -4,21 +4,27 @@ namespace App\Livewire\Monitoring;
 
 use Livewire\Component;
 use App\Facades\Data;
-use Livewire\Attributes\On;
 
 class EventTimeline extends Component
 {
-    public $events = [];
+    public array $events = [];
+
+    protected $listeners = ['refresh-monitoring' => 'loadEvents'];
 
     public function mount()
     {
         $this->loadEvents();
     }
 
-    #[On('refresh-monitoring')]
     public function loadEvents()
     {
-        $this->events = Data::getEventTimeline();
+        try {
+            $eventsData = Data::getRecentEvents(10);
+            $this->events = is_array($eventsData) ? $eventsData : [];
+        } catch (\Exception $e) {
+            \Log::error('Error loading events: ' . $e->getMessage());
+            $this->events = [];
+        }
     }
 
     public function render()

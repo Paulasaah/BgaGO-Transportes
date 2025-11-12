@@ -4,26 +4,37 @@ namespace App\Livewire\Monitoring;
 
 use Livewire\Component;
 use App\Facades\Data;
-use Livewire\Attributes\On;
 
 class AlertsPanel extends Component
 {
-    public $alerts = [];
+    public array $alerts = [];
+
+    protected $listeners = ['refresh-monitoring' => 'loadAlerts'];
 
     public function mount()
     {
         $this->loadAlerts();
     }
 
-    #[On('refresh-monitoring')]
     public function loadAlerts()
     {
-        $this->alerts = Data::getAlerts();
+        try {
+            $alertsData = Data::getActiveAlerts();
+            $this->alerts = is_array($alertsData) ? $alertsData : [];
+        } catch (\Exception $e) {
+            \Log::error('Error loading alerts: ' . $e->getMessage());
+            $this->alerts = [];
+        }
     }
 
-    public function getSeverityColor($severity)
+    public function getSeverityColor($severity): string
     {
-        return Data::getSeverityColor($severity);
+        return match($severity) {
+            'error' => 'danger',
+            'warning' => 'warning',
+            'info' => 'info',
+            default => 'secondary'
+        };
     }
 
     public function render()

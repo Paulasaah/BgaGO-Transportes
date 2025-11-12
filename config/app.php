@@ -1,5 +1,8 @@
 <?php
 
+use Illuminate\Support\Facades\Facade;
+
+
 return [
 
     /*
@@ -135,6 +138,11 @@ return [
     |
     */
 
-    'use_mock_data' => env('USE_MOCK_DATA', true),
+    'use_mock_data' => env('USE_MOCK_DATA', false),
+
+    'aliases' => Facade::defaultAliases()->merge([
+    // ... otros aliases
+        'Data' => App\Facades\Data::class, // 👈 Agrega esto
+    ])->toArray(),
 
 ];

@@ -260,6 +260,26 @@ class Vehicle extends Model
         return "{$this->tipo->label()} {$this->marca} {$this->modelo}";
     }
 
+    // Agregar estos métodos al final de Vehicle.php, antes del último }
+
+    /**
+     * Obtener ubicación GPS actual (para DataService)
+     */
+    public function currentLocation()
+    {
+        return $this->hasOne(GpsTrack::class, 'vehiculo_id')
+            ->latest('fecha_registro');
+    }
+
+    /**
+     * Obtener reserva activa (para DataService)
+     */
+    public function activeReservation()
+    {
+        return $this->hasOne(Reservation::class, 'vehiculo_id')
+            ->where('estado', \App\Enums\ReservationStatus::Activa);
+    }
+
     /**
      * Cambiar estado del vehículo
      */
@@ -281,4 +301,5 @@ class Vehicle extends Model
             ],
         ]);
     }
+    
 }

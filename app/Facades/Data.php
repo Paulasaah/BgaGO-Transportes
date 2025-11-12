@@ -5,39 +5,37 @@ namespace App\Facades;
 use Illuminate\Support\Facades\Facade;
 
 /**
- * Facade para acceder al servicio de datos (Mock o Real)
+ * Facade para DataService / MockDataService
  * 
+ * Permite acceder al servicio correcto según el modo configurado
+ * en config/app.php (use_mock_data = true/false)
+ *
  * @method static array getDashboardStats()
  * @method static array getReservasPorMes()
  * @method static array getDistribucionSedes()
- * @method static array getVehicleLocations()
- * @method static array getActiveRoutes()
- * @method static array getMapFilters()
  * @method static array getLiveServices()
  * @method static array getVehicleStatusSummary()
  * @method static array getAlerts()
  * @method static array getEventTimeline()
- * @method static array getCatalogVehicles(array $filters = [])
- * @method static array|null getVehicleById(int $id)
- * @method static array getVehicleAvailability(int $vehicleId, string $fecha)
- * @method static array getUserReservations(int $userId)
+ * @method static array getVehicleLocations()
  * @method static array getRevenueReport(string $periodo = 'mes')
  * @method static array getVehicleUsageReport()
  * @method static array getDriverPerformance()
- * @method static array getUserStats()
- * @method static array getUsers(array $filters = [])
- * @method static array getDriverStats()
- * @method static array getDrivers(array $filters = [])
- * @method static array getVehicleStats()
- * @method static array getVehicles(array $filters = [])
  * @method static array getReservationStats()
- * @method static array getReservations(array $filters = [])
  * @method static string getStatusLabel(string $status)
  * @method static string getStatusColor(string $status)
  * @method static string getSeverityColor(string $severity)
+ * 
+ * @see \App\Services\DataService
+ * @see \App\Services\MockDataService
  */
 class Data extends Facade
 {
+    /**
+     * Identificador del servicio registrado en el contenedor.
+     * 
+     * Debe coincidir con el binding en AppServiceProvider.
+     */
     protected static function getFacadeAccessor()
     {
         return 'data.service';
