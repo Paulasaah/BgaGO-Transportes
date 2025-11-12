@@ -26,3 +26,5 @@ yarn-error.log
 # Mosquitto MQTT data
 iot/mosquitto/data/
 iot/mosquitto/log/
+node_modules/
+.pnpm-store/

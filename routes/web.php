@@ -13,10 +13,7 @@ use App\Http\Controllers\Admin\{
 // =========================================
 // 🌍 Página principal (pública)
 // =========================================
-Route::get('/', function () {
-    return view('welcome');
-})->name('home');
-
+Route::get('/', fn() => view('welcome'))->name('home');
 
 // =========================================
 // 👤 Dashboard de usuario autenticado
@@ -24,7 +21,6 @@ Route::get('/', function () {
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', App\Livewire\Dashboard\SimpleDashboard::class)->name('dashboard');
 });
-
 
 // =========================================
 // 🛠️ Panel de Administración (solo admin)
@@ -38,26 +34,17 @@ Route::middleware(['auth', 'verified', 'role:admin'])
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // === USUARIOS ===
-    Route::get('users', [UserController::class, 'index'])->name('users.index');
-    Route::get('users/create', [UserController::class, 'create'])->name('users.create');
-    Route::post('users', [UserController::class, 'store'])->name('users.store');
-    Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
-    Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-    Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
-    Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    Route::resource('users', UserController::class);
 
     // === CONDUCTORES ===
     Route::get('drivers', [DriverController::class, 'index'])->name('drivers.index');
+    Route::get('drivers/{user}', [DriverController::class, 'show'])->name('drivers.show');
+    Route::get('drivers/{user}/edit', [DriverController::class, 'edit'])->name('drivers.edit');
+    Route::put('drivers/{user}', [DriverController::class, 'update'])->name('drivers.update');
     Route::patch('drivers/{user}/toggle-status', [DriverController::class, 'toggleStatus'])->name('drivers.toggle-status');
 
     // === VEHÍCULOS ===
-    Route::get('vehicles', [VehicleController::class, 'index'])->name('vehicles.index');
-    Route::get('vehicles/create', [VehicleController::class, 'create'])->name('vehicles.create');
-    Route::post('vehicles', [VehicleController::class, 'store'])->name('vehicles.store');
-    Route::get('vehicles/{vehicle}', [VehicleController::class, 'show'])->name('vehicles.show');
-    Route::get('vehicles/{vehicle}/edit', [VehicleController::class, 'edit'])->name('vehicles.edit');
-    Route::put('vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
-    Route::delete('vehicles/{vehicle}', [VehicleController::class, 'destroy'])->name('vehicles.destroy');
+    Route::resource('vehicles', VehicleController::class);
 
     // === RESERVAS ===
     Route::get('reservations', [ReservationController::class, 'index'])->name('reservations.index');
@@ -65,13 +52,12 @@ Route::middleware(['auth', 'verified', 'role:admin'])
     Route::patch('reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
 
     // === MONITOREO Y MAPAS ===
-    Route::view('map', 'admin.map')->name('map');
-    Route::view('monitoring', 'admin.monitoring')->name('monitoring');
+    Route::view('map', 'admin.vehicles.map')->name('map');
+    Route::view('monitoring', 'admin.vehicles.monitoring')->name('monitoring');
 
     // === REPORTES ===
     Route::view('reports', 'admin.reports.index')->name('reports.index');
 });
-
 
 // =========================================
 // 🚗 Catálogo (usuario autenticado)
@@ -85,7 +71,6 @@ Route::middleware(['auth'])
         Route::view('my-reservations', 'catalog.my-reservations')->name('reservations');
     });
 
-
 // =========================================
 // ⚙️ Configuración de Usuario (Volt)
 // =========================================
@@ -96,7 +81,6 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/password', 'settings.password')->name('settings.password');
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
-
 
 // =========================================
 // 🧪 Ruta de pruebas

@@ -5,19 +5,42 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
     /**
-     * Display a listing of users
+     * Mostrar listado de usuarios con filtros y estadísticas.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return view('admin.users.index');
+        // Filtro dinámico
+        $query = User::with('roles')
+            ->when($request->search, fn($q, $s) =>
+                $q->where(fn($sub) =>
+                    $sub->where('name', 'like', "%{$s}%")
+                        ->orWhere('email', 'like', "%{$s}%")
+                )
+            )
+            ->when($request->role, fn($q, $r) => $q->role($r))
+            ->orderByDesc('created_at');
+
+        $users = $query->paginate(15)->withQueryString();
+
+        // Estadísticas globales
+        $allUsers = User::with('roles')->get();
+        $stats = [
+            'total' => $allUsers->count(),
+            'clientes' => $allUsers->filter(fn($u) => $u->hasRole('cliente'))->count(),
+            'conductores' => $allUsers->filter(fn($u) => $u->hasRole('conductor'))->count(),
+            'admins' => $allUsers->filter(fn($u) => $u->hasRole('admin'))->count(),
+        ];
+
+        return view('admin.users.index', compact('users', 'stats'));
     }
 
     /**
-     * Show the form for creating a new user
+     * Mostrar formulario de creación.
      */
     public function create()
     {
@@ -25,7 +48,7 @@ class UserController extends Controller
     }
 
     /**
-     * Store a newly created user in storage
+     * Guardar nuevo usuario.
      */
     public function store(Request $request)
     {
@@ -37,6 +60,8 @@ class UserController extends Controller
             'role' => 'required|in:admin,conductor,cliente',
         ]);
 
+        $validated['role'] = Str::lower($validated['role']);
+
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
@@ -44,25 +69,24 @@ class UserController extends Controller
             'phone' => $validated['phone'] ?? null,
         ]);
 
-        // Asignar rol
         $user->assignRole($validated['role']);
 
         return redirect()
             ->route('admin.users.index')
-            ->with('success', 'Usuario creado exitosamente');
+            ->with('success', 'Usuario creado exitosamente.');
     }
 
     /**
-     * Display the specified user
+     * Mostrar detalles del usuario.
      */
     public function show(User $user)
     {
-        $user->load('roles');
+        $user->load(['roles', 'reservations.vehicle', 'payments.reservation']);
         return view('admin.users.show', compact('user'));
     }
 
     /**
-     * Show the form for editing the specified user
+     * Mostrar formulario de edición.
      */
     public function edit(User $user)
     {
@@ -71,7 +95,7 @@ class UserController extends Controller
     }
 
     /**
-     * Update the specified user in storage
+     * Actualizar datos del usuario.
      */
     public function update(Request $request, User $user)
     {
@@ -83,39 +107,42 @@ class UserController extends Controller
             'password' => 'nullable|min:8|confirmed',
         ]);
 
+        $validated['role'] = Str::lower($validated['role']);
+
         $user->update([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'phone' => $validated['phone'] ?? null,
         ]);
 
-        // Actualizar contraseña solo si se proporciona
         if (!empty($validated['password'])) {
             $user->update(['password' => bcrypt($validated['password'])]);
         }
 
-        // Sincronizar rol
         $user->syncRoles([$validated['role']]);
 
         return redirect()
             ->route('admin.users.index')
-            ->with('success', 'Usuario actualizado exitosamente');
+            ->with('success', 'Usuario actualizado exitosamente.');
     }
 
     /**
-     * Remove the specified user from storage
+     * Eliminar usuario.
      */
     public function destroy(User $user)
     {
-        // Verificar que no se elimine a sí mismo
         if ($user->id === auth()->id()) {
-            return back()->with('error', 'No puedes eliminar tu propio usuario');
+            return back()->with('error', 'No puedes eliminar tu propio usuario.');
+        }
+
+        if ($user->reservations()->whereNotIn('estado', ['cancelada', 'completada'])->exists()) {
+            return back()->with('error', 'No puedes eliminar un usuario con reservas activas.');
         }
 
         $user->delete();
 
         return redirect()
             ->route('admin.users.index')
-            ->with('success', 'Usuario eliminado exitosamente');
+            ->with('success', 'Usuario eliminado exitosamente.');
     }
 }
