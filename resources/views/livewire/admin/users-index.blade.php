@@ -87,7 +87,7 @@
                                     <div class="flex items-center justify-end gap-2">
                                         <flux:button size="sm" variant="ghost" icon="eye" title="Ver detalles" href="{{ route('admin.users.show', $user) }}" wire:navigate class="text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400" />
                                         <flux:button size="sm" variant="ghost" icon="pencil" title="Editar" href="{{ route('admin.users.edit', $user) }}" wire:navigate class="text-zinc-600 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-400" />
-                                        <flux:button size="sm" variant="danger" icon="trash" title="Eliminar" wire:click="confirmDelete({{ $user->id }})" class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400">Eliminar</flux:button>
+                                        <flux:button size="sm" variant="danger" icon="trash" title="Eliminar" x-data x-on:click.prevent="confirm('¿Estás seguro de eliminar este usuario?') && $wire.deleteNow({{ $user->id }})" class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400">Eliminar</flux:button>
                                     </div>
                                 </td>
                             </tr>

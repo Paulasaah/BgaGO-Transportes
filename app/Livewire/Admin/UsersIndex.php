@@ -69,6 +69,13 @@ class UsersIndex extends Component
         }
     }
 
+    public function deleteNow(int $id)
+    {
+        $this->pendingDeleteId = $id;
+        $this->delete();
+        $this->resetPage();
+    }
+
     public function render()
     {
         $allUsers = User::with('roles')->get();
