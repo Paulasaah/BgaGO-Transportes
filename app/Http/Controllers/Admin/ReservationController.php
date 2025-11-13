@@ -157,4 +157,55 @@ class ReservationController extends Controller
 
         return back()->with('success', 'Reserva cancelada exitosamente');
     }
+
+    /** Aceptar domicilio (conductor) */
+    public function acceptByDriver(Reservation $reservation)
+    {
+        if (auth()->user()?->id !== $reservation->conductor_id) {
+            return back()->with('error', 'No autorizado para esta reserva');
+        }
+        if ($reservation->tipo !== ReservationType::Domicilio) {
+            return back()->with('error', 'La reserva no es de tipo domicilio');
+        }
+        if (!in_array($reservation->estado, [ReservationStatus::Pendiente])) {
+            return back()->with('error', 'La reserva no está pendiente');
+        }
+        $reservation->update(['estado' => ReservationStatus::Confirmada]);
+        return back()->with('success', 'Domicilio aceptado');
+    }
+
+    /** Rechazar domicilio (conductor) */
+    public function rejectByDriver(Reservation $reservation)
+    {
+        if (auth()->user()?->id !== $reservation->conductor_id) {
+            return back()->with('error', 'No autorizado para esta reserva');
+        }
+        if ($reservation->tipo !== ReservationType::Domicilio) {
+            return back()->with('error', 'La reserva no es de tipo domicilio');
+        }
+        if (!in_array($reservation->estado, [ReservationStatus::Pendiente])) {
+            return back()->with('error', 'La reserva no está pendiente');
+        }
+        $reservation->update([
+            'estado' => ReservationStatus::Cancelada,
+            'fecha_cancelacion' => now(),
+        ]);
+        return back()->with('success', 'Domicilio rechazado');
+    }
+
+    /** Completar reserva (conductor) */
+    public function completeByDriver(Reservation $reservation)
+    {
+        if (auth()->user()?->id !== $reservation->conductor_id) {
+            return back()->with('error', 'No autorizado para esta reserva');
+        }
+        if (!in_array($reservation->estado, [ReservationStatus::Activa, ReservationStatus::Confirmada])) {
+            return back()->with('error', 'La reserva no está activa');
+        }
+        $reservation->update([
+            'estado' => ReservationStatus::Completada,
+            'fecha_fin' => now(),
+        ]);
+        return back()->with('success', 'Reserva completada');
+    }
 }

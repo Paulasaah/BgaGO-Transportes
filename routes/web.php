@@ -160,3 +160,12 @@ Route::view('/test-map', 'test-map');
 require __DIR__.'/auth.php';
 
 Route::view('dashboard-drivers', 'drivers.dashboard')->name('drivers.demo');
+
+// =========================================
+// 🚚 Acciones del Conductor sobre Reservas
+// =========================================
+Route::middleware(['auth', 'role:conductor'])->prefix('driver')->name('driver.')->group(function () {
+    Route::post('reservations/{reservation}/accept', [\App\Http\Controllers\Admin\ReservationController::class, 'acceptByDriver'])->name('reservations.accept');
+    Route::post('reservations/{reservation}/reject', [\App\Http\Controllers\Admin\ReservationController::class, 'rejectByDriver'])->name('reservations.reject');
+    Route::post('reservations/{reservation}/complete', [\App\Http\Controllers\Admin\ReservationController::class, 'completeByDriver'])->name('reservations.complete');
+});

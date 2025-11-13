@@ -1,4 +1,4 @@
-<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
     <x-stats.card
         title="Reservas activas"
         :value="$activeCount"
@@ -6,9 +6,15 @@
         color="blue"
     />
     <x-stats.card
-        title="Entregas completadas hoy"
-        :value="$completedToday"
-        icon="check-circle-2"
+        title="Pendientes domicilio"
+        :value="$pendingDomiciliosCount"
+        icon="cube"
+        color="orange"
+    />
+    <x-stats.card
+        title="Ingresos hoy"
+        :value="'$' . number_format(($revenueToday ?? 0), 0, ',', '.')"
+        icon="currency-dollar"
         color="green"
     />
     <x-stats.card

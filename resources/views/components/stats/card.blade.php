@@ -22,7 +22,20 @@
             </p>
         </div>
         <div class="flex h-12 w-12 items-center justify-center rounded-lg {{ $colorClasses[$color] ?? $colorClasses['blue'] }}">
-            <i data-lucide="{{ $icon }}" class="h-6 w-6"></i>
+            @if($icon === 'currency-dollar')
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
+                    <path d="M12 1v22" />
+                    <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                </svg>
+            @elseif($icon === 'cube')
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="h-6 w-6">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+                    <path d="M3.3 7L12 12l8.7-5" />
+                    <path d="M7 17.5L12 15l5 2.5" />
+                </svg>
+            @else
+                <i data-lucide="{{ $icon }}" class="h-6 w-6"></i>
+            @endif
         </div>
     </div>
 </div>
