@@ -11,12 +11,29 @@ use App\Http\Controllers\Admin\{
 };
 
 // =========================================
-// 🌍 Página principal (pública)
+// 🌍 Secciones públicas
 // =========================================
 Route::get('/', function () {
-    return view('welcome');
-})->name('home');
+    $branches = \App\Models\Branch::all();
+    $variants = ['primary', 'default', 'secondary', 'tertiary'];
 
+    $locations = $branches->values()->map(function ($b, $i) use ($variants) {
+        return [
+            'name' => $b->nombre,
+            'zone' => $b->descripcion,
+            'address' => $b->direccion,
+            'phone' => $b->telefono ?? '+57 300 000 0000',
+            'schedule' => 'Lun - Dom: 7:00 AM - 9:00 PM',
+            'status' => 'open',
+            'variant' => $variants[$i % count($variants)],
+        ];
+    })->toArray();
+
+    return view('landing.home', compact('locations'));
+})->name('home');
+Route::view('mapa', 'landing.mapa')->name('mapa');
+Route::view('servicios', 'landing.servicios')->name('servicios');
+Route::view('catalogo', 'landing.catalogo')->name('catalogo');
 
 // =========================================
 // 👤 Dashboard de usuario autenticado
@@ -25,6 +42,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', App\Livewire\Dashboard\SimpleDashboard::class)->name('dashboard');
 });
 
+// =========================================
+// 📅 Rutas de Usuario autenticado (Reservas y Pagos)
+// =========================================
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::view('reservar', 'usuario.reservar')->name('reservar');
+    Route::view('mis-reservas', 'usuario.mis-reservas')->name('mis-reservas');
+    Route::view('perfil-usuario', 'landing.perfil-usuario')->name('perfil-usuario');
+    Route::view('editar-perfil', 'landing.editar-perfil-publico')->name('editar-perfil-publico');
+    Route::view('editar-password', 'landing.editar-password-publico')->name('editar-password-publico');
+    Route::view('pago/{reserva}', 'usuario.pago')->name('pago');
+    Route::view('confirmacion-pago/{pago}', 'usuario.confirmacion')->name('confirmacion-pago');
+
+    Route::patch('mis-reservas/{reservation}/cancel', function (\App\Models\Reservation $reservation) {
+        abort_unless(auth()->id() === $reservation->user_id, 403);
+        abort_unless($reservation->estado->canBeCancelled(), 422);
+        $reservation->estado = \App\Enums\ReservationStatus::Cancelada;
+        $reservation->cancelado_por = auth()->id();
+        $reservation->motivo_cancelacion = request('motivo_cancelacion');
+        $reservation->save();
+        return redirect()->route('mis-reservas')->with('status', 'Reserva cancelada correctamente');
+    })->name('mis-reservas.cancel');
+});
 
 // =========================================
 // 🛠️ Panel de Administración (solo admin)
@@ -72,7 +111,6 @@ Route::middleware(['auth', 'verified', 'role:admin'])
     Route::view('reports', 'admin.reports.index')->name('reports.index');
 });
 
-
 // =========================================
 // 🚗 Catálogo (usuario autenticado)
 // =========================================
@@ -85,7 +123,6 @@ Route::middleware(['auth'])
         Route::view('my-reservations', 'catalog.my-reservations')->name('reservations');
     });
 
-
 // =========================================
 // ⚙️ Configuración de Usuario (Volt)
 // =========================================
@@ -97,6 +134,12 @@ Route::middleware(['auth'])->group(function () {
     Volt::route('settings/appearance', 'settings.appearance')->name('settings.appearance');
 });
 
+// =========================================
+// 📄 Presentación
+// =========================================
+Route::get('/presentacion', function () {
+    return view('presentacion');
+})->name('presentacion');
 
 // =========================================
 // 🧪 Ruta de pruebas
