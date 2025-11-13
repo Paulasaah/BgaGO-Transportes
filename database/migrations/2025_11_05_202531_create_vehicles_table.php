@@ -16,7 +16,7 @@ return new class extends Migration
             $table->string('marca');
             $table->string('modelo');
             $table->year('year')->nullable();
-            $table->enum('tipo', ['bicicleta', 'scooter', 'moto'])->default('moto');
+            $table->enum('tipo', ['bicicleta', 'scooter', 'patineta', 'moto'])->default('scooter');
             $table->string('color')->nullable();
 
             // Relaciones

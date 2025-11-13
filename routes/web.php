@@ -55,10 +55,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::view('confirmacion-pago/{pago}', 'usuario.confirmacion')->name('confirmacion-pago');
 
     Route::patch('mis-reservas/{reservation}/cancel', function (\App\Models\Reservation $reservation) {
-        abort_unless(auth()->id() === $reservation->user_id, 403);
+        abort_unless(\Illuminate\Support\Facades\Auth::id() === $reservation->user_id, 403);
         abort_unless($reservation->estado->canBeCancelled(), 422);
         $reservation->estado = \App\Enums\ReservationStatus::Cancelada;
-        $reservation->cancelado_por = auth()->id();
+        $reservation->cancelado_por = \Illuminate\Support\Facades\Auth::id();
         $reservation->motivo_cancelacion = request('motivo_cancelacion');
         $reservation->save();
         return redirect()->route('mis-reservas')->with('status', 'Reserva cancelada correctamente');
@@ -150,3 +150,5 @@ Route::view('/test-map', 'test-map');
 // 🔐 Autenticación
 // =========================================
 require __DIR__.'/auth.php';
+
+Route::view('dashboard-drivers', 'drivers.dashboard')->name('drivers.demo');

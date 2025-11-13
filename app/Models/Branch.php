@@ -14,6 +14,7 @@ class Branch extends Model
         'nombre',
         'direccion',
         'ciudad',
+        'telefono',
         'lat',
         'lon',
         'radio',
@@ -58,7 +59,7 @@ class Branch extends Model
     public function getOccupancyPercentage()
     {
         $currentDevices = $this->getCurrentDevices()->count();
-        return $this->capacidad_vehiculos > 0 
+        return $this->capacidad_vehiculos > 0
             ? round(($currentDevices / $this->capacidad_vehiculos) * 100, 1)
             : 0;
     }

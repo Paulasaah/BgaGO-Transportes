@@ -5,6 +5,8 @@ namespace App\Livewire;
 use Livewire\Component;
 use Livewire\Attributes\Validate;
 use Carbon\Carbon;
+use App\Models\Branch;
+use Illuminate\Support\Str;
 
 class FormularioReserva extends Component
 {
@@ -20,7 +22,7 @@ class FormularioReserva extends Component
     #[Validate('required_if:tipo_reserva,domicilio|string|max:255')]
     public $direccion_recogida = '';
 
-    #[Validate('required|date|after:now')]
+    #[Validate('required|date|after_or_equal:today')]
     public $fecha_inicio = '';
 
     #[Validate('required|date_format:H:i')]
@@ -47,16 +49,16 @@ class FormularioReserva extends Component
             'moto-electrica' => ['nombre' => 'Moto Eléctrica', 'precio' => 15000],
             'patineta-electrica' => ['nombre' => 'Patineta Eléctrica', 'precio' => 3500],
             'bicicleta-manual' => ['nombre' => 'Bicicleta Manual', 'precio' => 2500],
-            'patines-linea' => ['nombre' => 'Patines en Línea', 'precio' => 4000],
+        // 'patines-linea' eliminado para revertir tipos a versión previa
         ];
 
-        // ⭐ INICIALIZAR PUNTOS DE RECOGIDA ⭐
-        $this->puntos_disponibles = [
-            'cabecera' => 'Cabecera del Llano - Calle 42 #20-10',
-            'canaveral' => 'Cañaveral - Cra. 27 #123-45',
-            'piedecuesta' => 'Piedecuesta - Calle 10 #15-30',
-            'floridablanca' => 'Floridablanca - Calle 52 #5-80'
-        ];
+        // ⭐ INICIALIZAR PUNTOS DE RECOGIDA DESDE BD (sólo sedes existentes) ⭐
+        $this->puntos_disponibles = Branch::query()
+            ->get()
+            ->mapWithKeys(function ($b) {
+                return [Str::slug($b->nombre) => $b->nombre . ' - ' . $b->direccion];
+            })
+            ->toArray();
 
         // ⭐⭐⭐ CAPTURAR VEHÍCULO DESDE LA URL ⭐⭐⭐
         $vehiculo = request()->query('vehiculo', '');
@@ -86,6 +88,7 @@ class FormularioReserva extends Component
 
     public function updatedDuracionHoras()
     {
+        $this->duracion_horas = max(1, min(24, (int) $this->duracion_horas));
         $this->calcularTotal();
     }
 
@@ -101,12 +104,13 @@ class FormularioReserva extends Component
 
     public function calcularTotal()
     {
-        $this->total_estimado = $this->precio_hora * $this->duracion_horas;
+        $horas = (int) $this->duracion_horas;
+        $this->total_estimado = $this->precio_hora * $horas;
 
         if ($this->fecha_inicio && $this->hora_inicio) {
             try {
-                $inicio = Carbon::parse($this->fecha_inicio . ' ' . $this->hora_inicio);
-                $fin = $inicio->copy()->addHours($this->duracion_horas);
+                $inicio = Carbon::createFromFormat('Y-m-d H:i', $this->fecha_inicio . ' ' . $this->hora_inicio, config('app.timezone'));
+                $fin = $inicio->copy()->addHours($horas);
                 $this->fecha_fin_estimada = $fin->format('d/m/Y H:i');
             } catch (\Exception $e) {
                 $this->fecha_fin_estimada = '';
@@ -119,8 +123,10 @@ class FormularioReserva extends Component
         $this->validate();
 
         try {
-            $inicio = Carbon::parse($this->fecha_inicio . ' ' . $this->hora_inicio);
-            if ($inicio->isPast() || $inicio->diffInMinutes(Carbon::now()) < 60) {
+            $tz = config('app.timezone');
+            $inicio = Carbon::createFromFormat('Y-m-d H:i', $this->fecha_inicio . ' ' . $this->hora_inicio, $tz);
+            $ahoraMasUnaHora = Carbon::now($tz)->addHours(1);
+            if ($inicio->lte($ahoraMasUnaHora)) {
                 $this->addError('fecha_inicio', 'La reserva debe ser al menos 1 hora en el futuro.');
                 return;
             }
@@ -144,7 +150,7 @@ class FormularioReserva extends Component
             ]
         ]);
 
-        return $this->redirect(route('pago', ['reserva' => 'nueva']), navigate: true);
+        return $this->redirect(route('pago', ['reserva' => 'nueva']), navigate: false);
     }
 
     public function render()

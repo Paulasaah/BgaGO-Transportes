@@ -11,13 +11,14 @@ use App\Models\Delivery;
 use App\Models\Reservation;
 use App\Services\DeliveryService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class DeliveryController extends BaseApiController
 {
     use AuthorizesRequests;
-    
+
     public function __construct(
         protected DeliveryService $deliveryService
     ) {}
@@ -61,8 +62,8 @@ class DeliveryController extends BaseApiController
     public function storePackage(StorePackageDeliveryRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $data['user_id'] = $request->user()->id;
-        
+        $data['user_id'] = Auth::id();
+
         $result = $this->deliveryService->createPackageDelivery($data);
 
         if (!$result['success']) {
@@ -133,7 +134,7 @@ class DeliveryController extends BaseApiController
      */
     public function start(Delivery $delivery): JsonResponse
     {
-        $this->authorize('start', $delivery); 
+        $this->authorize('start', $delivery);
 
         $result = $this->deliveryService->startDelivery($delivery->id);
 
@@ -145,7 +146,7 @@ class DeliveryController extends BaseApiController
      */
     public function complete(CompleteDeliveryRequest $request, Delivery $delivery): JsonResponse
     {
-        $this->authorize('complete', $delivery); 
+        $this->authorize('complete', $delivery);
 
         $result = $this->deliveryService->completeDelivery(
             $delivery->id,
@@ -160,7 +161,7 @@ class DeliveryController extends BaseApiController
      */
     public function cancel(Request $request, Delivery $delivery): JsonResponse
     {
-        $user = $request->user();
+        $user = Auth::user();
 
         // ✅ Verificar autorización primero
         $this->authorize('cancel', $delivery);
@@ -168,7 +169,7 @@ class DeliveryController extends BaseApiController
         // 🛡️ Admin o SuperAdmin: Pueden cancelar sin restricciones
         if ($user->hasRole(['admin', 'super_admin'])) {
             $motivoCancelacion = $request->input('motivo', 'Cancelación administrativa');
-            
+
             $delivery->update([
                 'estado' => 'cancelado',
                 'notas_entrega' => $motivoCancelacion,
@@ -219,7 +220,7 @@ class DeliveryController extends BaseApiController
      */
     public function myDeliveries(Request $request): JsonResponse
     {
-        $user = $request->user();
+        $user = Auth::user();
         $status = $request->input('status');
 
         $query = Delivery::where('user_id', $user->id)
@@ -265,8 +266,8 @@ class DeliveryController extends BaseApiController
      */
     public function myAssignedDeliveries(Request $request): JsonResponse
     {
-        $driver = $request->user();
-        
+        $driver = Auth::user();
+
         $deliveries = Delivery::where(function($q) use ($driver) {
             $q->where('conductor_id', $driver->id)
               ->orWhereHas('reservation', function($query) use ($driver) {

@@ -1,5 +1,5 @@
 <x-layouts.public>
-    <div class="py-24 min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-200 overflow-hidden">
+    <div x-data="{ open: false, selected: null, show(res) { this.selected = res; this.open = true }, close() { this.open = false; this.selected = null } }" class="py-24 min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-200 overflow-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
             <!-- Header -->
@@ -145,9 +145,26 @@
                                     </div>
                                 </div>
                                 <div class="flex flex-col gap-2 sm:flex-row md:flex-col">
-                                    <a href="{{ route('pago', ['reserva' => $reserva->id]) }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm whitespace-nowrap text-center">
+                                    @php
+                                        $detalle = [
+                                            'id' => $reserva->id,
+                                            'codigo' => $reserva->codigo,
+                                            'tipo' => $reserva->isDomicilio() ? 'domicilio' : 'punto',
+                                            'vehiculo' => $reserva->vehicle?->tipo?->label(),
+                                            'estado_label' => $reserva->estado->label(),
+                                            'monto' => $reserva->monto_final,
+                                            'fecha_inicio' => optional($reserva->fecha_inicio)->format('d/m/Y - H:i'),
+                                            'duracion_minutos' => $reserva->duracion_minutos ?? $reserva->getDuracionEstimada(),
+                                            'branch' => $reserva->branch?->nombre,
+                                            'origen' => $reserva->origen_direccion,
+                                            'destino' => $reserva->destino_direccion,
+                                            'notas' => $reserva->notas_cliente,
+                                            'route_pago' => route('pago', ['reserva' => $reserva->id]),
+                                        ];
+                                    @endphp
+                                    <button type="button" data-details='@json($detalle)' @click="show(JSON.parse($el.dataset.details))" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm whitespace-nowrap text-center">
                                         Ver Detalle
-                                    </a>
+                                    </button>
                                     @if($reserva->canBeCancelled())
                                         <form method="POST" action="{{ route('mis-reservas.cancel', ['reservation' => $reserva->id]) }}">
                                             @csrf
@@ -189,6 +206,84 @@
                 </a>
             </div>
 
+        </div>
+
+        <div x-show="open" class="fixed inset-0 z-50 flex items-center justify-center">
+            <div class="absolute inset-0 bg-black/50" @click="close()"></div>
+            <div class="relative bg-white dark:bg-zinc-800 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-700 w-full max-w-2xl mx-4">
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-xl font-bold text-zinc-900 dark:text-white">Detalle de Reserva</h3>
+                        <button type="button" @click="close()" class="px-3 py-1.5 rounded-md bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-300 text-sm">Cerrar</button>
+                    </div>
+
+                    <template x-if="selected">
+                        <div class="space-y-4 text-sm">
+                            <div class="grid sm:grid-cols-2 gap-4">
+                                <div>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mb-1">Código</p>
+                                    <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.codigo"></p>
+                                </div>
+                                <div>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mb-1">Estado</p>
+                                    <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.estado_label"></p>
+                                </div>
+                                <div>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mb-1">Tipo</p>
+                                    <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.tipo === 'domicilio' ? 'Entrega a Domicilio' : 'Recoger en Punto'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mb-1">Vehículo</p>
+                                    <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.vehiculo ?? '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mb-1">Fecha y Hora</p>
+                                    <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.fecha_inicio ?? '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mb-1">Duración</p>
+                                    <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.duracion_minutos >= 60 ? Math.floor(selected.duracion_minutos/60) + ' horas' : (selected.duracion_minutos ?? 0) + ' min'"></p>
+                                </div>
+                            </div>
+
+                            <div class="grid sm:grid-cols-2 gap-4" x-show="selected.tipo === 'domicilio'">
+                                <div>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mb-1">Origen</p>
+                                    <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.origen ?? '—'"></p>
+                                </div>
+                                <div>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mb-1">Destino</p>
+                                    <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.destino ?? '—'"></p>
+                                </div>
+                            </div>
+
+                            <div class="grid sm:grid-cols-2 gap-4" x-show="selected.tipo === 'punto'">
+                                <div>
+                                    <p class="text-zinc-500 dark:text-zinc-400 mb-1">Sucursal</p>
+                                    <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.branch ?? '—'"></p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p class="text-zinc-500 dark:text-zinc-400 mb-1">Notas</p>
+                                <p class="font-semibold text-zinc-900 dark:text-white" x-text="selected.notas ?? '—'"></p>
+                            </div>
+
+                            <div class="pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-lg font-bold text-zinc-900 dark:text-white">Total</span>
+                                    <span class="text-2xl font-bold text-blue-600 dark:text-blue-400" x-text="new Intl.NumberFormat('es-CO').format(selected.monto)"></span>
+                                </div>
+                            </div>
+
+                            <div class="flex justify-end gap-2 pt-4">
+                                <a :href="selected.route_pago" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm">Ir a Pago</a>
+                                <button type="button" @click="close()" class="px-4 py-2 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800 dark:text-zinc-300 rounded-lg font-medium text-sm">Cerrar</button>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
         </div>
     </div>
 </x-layouts.public>

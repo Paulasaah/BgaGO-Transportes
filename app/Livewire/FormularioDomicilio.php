@@ -91,13 +91,26 @@ class FormularioDomicilio extends Component
     {
         $this->validate();
 
-        // Aquí iría la lógica para guardar en BD
-        // Por ahora solo simulamos el guardado
+        // Simular creación de una reserva temporal para el flujo de pago
+        $reservaTemporal = [
+            'vehiculo' => 'servicio-domicilio',
+            'tipo_reserva' => 'domicilio',
+            'fecha_inicio' => now()->format('Y-m-d'),
+            'hora_inicio' => now()->format('H:i'),
+            'duracion_horas' => 1,
+            'total' => max(0, (int) ($this->tarifa_estimada + ($this->requiere_seguro ? 2000 : 0))),
+            'origen' => $this->direccion_origen,
+            'destino' => $this->direccion_destino,
+            'tamano_paquete' => $this->tamano_paquete,
+            'requiere_seguro' => (bool) $this->requiere_seguro,
+            'descripcion_paquete' => $this->descripcion_paquete,
+            'distancia_estimada' => $this->distancia_estimada,
+        ];
 
-        session()->flash('success', '¡Solicitud de domicilio enviada exitosamente! Un conductor será asignado pronto.');
+        session()->put('reserva_temporal', $reservaTemporal);
 
-        // Redireccionar a la página de confirmación o mis servicios
-        return $this->redirect(route('dashboard'), navigate: true);
+        // Redireccionar al View de pagos sin usar navegación de Alpine
+        return $this->redirect(route('pago', ['reserva' => 'domicilio']), navigate: false);
     }
 
     public function render()
