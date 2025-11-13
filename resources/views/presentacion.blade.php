@@ -3,29 +3,25 @@
 <head>
     @include('partials.head')
 </head>
-<body class="bg-gray-50 antialiased" x-data="{ activeSection: 'proyecto' }">
+<body class="bg-white dark:bg-zinc-800 antialiased" x-data="{ activeSection: 'proyecto' }">
 
     <!-- Header/Navigation -->
-    <header class="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200">
+    <header class="sticky top-0 z-50 bg-white dark:bg-zinc-900 backdrop-blur-sm border-b border-zinc-200 dark:border-zinc-700">
         <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: linear-gradient(135deg, #1584de 0%, #0a5499 100%);">
-                        <span class="text-white font-bold text-lg">BgaGO</span>
-                    </div>
-                    <div>
-                        <h1 class="font-bold text-gray-900">BgaGO Transportes</h1>
-                        <p class="text-xs text-gray-500">Desarrollo Backend - UNAB 2025</p>
-                    </div>
+                    <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700">
+                        <x-app-logo-icon class="size-6 fill-current text-white" />
+                    </span>
                 </div>
                 
                 <div class="hidden md:flex items-center space-x-6">
-                    <a href="#proyecto" class="text-sm text-gray-600 hover:text-blue-600 transition">Proyecto</a>
-                    <a href="#arquitectura" class="text-sm text-gray-600 hover:text-blue-600 transition">Arquitectura</a>
-                    <a href="#stack" class="text-sm text-gray-600 hover:text-blue-600 transition">Stack</a>
-                    <a href="#base-datos" class="text-sm text-gray-600 hover:text-blue-600 transition">Base de Datos</a>
-                    <a href="#equipo" class="text-sm text-gray-600 hover:text-blue-600 transition">Equipo</a>
-                    <a href="{{ route('dashboard') }}" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition" style="background-color: #1584de;">
+                    <a href="#proyecto" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition">Proyecto</a>
+                    <a href="#arquitectura" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition">Arquitectura</a>
+                    <a href="#stack" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition">Stack</a>
+                    <a href="#base-datos" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition">Base de Datos</a>
+                    <a href="#equipo" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400 transition">Equipo</a>
+                    <a href="{{ route('dashboard') }}" class="px-4 py-2 text-sm font-medium text-white rounded-lg transition bg-blue-600 hover:bg-blue-700">
                         Ir a la Aplicación
                     </a>
                 </div>
@@ -35,7 +31,7 @@
 
     <!-- Hero Section -->
     
-    <section class="relative py-20 overflow-hidden" style="background: linear-gradient(135deg, #1584de 0%, #0a5499 100%);">
+    <section class="relative py-20 overflow-hidden bg-gradient-to-br from-blue-600 to-blue-800">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="text-center text-white">
                 <h1 class="text-5xl md:text-6xl font-bold mb-6">
@@ -52,13 +48,13 @@
                     <a href="{{ route('register') }}" class="px-6 py-3 bg-white text-blue-600 rounded-lg font-semibold hover:bg-blue-50 transition shadow-lg">
                         Registrarse
                     </a>
-                    <a href="{{ route('dashboard') }}" class="px-6 py-3 bg-blue-700 text-white rounded-lg font-semibold hover:bg-blue-800 transition shadow-lg">
+                    <a href="{{ route('dashboard') }}" class="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg">
                         Dashboard
                     </a>
-                    <a href="{{ route('admin.map') }}" class="px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition shadow-lg">
+                    <a href="{{ route('admin.map') }}" class="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg">
                         Mapa en Vivo
                     </a>
-                    <a href="{{ route('admin.monitoring') }}" class="px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition shadow-lg">
+                    <a href="{{ route('admin.monitoring') }}" class="px-6 py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition shadow-lg">
                         Monitoreo
                     </a>
                     <a href="https://github.com/Paulasaah/BgaGO-Transportes" target="_blank" class="px-6 py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition shadow-lg inline-flex items-center gap-2">
