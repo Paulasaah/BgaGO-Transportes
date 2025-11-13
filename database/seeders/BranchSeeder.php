@@ -52,6 +52,11 @@ class BranchSeeder extends Seeder
             ],
         ];
 
+        // Añadir teléfono a cada sede
+        foreach ($branches as $branch) {
+            $branch['telefono'] = '+57 300 222 2222';
+        }
+
         foreach ($branches as $branch) {
             Branch::updateOrCreate(
                 ['nombre' => $branch['nombre']],

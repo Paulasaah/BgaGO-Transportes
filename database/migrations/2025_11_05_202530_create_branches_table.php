@@ -15,6 +15,7 @@ return new class extends Migration
             $table->decimal('lat', 10, 7);
             $table->decimal('lon', 10, 7);
             $table->integer('radio')->default(500)->comment('Radio en metros');
+            $table->string('telefono')->nullable();
             $table->string('color', 7)->default('#3b82f6');
             $table->text('descripcion')->nullable();
             $table->integer('capacidad_vehiculos')->default(10);
