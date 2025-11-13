@@ -6,6 +6,7 @@ use Illuminate\Database\Seeder;
 use App\Models\Payment;
 use App\Models\Reservation;
 use App\Models\User;
+use Carbon\Carbon;
 
 class PaymentSeeder extends Seeder
 {

@@ -244,12 +244,16 @@ foreach ($drivers as $driver) {
                                             variant="ghost" 
                                             icon="eye"
                                             title="Ver detalles"
+                                            href="{{ route('admin.drivers.show', $driver) }}"
+                                            wire:navigate
                                         />
                                         <flux:button 
                                             size="sm" 
                                             variant="ghost" 
                                             icon="pencil"
                                             title="Editar"
+                                            href="{{ route('admin.drivers.edit', $driver) }}"
+                                            wire:navigate
                                         />
                                     </div>
                                 </td>

@@ -39,8 +39,8 @@ class MapView extends Component
 
         $latestData = Cache::remember($cacheKey, 2, function () {
             return Telemetria::select('telemetrias.*')
-                ->join(DB::raw('(SELECT device_id, MAX(created_at) as latest_time 
-                                 FROM telemetrias 
+                ->join(DB::raw('(SELECT device_id, MAX(created_at) as latest_time
+                                 FROM telemetrias
                                  GROUP BY device_id) as latest'), function ($join) {
                     $join->on('telemetrias.device_id', '=', 'latest.device_id')
                          ->on('telemetrias.created_at', '=', 'latest.latest_time');

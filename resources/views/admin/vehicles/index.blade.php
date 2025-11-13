@@ -35,42 +35,42 @@ $vehicles = \App\Models\Vehicle::with(['driver', 'branch'])
 
         {{-- Estadísticas --}}
         <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <x-stats.card 
-                title="Total Vehículos" 
-                :value="$stats['total']" 
-                icon="truck" 
-                color="blue" 
+            <x-stats.card
+                title="Total Vehículos"
+                :value="$stats['total']"
+                icon="truck"
+                color="blue"
             />
-            <x-stats.card 
-                title="Disponibles" 
-                :value="$stats['disponibles']" 
-                icon="check-circle" 
-                color="green" 
+            <x-stats.card
+                title="Disponibles"
+                :value="$stats['disponibles']"
+                icon="check-circle"
+                color="green"
             />
-            <x-stats.card 
-                title="Ocupados" 
-                :value="$stats['ocupados']" 
-                icon="clock" 
-                color="orange" 
+            <x-stats.card
+                title="Ocupados"
+                :value="$stats['ocupados']"
+                icon="clock"
+                color="orange"
             />
-            <x-stats.card 
-                title="Mantenimiento" 
-                :value="$stats['mantenimiento']" 
-                icon="wrench" 
-                color="red" 
+            <x-stats.card
+                title="Mantenimiento"
+                :value="$stats['mantenimiento']"
+                icon="wrench"
+                color="red"
             />
         </div>
 
         {{-- Filtros --}}
         <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-4">
             <form method="GET" class="flex flex-wrap gap-3">
-                <flux:input 
-                    name="search" 
+                <flux:input
+                    name="search"
                     placeholder="Buscar por placa, marca o modelo..."
                     value="{{ request('search') }}"
                     class="flex-1 min-w-[200px]"
                 />
-                
+
                 <flux:select name="estado" placeholder="Estado" class="min-w-[140px]">
                     <option value="">Todos</option>
                     <option value="disponible" {{ request('estado') === 'disponible' ? 'selected' : '' }}>Disponible</option>
@@ -89,7 +89,7 @@ $vehicles = \App\Models\Vehicle::with(['driver', 'branch'])
                 <flux:button type="submit" icon="magnifying-glass">
                     Buscar
                 </flux:button>
-                
+
                 @if(request()->hasAny(['search', 'estado', 'tipo']))
                     <flux:button href="{{ url()->current() }}" variant="ghost">
                         Limpiar
@@ -215,17 +215,21 @@ $vehicles = \App\Models\Vehicle::with(['driver', 'branch'])
                                 {{-- Acciones --}}
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex items-center justify-end gap-2">
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
+                                        <flux:button
+                                            size="sm"
+                                            variant="ghost"
                                             icon="eye"
                                             title="Ver detalles"
+                                            href="{{ route('admin.vehicles.show', $vehicle) }}"
+                                            wire:navigate
                                         />
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
+                                        <flux:button
+                                            size="sm"
+                                            variant="ghost"
                                             icon="pencil"
                                             title="Editar"
+                                            href="{{ route('admin.vehicles.edit', $vehicle) }}"
+                                            wire:navigate
                                         />
                                     </div>
                                 </td>

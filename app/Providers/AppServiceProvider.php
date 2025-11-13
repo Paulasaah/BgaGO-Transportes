@@ -12,7 +12,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Registrar el servicio
         $this->app->singleton('data.service', function ($app) {
-            $useMock = config('app.use_mock_data', true);
+            $useMock = config('app.use_mock_data', false);
             return $useMock ? new MockDataService() : new DataService();
         });
     }

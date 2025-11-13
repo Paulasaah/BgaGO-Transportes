@@ -1,6 +1,4 @@
 @php
-use App\Facades\Data;
-
 // Obtener stats agrupados por rol
 $allUsers = \App\Models\User::with('roles')->get();
 $stats = [
@@ -20,58 +18,64 @@ $users = \App\Models\User::with('roles')
         $query->role($role);
     })
     ->orderBy('created_at', 'desc')
-    ->paginate(15);
+    ->paginate(15)
+    ->withQueryString();
 @endphp
 
 <x-layouts.app>
     <div class="flex h-full w-full flex-1 flex-col gap-6 p-6 lg:p-8">
-        
+
         {{-- Header --}}
         <div class="flex items-center justify-between">
             <div>
                 <flux:heading size="xl">Gestión de Usuarios</flux:heading>
                 <flux:subheading>Administra los usuarios registrados en BgaGo</flux:subheading>
             </div>
+            <div class="flex items-center gap-2">
+                <flux:button href="{{ route('admin.users.create') }}" icon="plus" variant="primary" wire:navigate>
+                    Nuevo usuario
+                </flux:button>
+            </div>
         </div>
 
         {{-- Tarjetas de estadísticas --}}
         <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <x-stats.card 
-                title="Total Usuarios" 
-                :value="$stats['total']" 
-                icon="users" 
-                color="blue" 
+            <x-stats.card
+                title="Total Usuarios"
+                :value="$stats['total']"
+                icon="users"
+                color="blue"
             />
-            <x-stats.card 
-                title="Clientes" 
-                :value="$stats['clientes']" 
-                icon="user-group" 
-                color="green" 
+            <x-stats.card
+                title="Clientes"
+                :value="$stats['clientes']"
+                icon="user-group"
+                color="green"
             />
-            <x-stats.card 
-                title="Conductores" 
-                :value="$stats['conductores']" 
-                icon="user-circle" 
-                color="orange" 
+            <x-stats.card
+                title="Conductores"
+                :value="$stats['conductores']"
+                icon="user-circle"
+                color="orange"
             />
-            <x-stats.card 
-                title="Administradores" 
-                :value="$stats['admins']" 
-                icon="shield-check" 
-                color="purple" 
+            <x-stats.card
+                title="Administradores"
+                :value="$stats['admins']"
+                icon="shield-check"
+                color="purple"
             />
         </div>
 
         {{-- Filtros --}}
         <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-4">
             <form method="GET" class="flex flex-wrap gap-3">
-                <flux:input 
-                    name="search" 
+                <flux:input
+                    name="search"
                     placeholder="Buscar por nombre o email..."
                     value="{{ request('search') }}"
                     class="flex-1 min-w-[200px]"
                 />
-                
+
                 <flux:select name="role" placeholder="Filtrar por rol" class="min-w-[140px]">
                     <option value="">Todos los roles</option>
                     <option value="cliente" {{ request('role') === 'cliente' ? 'selected' : '' }}>Cliente</option>
@@ -82,7 +86,7 @@ $users = \App\Models\User::with('roles')
                 <flux:button type="submit" icon="magnifying-glass">
                     Buscar
                 </flux:button>
-                
+
                 @if(request()->hasAny(['search', 'role']))
                     <flux:button href="{{ url()->current() }}" variant="ghost">
                         Limpiar
@@ -173,28 +177,37 @@ $users = \App\Models\User::with('roles')
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex items-center justify-end gap-2">
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
+                                        <flux:button
+                                            size="sm"
+                                            variant="ghost"
                                             icon="eye"
                                             title="Ver detalles"
+                                            href="{{ route('admin.users.show', $user) }}"
+                                            wire:navigate
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400"
                                         />
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
+                                        <flux:button
+                                            size="sm"
+                                            variant="ghost"
                                             icon="pencil"
                                             title="Editar"
+                                            href="{{ route('admin.users.edit', $user) }}"
+                                            wire:navigate
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-400"
                                         />
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            icon="trash"
-                                            title="Eliminar"
-                                            onclick="return confirm('¿Estás seguro de eliminar este usuario?')"
-                                            class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
-                                        />
+                                        <form action="{{ route('admin.users.destroy', $user) }}" method="POST" class="inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <flux:button
+                                                size="sm"
+                                                variant="ghost"
+                                                icon="trash"
+                                                title="Eliminar"
+                                                type="button"
+                                                onclick="if (confirm('¿Estás seguro de eliminar este usuario?')) { this.closest('form').submit(); }"
+                                                class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+                                            />
+                                        </form>
                                     </div>
                                 </td>
                             </tr>

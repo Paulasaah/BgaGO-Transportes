@@ -3,11 +3,61 @@
 namespace App\Models;
 
 use App\Enums\PaymentStatus;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * @property int $id
+ * @property string $codigo_transaccion
+ * @property int $reserva_id
+ * @property int $user_id
+ * @property string $metodo_pago
+ * @property numeric $monto
+ * @property PaymentStatus $estado
+ * @property string|null $referencia_externa
+ * @property array<array-key, mixed>|null $datos_transaccion
+ * @property string|null $motivo_rechazo
+ * @property \Illuminate\Support\Carbon|null $fecha_aprobacion
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \App\Models\PaymentMethod|null $paymentMethod
+ * @property-read \App\Models\Reservation $reservation
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TransactionLog> $transactionLogs
+ * @property-read int|null $transaction_logs_count
+ * @property-read \App\Models\User $user
+ * @method static Builder<static>|Payment aprobados()
+ * @method static Builder<static>|Payment delUsuario(int $userId)
+ * @method static Builder<static>|Payment enRango($desde, $hasta)
+ * @method static Builder<static>|Payment newModelQuery()
+ * @method static Builder<static>|Payment newQuery()
+ * @method static Builder<static>|Payment onlyTrashed()
+ * @method static Builder<static>|Payment pendientes()
+ * @method static Builder<static>|Payment porMetodo(string $metodo)
+ * @method static Builder<static>|Payment query()
+ * @method static Builder<static>|Payment rechazados()
+ * @method static Builder<static>|Payment reembolsados()
+ * @method static Builder<static>|Payment whereCodigoTransaccion($value)
+ * @method static Builder<static>|Payment whereCreatedAt($value)
+ * @method static Builder<static>|Payment whereDatosTransaccion($value)
+ * @method static Builder<static>|Payment whereDeletedAt($value)
+ * @method static Builder<static>|Payment whereEstado($value)
+ * @method static Builder<static>|Payment whereFechaAprobacion($value)
+ * @method static Builder<static>|Payment whereId($value)
+ * @method static Builder<static>|Payment whereMetodoPago($value)
+ * @method static Builder<static>|Payment whereMonto($value)
+ * @method static Builder<static>|Payment whereMotivoRechazo($value)
+ * @method static Builder<static>|Payment whereReferenciaExterna($value)
+ * @method static Builder<static>|Payment whereReservaId($value)
+ * @method static Builder<static>|Payment whereUpdatedAt($value)
+ * @method static Builder<static>|Payment whereUserId($value)
+ * @method static Builder<static>|Payment withTrashed(bool $withTrashed = true)
+ * @method static Builder<static>|Payment withoutTrashed()
+ * @mixin \Eloquent
+ */
 class Payment extends Model
 {
     use HasFactory, SoftDeletes;
@@ -150,7 +200,7 @@ class Payment extends Model
 
         $this->estado = PaymentStatus::Aprobado;
         $this->fecha_aprobacion = now();
-        
+
         if ($referenciaExterna) {
             $this->referencia_externa = $referenciaExterna;
         }
@@ -159,7 +209,7 @@ class Payment extends Model
 
         if ($saved) {
             $this->logTransaction('aprobacion', 'Pago aprobado exitosamente');
-            
+
             // Actualizar estado de la reserva
             if ($this->reservation && $this->reservation->isPendiente()) {
                 $this->reservation->update(['estado' => 'confirmada']);
@@ -204,7 +254,7 @@ class Payment extends Model
 
         if ($saved) {
             $this->logTransaction('reembolso', "Pago reembolsado: {$motivo}");
-            
+
             // Actualizar estado de la reserva a cancelada
             if ($this->reservation && !$this->reservation->isCancelada()) {
                 $this->reservation->update([
@@ -224,7 +274,7 @@ class Payment extends Model
     {
         TransactionLog::create([
             'payment_id' => $this->id,
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'accion' => $accion,
             'descripcion' => $descripcion,
             'datos' => $datos,
@@ -240,7 +290,7 @@ class Payment extends Model
     {
         $date = now()->format('Ymd');
         $random = strtoupper(substr(md5(uniqid()), 0, 6));
-        
+
         return "TXN-{$date}-{$random}";
     }
 

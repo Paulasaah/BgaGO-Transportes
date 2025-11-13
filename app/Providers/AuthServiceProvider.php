@@ -61,9 +61,12 @@ class AuthServiceProvider extends ServiceProvider
         // GATES PERSONALIZADOS
         // ==========================================
 
-        // Ver dashboard (admin, conductor)
+        // Ver dashboard (admin y conductores activos)
         Gate::define('view-dashboard', function ($user) {
-            return $user->hasAnyRole(['admin', 'super_admin', 'conductor']);
+            if ($user->hasAnyRole(['admin', 'super_admin'])) {
+                return true;
+            }
+            return $user->hasRole('conductor') && ($user->driverProfile?->is_active ?? false);
         });
 
         // Gestionar sistema (solo admin)
@@ -73,13 +76,13 @@ class AuthServiceProvider extends ServiceProvider
 
         // Ver reportes
         Gate::define('view-reports', function ($user) {
-            return $user->hasPermissionTo('ver_reportes') || 
+            return $user->hasPermissionTo('ver_reportes') ||
                    $user->hasRole(['admin', 'super_admin']);
         });
 
         // Gestionar pagos
         Gate::define('manage-payments', function ($user) {
-            return $user->hasPermissionTo('aprobar_pagos') || 
+            return $user->hasPermissionTo('aprobar_pagos') ||
                    $user->hasRole(['admin', 'super_admin']);
         });
 
@@ -95,9 +98,12 @@ class AuthServiceProvider extends ServiceProvider
                    $user->hasPermissionTo('asignar_conductores');
         });
 
-        // Ver telemetría
+        // Ver telemetría (admin y conductores activos)
         Gate::define('view-telemetry', function ($user) {
-            return $user->hasAnyRole(['admin', 'super_admin', 'conductor']);
+            if ($user->hasAnyRole(['admin', 'super_admin'])) {
+                return true;
+            }
+            return $user->hasRole('conductor') && ($user->driverProfile?->is_active ?? false);
         });
 
         // Gestionar sedes

@@ -7,6 +7,7 @@ use App\Models\Delivery;
 use App\Models\User;
 use App\Models\Reservation;
 use App\Models\Vehicle;
+use Carbon\Carbon;
 
 class DeliverySeeder extends Seeder
 {

@@ -14,7 +14,7 @@ class VehicleSeeder extends Seeder
     public function run(): void
     {
         $branchIds = Branch::pluck('id')->toArray();
-        $userIds = User::pluck('id')->toArray();
+        $userIds = User::role('conductor')->pluck('id')->toArray(); // solo conductores
 
         if (empty($branchIds) || empty($userIds)) {
             $this->command->warn('⚠️ No hay datos suficientes en Branch o User para crear vehículos.');

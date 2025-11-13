@@ -14,7 +14,7 @@
                     </div>
                 </div>
             </div>
-            
+
             @if(isset($reporte['cambio_porcentual']) && $reporte['cambio_porcentual'] != 0)
                 <div class="flex items-center gap-2 text-sm">
                     <flux:badge variant="{{ $reporte['cambio_porcentual'] > 0 ? 'success' : 'danger' }}" size="sm">
@@ -44,11 +44,11 @@
                             <div class="text-xs text-zinc-500 dark:text-zinc-400">del total</div>
                         </div>
                     </div>
-                    
+
                     {{-- Barra de progreso --}}
                     <div class="h-2 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
-                        <div 
-                            class="h-full bg-blue-500 transition-all duration-500" 
+                        <div
+                            class="h-full bg-blue-500 transition-all duration-500"
                             style="width: {{ $tipo['porcentaje'] }}%"
                         ></div>
                     </div>
@@ -141,7 +141,7 @@ document.addEventListener('livewire:initialized', () => {
     if (ctx) {
         // Datos pasados desde Livewire como propiedad pública
         const chartData = @js($this->chartData);
-        
+
         // Verificar que hay datos antes de crear el gráfico
         if (chartData && chartData.labels && chartData.labels.length > 0) {
             const chart = new Chart(ctx, {
@@ -160,8 +160,7 @@ document.addEventListener('livewire:initialized', () => {
                             intersect: false,
                             callbacks: {
                                 label: function(context) {
-                                    return context.dataset.label + ': 
- + context.parsed.y.toLocaleString();
+                                    return context.dataset.label + ': ' + context.parsed.y.toLocaleString();
                                 }
                             }
                         }
@@ -171,8 +170,7 @@ document.addEventListener('livewire:initialized', () => {
                             beginAtZero: true,
                             ticks: {
                                 callback: function(value) {
-                                    return '
- + value.toLocaleString();
+                                    return value.toLocaleString();
                                 }
                             }
                         }

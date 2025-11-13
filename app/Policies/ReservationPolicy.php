@@ -43,9 +43,9 @@ class ReservationPolicy
             return !$reservation->isFinal();
         }
 
-        // Conductor asignado puede modificar estados operativos
+        // Conductor asignado puede modificar estados operativos (solo si está activo)
         if ($reservation->conductor_id === $user->id) {
-            return !$reservation->isFinal();
+            return ($user->driverProfile?->is_active ?? false) && !$reservation->isFinal();
         }
 
         return false;
@@ -88,9 +88,10 @@ class ReservationPolicy
             return true;
         }
 
-        // 🚗 Conductor asignado puede iniciar si está confirmada o pendiente
+        // 🚗 Conductor asignado puede iniciar si está confirmada o pendiente (solo si está activo)
         if ($reservation->conductor_id === $user->id) {
-            return $reservation->isConfirmada() || $reservation->isPendiente();
+            return ($user->driverProfile?->is_active ?? false)
+                && ($reservation->isConfirmada() || $reservation->isPendiente());
         }
 
         // 👤 Cliente puede iniciar su propia reserva confirmada
@@ -109,9 +110,10 @@ class ReservationPolicy
             return true;
         }
 
-        // 🚗 Conductor asignado puede completar si la reserva está activa o en curso
+        // 🚗 Conductor asignado puede completar si la reserva está activa o en curso (solo si está activo)
         if ($reservation->conductor_id === $user->id) {
-            return $reservation->isActiva() || $reservation->isEnCurso();
+            return ($user->driverProfile?->is_active ?? false)
+                && ($reservation->isActiva() || $reservation->isEnCurso());
         }
 
         // 👤 Cliente puede completar su propia reserva activa

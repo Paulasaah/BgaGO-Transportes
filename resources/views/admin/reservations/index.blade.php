@@ -37,42 +37,42 @@ $reservations = \App\Models\Reservation::with(['user', 'vehicle', 'driver'])
 
         {{-- Estadísticas --}}
         <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-            <x-stats.card 
-                title="Total Reservas" 
-                :value="$stats['total']" 
-                icon="clipboard-document-list" 
-                color="blue" 
+            <x-stats.card
+                title="Total Reservas"
+                :value="$stats['total']"
+                icon="clipboard-document-list"
+                color="blue"
             />
-            <x-stats.card 
-                title="Activas" 
-                :value="$stats['activas']" 
-                icon="clock" 
-                color="green" 
+            <x-stats.card
+                title="Activas"
+                :value="$stats['activas']"
+                icon="clock"
+                color="green"
             />
-            <x-stats.card 
-                title="Completadas" 
-                :value="$stats['completadas']" 
-                icon="check-badge" 
-                color="purple" 
+            <x-stats.card
+                title="Completadas"
+                :value="$stats['completadas']"
+                icon="check-badge"
+                color="purple"
             />
-            <x-stats.card 
-                title="Canceladas" 
-                :value="$stats['canceladas']" 
-                icon="x-circle" 
-                color="red" 
+            <x-stats.card
+                title="Canceladas"
+                :value="$stats['canceladas']"
+                icon="x-circle"
+                color="red"
             />
         </div>
 
         {{-- Filtros --}}
         <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-4">
             <form method="GET" class="flex flex-wrap gap-3">
-                <flux:input 
-                    name="search" 
+                <flux:input
+                    name="search"
                     placeholder="Buscar por código o usuario..."
                     value="{{ request('search') }}"
                     class="flex-1 min-w-[200px]"
                 />
-                
+
                 <flux:select name="tipo" placeholder="Tipo" class="min-w-[140px]">
                     <option value="">Todos</option>
                     <option value="reserva" {{ request('tipo') === 'reserva' ? 'selected' : '' }}>Reserva</option>
@@ -88,9 +88,9 @@ $reservations = \App\Models\Reservation::with(['user', 'vehicle', 'driver'])
                     <option value="cancelada" {{ request('estado') === 'cancelada' ? 'selected' : '' }}>Cancelada</option>
                 </flux:select>
 
-                <flux:input 
-                    type="date" 
-                    name="fecha" 
+                <flux:input
+                    type="date"
+                    name="fecha"
                     value="{{ request('fecha') }}"
                     class="min-w-[140px]"
                 />
@@ -98,7 +98,7 @@ $reservations = \App\Models\Reservation::with(['user', 'vehicle', 'driver'])
                 <flux:button type="submit" icon="magnifying-glass">
                     Buscar
                 </flux:button>
-                
+
                 @if(request()->hasAny(['search', 'tipo', 'estado', 'fecha']))
                     <flux:button href="{{ url()->current() }}" variant="ghost">
                         Limpiar
@@ -228,29 +228,38 @@ $reservations = \App\Models\Reservation::with(['user', 'vehicle', 'driver'])
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex items-center justify-end gap-2">
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
+                                        <flux:button
+                                            size="sm"
+                                            variant="ghost"
                                             icon="eye"
                                             title="Ver detalles"
+                                            href="{{ route('admin.reservations.show', $reserva) }}"
+                                            wire:navigate
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400"
                                         />
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
+                                        <flux:button
+                                            size="sm"
+                                            variant="ghost"
                                             icon="pencil"
                                             title="Editar"
+                                            href="{{ route('admin.reservations.edit', $reserva) }}"
+                                            wire:navigate
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-400"
                                         />
                                         @if($reserva->estado !== ReservationStatus::Completada && $reserva->estado !== ReservationStatus::Cancelada)
-                                            <flux:button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                icon="x-mark"
-                                                title="Cancelar reserva"
-                                                onclick="return confirm('¿Estás seguro de cancelar esta reserva?')"
-                                                class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
-                                            />
+                                            <form action="{{ route('admin.reservations.cancel', $reserva) }}" method="POST" class="inline">
+                                                @csrf
+                                                @method('PATCH')
+                                                <flux:button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    icon="x-mark"
+                                                    title="Cancelar reserva"
+                                                    type="button"
+                                                    onclick="if (confirm('¿Estás seguro de cancelar esta reserva?')) { this.closest('form').submit(); }"
+                                                    class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+                                                />
+                                            </form>
                                         @endif
                                     </div>
                                 </td>

@@ -36,6 +36,25 @@ class UserSeeder extends Seeder
             ],
         ];
 
+        // 🔹 Generar usuarios adicionales (Clientes y Conductores)
+        // Clientes simulados
+        for ($i = 1; $i <= 50; $i++) {
+            $users[] = [
+                'name' => "Cliente {$i} BgaGO",
+                'email' => "cliente{$i}@bgago.com",
+                'role' => 'cliente',
+            ];
+        }
+
+        // Conductores simulados
+        for ($i = 1; $i <= 15; $i++) {
+            $users[] = [
+                'name' => "Conductor {$i} BgaGO",
+                'email' => "conductor{$i}@bgago.com",
+                'role' => 'conductor',
+            ];
+        }
+
         // Limpiar tokens previos
         $tokensPath = storage_path('test-tokens.txt');
         if (file_exists($tokensPath)) {
@@ -62,5 +81,6 @@ class UserSeeder extends Seeder
         }
 
         $this->command->info('✅ Usuarios, roles y tokens generados (storage/test-tokens.txt)');
+        $this->command->info('👥 1 Admin, 50 Clientes y 15 Conductores creados correctamente.');
     }
 }
