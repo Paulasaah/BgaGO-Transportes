@@ -9,6 +9,75 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * @property int $id
+ * @property string $placa
+ * @property string $marca
+ * @property string $modelo
+ * @property int|null $year
+ * @property VehicleType $tipo
+ * @property string|null $color
+ * @property int $sede_id
+ * @property int|null $conductor_id
+ * @property VehicleStatus $estado
+ * @property bool $visible_catalogo
+ * @property numeric $precio_hora
+ * @property numeric $precio_dia
+ * @property string|null $imagen_principal
+ * @property string|null $descripcion
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \App\Models\Reservation|null $activeReservation
+ * @property-read \App\Models\Branch $branch
+ * @property-read \App\Models\GpsTrack|null $currentLocation
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Delivery> $deliveries
+ * @property-read int|null $deliveries_count
+ * @property-read \App\Models\User|null $driver
+ * @property-read \App\Models\DriverProfile|null $driverProfile
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\GpsTrack> $gpsTracks
+ * @property-read int|null $gps_tracks_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\VehicleMaintenance> $maintenances
+ * @property-read int|null $maintenances_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Reservation> $reservations
+ * @property-read int|null $reservations_count
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Telemetria> $telemetrias
+ * @property-read int|null $telemetrias_count
+ * @method static Builder<static>|Vehicle conConductor()
+ * @method static Builder<static>|Vehicle disponibles()
+ * @method static Builder<static>|Vehicle enMantenimiento()
+ * @method static Builder<static>|Vehicle inactivos()
+ * @method static Builder<static>|Vehicle newModelQuery()
+ * @method static Builder<static>|Vehicle newQuery()
+ * @method static Builder<static>|Vehicle ocupados()
+ * @method static Builder<static>|Vehicle onlyTrashed()
+ * @method static Builder<static>|Vehicle porSede(int $sedeId)
+ * @method static Builder<static>|Vehicle porTipo(\App\Enums\VehicleType|string $tipo)
+ * @method static Builder<static>|Vehicle query()
+ * @method static Builder<static>|Vehicle sinConductor()
+ * @method static Builder<static>|Vehicle visiblesEnCatalogo()
+ * @method static Builder<static>|Vehicle whereColor($value)
+ * @method static Builder<static>|Vehicle whereConductorId($value)
+ * @method static Builder<static>|Vehicle whereCreatedAt($value)
+ * @method static Builder<static>|Vehicle whereDeletedAt($value)
+ * @method static Builder<static>|Vehicle whereDescripcion($value)
+ * @method static Builder<static>|Vehicle whereEstado($value)
+ * @method static Builder<static>|Vehicle whereId($value)
+ * @method static Builder<static>|Vehicle whereImagenPrincipal($value)
+ * @method static Builder<static>|Vehicle whereMarca($value)
+ * @method static Builder<static>|Vehicle whereModelo($value)
+ * @method static Builder<static>|Vehicle wherePlaca($value)
+ * @method static Builder<static>|Vehicle wherePrecioDia($value)
+ * @method static Builder<static>|Vehicle wherePrecioHora($value)
+ * @method static Builder<static>|Vehicle whereSedeId($value)
+ * @method static Builder<static>|Vehicle whereTipo($value)
+ * @method static Builder<static>|Vehicle whereUpdatedAt($value)
+ * @method static Builder<static>|Vehicle whereVisibleCatalogo($value)
+ * @method static Builder<static>|Vehicle whereYear($value)
+ * @method static Builder<static>|Vehicle withTrashed(bool $withTrashed = true)
+ * @method static Builder<static>|Vehicle withoutTrashed()
+ * @mixin \Eloquent
+ */
 class Vehicle extends Model
 {
     use HasFactory, SoftDeletes;

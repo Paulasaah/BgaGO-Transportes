@@ -38,7 +38,7 @@ Route::middleware(['auth', 'verified', 'role:admin'])
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
     // === USUARIOS ===
-    Route::get('users', [UserController::class, 'index'])->name('users.index');
+    Route::get('users', App\Livewire\Admin\UsersIndex::class)->name('users.index');
     Route::get('users/create', [UserController::class, 'create'])->name('users.create');
     Route::post('users', [UserController::class, 'store'])->name('users.store');
     Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
@@ -48,6 +48,9 @@ Route::middleware(['auth', 'verified', 'role:admin'])
 
     // === CONDUCTORES ===
     Route::get('drivers', [DriverController::class, 'index'])->name('drivers.index');
+    Route::get('drivers/{user}', [DriverController::class, 'show'])->name('drivers.show');
+    Route::get('drivers/{user}/edit', [DriverController::class, 'edit'])->name('drivers.edit');
+    Route::put('drivers/{user}', [DriverController::class, 'update'])->name('drivers.update');
     Route::patch('drivers/{user}/toggle-status', [DriverController::class, 'toggleStatus'])->name('drivers.toggle-status');
 
     // === VEHÍCULOS ===
@@ -61,7 +64,12 @@ Route::middleware(['auth', 'verified', 'role:admin'])
 
     // === RESERVAS ===
     Route::get('reservations', [ReservationController::class, 'index'])->name('reservations.index');
+    Route::get('reservations/create', [ReservationController::class, 'create'])->name('reservations.create');
+    Route::post('reservations', [ReservationController::class, 'store'])->name('reservations.store');
     Route::get('reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
+    Route::get('reservations/{reservation}/edit', [ReservationController::class, 'edit'])->name('reservations.edit');
+    Route::put('reservations/{reservation}', [ReservationController::class, 'update'])->name('reservations.update');
+    Route::delete('reservations/{reservation}', [ReservationController::class, 'destroy'])->name('reservations.destroy');
     Route::patch('reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
 
     // === MONITOREO Y MAPAS ===

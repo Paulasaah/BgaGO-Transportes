@@ -120,11 +120,11 @@
     {{-- Mapa y Panel Lateral --}}
     <div class="flex-1 flex gap-4 min-h-[600px]">
         {{-- Mapa Principal --}}
-        <div class="flex-1 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 relative overflow-hidden">
-            <div id="map" wire:ignore style="width:100%;height:100%;min-height:600px;"></div>
+        <div class="flex-1 bg-white dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 relative overflow-hidden" wire:ignore>
+            <div id="map" wire:ignore style="width:100%;height:calc(100vh - 220px);min-height:500px;"></div>
             
             {{-- Leyenda --}}
-            <div class="absolute top-3 left-3 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 z-[1000] text-xs">
+            <div class="absolute top-3 left-3 bg-white dark:bg-zinc-900 rounded-lg border border-zinc-200 dark:border-zinc-700 p-3 z-10 text-xs">
                 <div class="font-bold mb-2 text-zinc-900 dark:text-white flex items-center gap-1.5">
                     <x-icon name="info" class="size-3.5" />
                     Leyenda
@@ -287,6 +287,11 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
+.leaflet-container { z-index: 0; }
+.leaflet-top, .leaflet-bottom { z-index: 10; }
+.leaflet-control-container { z-index: 10; }
+.leaflet-marker-pane, .leaflet-popup-pane { z-index: 10; }
+.leaflet-pane { will-change: transform; }
 .leaflet-popup-content-wrapper {
     border-radius: 8px;
     padding: 0;
@@ -303,12 +308,29 @@
     const mapState = {
         instance: null,
         markers: {},
+        markersData: {},
         branchCircles: {},
         branchMarkers: {},
         autoRefresh: null,
         isReady: false,
-        updateQueue: []
+        updateQueue: [],
+        loading: false
     };
+
+    let rafVehiclesScheduled = false;
+    let pendingVehicles = null;
+    function scheduleVehiclesUpdate(vehicles) {
+        pendingVehicles = vehicles;
+        if (rafVehiclesScheduled) return;
+        rafVehiclesScheduled = true;
+        requestAnimationFrame(() => {
+            rafVehiclesScheduled = false;
+            if (pendingVehicles) {
+                loadVehicles(pendingVehicles);
+                pendingVehicles = null;
+            }
+        });
+    }
 
     function getStatusColor(status) {
         const colors = {
@@ -573,17 +595,18 @@
             } else {
                 // Actualizar marcador existente
                 const marker = mapState.markers[v.device_id];
-                const oldLatLng = marker.getLatLng();
+                const prev = mapState.markersData[v.device_id] || {};
                 const newLatLng = L.latLng(v.lat, v.lng);
-                const distance = oldLatLng.distanceTo(newLatLng);
-                
-                // Solo actualizar si hay cambio significativo
-                if (distance > 0.5) {
+                if (!prev.lat || !prev.lng || L.latLng(prev.lat, prev.lng).distanceTo(newLatLng) > 0.5) {
                     marker.setLatLng(newLatLng);
                 }
-                
-                marker.setIcon(icon);
-                marker.getPopup().setContent(popup);
+                if (prev.status !== v.status || Math.round(prev.speed || 0) !== Math.round(v.speed || 0)) {
+                    marker.setIcon(icon);
+                }
+                if (marker.isPopupOpen()) {
+                    marker.getPopup().setContent(popup);
+                }
+                mapState.markersData[v.device_id] = { ...v };
             }
         });
     }
@@ -599,17 +622,34 @@
 
             mapState.instance = L.map('map', {
                 zoomControl: true,
-                attributionControl: true
+                attributionControl: true,
+                preferCanvas: true,
+                keyboard: false
             }).setView([7.1193, -73.1227], 13);
             
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 maxZoom: 19,
-                attribution: '© OpenStreetMap'
+                attribution: '© OpenStreetMap',
+                updateWhenIdle: true,
+                keepBuffer: 4,
+                crossOrigin: true
             }).addTo(mapState.instance);
 
             setTimeout(() => {
                 if (mapState.instance) mapState.instance.invalidateSize();
+                try { mapState.instance.getContainer().removeAttribute('tabindex'); } catch (e) {}
             }, 200);
+
+            window.addEventListener('resize', () => {
+                if (mapState.instance) mapState.instance.invalidateSize();
+            });
+            const mapWrapper = document.getElementById('map')?.parentElement;
+            if (mapWrapper && 'ResizeObserver' in window) {
+                const ro = new ResizeObserver(() => {
+                    if (mapState.instance) mapState.instance.invalidateSize();
+                });
+                ro.observe(mapWrapper);
+            }
 
             mapState.isReady = true;
             console.log('✅ Mapa inicializado');
@@ -623,7 +663,9 @@
     function startAutoRefresh(seconds) {
         if (mapState.autoRefresh) clearInterval(mapState.autoRefresh);
         mapState.autoRefresh = setInterval(() => {
-            $wire.call('loadMapData');
+            if (mapState.loading) return;
+            mapState.loading = true;
+            Promise.resolve($wire.call('loadMapData')).finally(() => { mapState.loading = false; });
         }, seconds * 1000);
     }
 
@@ -641,9 +683,8 @@
         if (data.branches && data.branches.length > 0) {
             loadBranches(data.branches);
         }
-        
         if (data.vehicles && data.vehicles.length > 0) {
-            loadVehicles(data.vehicles);
+            scheduleVehiclesUpdate(data.vehicles);
         }
     });
 
@@ -681,7 +722,7 @@
             }
             
             if (vehicles && vehicles.length > 0) {
-                setTimeout(() => loadVehicles(vehicles), 600);
+                setTimeout(() => scheduleVehiclesUpdate(vehicles), 600);
             }
 
             @if($autoRefresh)

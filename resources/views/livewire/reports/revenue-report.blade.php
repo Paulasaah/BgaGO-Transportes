@@ -160,8 +160,7 @@ document.addEventListener('livewire:initialized', () => {
                             intersect: false,
                             callbacks: {
                                 label: function(context) {
-                                    return context.dataset.label + ': 
- + context.parsed.y.toLocaleString();
+                                    return context.dataset.label + ': ' + context.parsed.y.toLocaleString();
                                 }
                             }
                         }
@@ -171,8 +170,7 @@ document.addEventListener('livewire:initialized', () => {
                             beginAtZero: true,
                             ticks: {
                                 callback: function(value) {
-                                    return '
- + value.toLocaleString();
+                                    return value.toLocaleString();
                                 }
                             }
                         }

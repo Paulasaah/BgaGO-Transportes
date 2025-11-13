@@ -25,6 +25,7 @@ class DeliveryPolicy
     public function accept(User $user, Delivery $delivery): bool
     {
         return $user->hasRole('conductor')
+            && ($user->driverProfile?->is_active ?? false)
             && $delivery->estado === 'pendiente'
             && is_null($delivery->conductor_id);
     }
@@ -43,6 +44,7 @@ class DeliveryPolicy
         // 🚗 Conductor: Debe estar asignado y el delivery en estado válido
         // ✅ IDEMPOTENCIA: Incluimos 'en_camino' para permitir re-iniciar
         return $user->hasRole('conductor')
+            && ($user->driverProfile?->is_active ?? false)
             && $asignado
             && in_array($delivery->estado, ['pendiente', 'asignado', 'confirmado', 'en_camino']);
     }
@@ -57,6 +59,7 @@ class DeliveryPolicy
             || ($delivery->reservation && $delivery->reservation->conductor_id === $user->id);
 
         return $user->hasRole('conductor')
+            && ($user->driverProfile?->is_active ?? false)
             && $asignado
             && in_array($delivery->estado, ['en_camino']);
     }
@@ -68,6 +71,7 @@ class DeliveryPolicy
         }
 
         return $user->hasRole('conductor')
+            && ($user->driverProfile?->is_active ?? false)
             && in_array($delivery->estado, ['pendiente', 'asignado', 'confirmado']);
     }
 

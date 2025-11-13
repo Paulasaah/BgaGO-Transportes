@@ -8,6 +8,55 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * @property int $id
+ * @property string $codigo_transaccion
+ * @property int $reserva_id
+ * @property int $user_id
+ * @property string $metodo_pago
+ * @property numeric $monto
+ * @property PaymentStatus $estado
+ * @property string|null $referencia_externa
+ * @property array<array-key, mixed>|null $datos_transaccion
+ * @property string|null $motivo_rechazo
+ * @property \Illuminate\Support\Carbon|null $fecha_aprobacion
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property \Illuminate\Support\Carbon|null $deleted_at
+ * @property-read \App\Models\PaymentMethod|null $paymentMethod
+ * @property-read \App\Models\Reservation $reservation
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\TransactionLog> $transactionLogs
+ * @property-read int|null $transaction_logs_count
+ * @property-read \App\Models\User $user
+ * @method static Builder<static>|Payment aprobados()
+ * @method static Builder<static>|Payment delUsuario(int $userId)
+ * @method static Builder<static>|Payment enRango($desde, $hasta)
+ * @method static Builder<static>|Payment newModelQuery()
+ * @method static Builder<static>|Payment newQuery()
+ * @method static Builder<static>|Payment onlyTrashed()
+ * @method static Builder<static>|Payment pendientes()
+ * @method static Builder<static>|Payment porMetodo(string $metodo)
+ * @method static Builder<static>|Payment query()
+ * @method static Builder<static>|Payment rechazados()
+ * @method static Builder<static>|Payment reembolsados()
+ * @method static Builder<static>|Payment whereCodigoTransaccion($value)
+ * @method static Builder<static>|Payment whereCreatedAt($value)
+ * @method static Builder<static>|Payment whereDatosTransaccion($value)
+ * @method static Builder<static>|Payment whereDeletedAt($value)
+ * @method static Builder<static>|Payment whereEstado($value)
+ * @method static Builder<static>|Payment whereFechaAprobacion($value)
+ * @method static Builder<static>|Payment whereId($value)
+ * @method static Builder<static>|Payment whereMetodoPago($value)
+ * @method static Builder<static>|Payment whereMonto($value)
+ * @method static Builder<static>|Payment whereMotivoRechazo($value)
+ * @method static Builder<static>|Payment whereReferenciaExterna($value)
+ * @method static Builder<static>|Payment whereReservaId($value)
+ * @method static Builder<static>|Payment whereUpdatedAt($value)
+ * @method static Builder<static>|Payment whereUserId($value)
+ * @method static Builder<static>|Payment withTrashed(bool $withTrashed = true)
+ * @method static Builder<static>|Payment withoutTrashed()
+ * @mixin \Eloquent
+ */
 class Payment extends Model
 {
     use HasFactory, SoftDeletes;

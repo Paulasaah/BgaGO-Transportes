@@ -6,6 +6,51 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * @property int $id
+ * @property int $vehiculo_id
+ * @property int|null $reserva_id
+ * @property float $latitud Latitud del vehículo
+ * @property float $longitud Longitud del vehículo
+ * @property float|null $altitud Altitud en metros
+ * @property float|null $precision Precisión del GPS en metros
+ * @property float|null $velocidad Velocidad en km/h
+ * @property bool $motor_encendido Estado del motor: encendido/apagado
+ * @property int|null $nivel_bateria Porcentaje de batería (0-100)
+ * @property int|null $kilometraje Kilometraje registrado en este punto
+ * @property float|null $temperatura_motor Temperatura del motor en °C
+ * @property string $fuente Origen de la información
+ * @property \Illuminate\Support\Carbon $fecha_registro Fecha y hora del registro del GPS
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read \App\Models\Reservation|null $reservation
+ * @property-read \App\Models\Vehicle $vehicle
+ * @method static Builder<static>|GpsTrack deLaReserva(int $reservaId)
+ * @method static Builder<static>|GpsTrack delVehiculo(int $vehiculoId)
+ * @method static Builder<static>|GpsTrack enRango($desde, $hasta)
+ * @method static Builder<static>|GpsTrack newModelQuery()
+ * @method static Builder<static>|GpsTrack newQuery()
+ * @method static Builder<static>|GpsTrack query()
+ * @method static Builder<static>|GpsTrack recientes(int $limit = 10)
+ * @method static Builder<static>|GpsTrack ultimoPunto()
+ * @method static Builder<static>|GpsTrack whereAltitud($value)
+ * @method static Builder<static>|GpsTrack whereCreatedAt($value)
+ * @method static Builder<static>|GpsTrack whereFechaRegistro($value)
+ * @method static Builder<static>|GpsTrack whereFuente($value)
+ * @method static Builder<static>|GpsTrack whereId($value)
+ * @method static Builder<static>|GpsTrack whereKilometraje($value)
+ * @method static Builder<static>|GpsTrack whereLatitud($value)
+ * @method static Builder<static>|GpsTrack whereLongitud($value)
+ * @method static Builder<static>|GpsTrack whereMotorEncendido($value)
+ * @method static Builder<static>|GpsTrack whereNivelBateria($value)
+ * @method static Builder<static>|GpsTrack wherePrecision($value)
+ * @method static Builder<static>|GpsTrack whereReservaId($value)
+ * @method static Builder<static>|GpsTrack whereTemperaturaMotor($value)
+ * @method static Builder<static>|GpsTrack whereUpdatedAt($value)
+ * @method static Builder<static>|GpsTrack whereVehiculoId($value)
+ * @method static Builder<static>|GpsTrack whereVelocidad($value)
+ * @mixin \Eloquent
+ */
 class GpsTrack extends Model
 {
     use HasFactory;

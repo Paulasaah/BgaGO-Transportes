@@ -1,6 +1,4 @@
 @php
-use App\Facades\Data;
-
 // Obtener stats agrupados por rol
 $allUsers = \App\Models\User::with('roles')->get();
 $stats = [
@@ -20,7 +18,8 @@ $users = \App\Models\User::with('roles')
         $query->role($role);
     })
     ->orderBy('created_at', 'desc')
-    ->paginate(15);
+    ->paginate(15)
+    ->withQueryString();
 @endphp
 
 <x-layouts.app>
@@ -31,6 +30,11 @@ $users = \App\Models\User::with('roles')
             <div>
                 <flux:heading size="xl">Gestión de Usuarios</flux:heading>
                 <flux:subheading>Administra los usuarios registrados en BgaGo</flux:subheading>
+            </div>
+            <div class="flex items-center gap-2">
+                <flux:button href="{{ route('admin.users.create') }}" icon="plus" variant="primary" wire:navigate>
+                    Nuevo usuario
+                </flux:button>
             </div>
         </div>
 
@@ -178,6 +182,8 @@ $users = \App\Models\User::with('roles')
                                             variant="ghost" 
                                             icon="eye"
                                             title="Ver detalles"
+                                            href="{{ route('admin.users.show', $user) }}"
+                                            wire:navigate
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400"
                                         />
                                         <flux:button 
@@ -185,16 +191,23 @@ $users = \App\Models\User::with('roles')
                                             variant="ghost" 
                                             icon="pencil"
                                             title="Editar"
+                                            href="{{ route('admin.users.edit', $user) }}"
+                                            wire:navigate
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-400"
                                         />
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            icon="trash"
-                                            title="Eliminar"
-                                            onclick="return confirm('¿Estás seguro de eliminar este usuario?')"
-                                            class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
-                                        />
+                                        <form action="{{ route('admin.users.destroy', $user) }}" method="POST" class="inline">
+                                            @csrf
+                                            @method('DELETE')
+                                            <flux:button 
+                                                size="sm" 
+                                                variant="ghost" 
+                                                icon="trash"
+                                                title="Eliminar"
+                                                type="button"
+                                                onclick="if (confirm('¿Estás seguro de eliminar este usuario?')) { this.closest('form').submit(); }"
+                                                class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+                                            />
+                                        </form>
                                     </div>
                                 </td>
                             </tr>
