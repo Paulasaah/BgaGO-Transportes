@@ -1,12 +1,6 @@
 {{-- resources/views/components/footer.blade.php --}}
-<footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <!-- Background Elements -->
-    <div class="absolute inset-0 opacity-10">
-        <div class="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl animate-float"></div>
-        <div class="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full blur-3xl animate-float-delayed"></div>
-    </div>
-
-    <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-4 gap-12">
+<footer class="relative bg-white dark:bg-zinc-900 border-t border-zinc-200 dark:border-zinc-800">
+    <div class="pt-8 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid md:grid-cols-4 gap-12">
         <!-- Logo and Description -->
         <div>
             <div class="flex items-center space-x-3 mb-4">
@@ -15,7 +9,7 @@
                 </div>
                 <span class="text-2xl font-bold">BgaGO</span>
             </div>
-            <p class="text-white/80 text-sm leading-relaxed">
+            <p class="text-zinc-600 dark:text-zinc-300 text-sm leading-relaxed">
                 Plataforma de movilidad sostenible del Área Metropolitana de Bucaramanga.
                 Conecta usuarios, vehículos y domicilios con tecnología inteligente.
             </p>
@@ -52,7 +46,7 @@
         <!-- Links -->
         <div>
             <h3 class="text-lg font-semibold mb-4 text-blue-500">Enlaces</h3>
-            <ul class="space-y-2 text-white/80 text-sm">
+            <ul class="space-y-2 text-zinc-600 dark:text-zinc-300 text-sm">
                 <li><a href="{{ route('home') }}" class="hover:text-blue-500 transition-colors">Inicio</a></li>
                 <li><a href="{{ route('servicios') }}" class="hover:text-blue-500 transition-colors">Servicios</a></li>
                 <li><a href="{{ route('mapa') }}" class="hover:text-blue-500 transition-colors">Mapa</a></li>
@@ -64,7 +58,7 @@
         <!-- Contact Info -->
         <div>
             <h3 class="text-lg font-semibold mb-4 text-blue-500">Contáctanos</h3>
-            <ul class="space-y-3 text-white/80 text-sm">
+            <ul class="space-y-3 text-zinc-600 dark:text-zinc-300 text-sm">
                 <li class="flex items-start space-x-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 mt-0.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c1.1 0 2-.9 2-2s-.9-2-2-2a2 2 0 100 4zM12 22s8-4.5 8-11a8 8 0 10-16 0c0 6.5 8 11 8 11z"/>
@@ -89,14 +83,14 @@
         <!-- Newsletter -->
         <div>
             <h3 class="text-lg font-semibold mb-4 text-blue-500">Suscríbete</h3>
-            <p class="text-sm text-white/80 mb-4">
+            <p class="text-sm text-zinc-600 dark:text-zinc-300 mb-4">
                 Recibe noticias, promociones y actualizaciones sobre movilidad sostenible.
             </p>
         </div>
     </div>
 
-    <div class="relative z-10 mt-16 border-t border-white/10 pt-6 text-center text-sm text-white/60">
-        <p>&copy; {{ date('Y') }} <span class="font-semibold text-white">BgaGO</span>. Todos los derechos reservados.</p>
+    <div class="relative z-10 mt-16 border-t border-zinc-200 dark:border-zinc-800 pt-6 text-center text-sm text-zinc-500 dark:text-zinc-400">
+        <p>&copy; {{ date('Y') }} <span class="font-semibold text-zinc-900 dark:text-white">BgaGO</span>. Todos los derechos reservados.</p>
         <p class="mt-1">Diseñado con 💙 por el equipo BgaGO</p>
     </div>
 </footer>

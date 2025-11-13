@@ -1,227 +1,180 @@
-<x-layouts.app>
-    <div class="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 py-12">
+<x-layouts.public>
+    <div class="py-24 min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-200 overflow-hidden">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
             <!-- Header -->
-            <div class="mb-8">
-                <h1 class="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-4">
+            <div class="text-center mb-8">
+                <h1 class="text-4xl md:text-5xl font-bold text-blue-600 dark:text-blue mb-4">
                     Mis Reservas
                 </h1>
-                <p class="text-lg text-zinc-600 dark:text-zinc-400">
+                <p class="text-lg text-blue-600 dark:text-blue-400">
                     Gestiona y consulta el historial de tus reservas
                 </p>
             </div>
 
-            <!-- Filtros -->
+            @if(session('status'))
+                <div class="mb-6 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 px-4 py-3 text-green-800 dark:text-green-300 flex items-start gap-3">
+                    <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="text-sm font-medium">{{ session('status') }}</span>
+                </div>
+            @endif
+
+            @php
+                $reservasQuery = auth()->user()?->reservations()
+                    ->with(['vehicle', 'branch'])
+                    ->orderByDesc('created_at');
+                $estadoParam = request('estado');
+                if ($estadoParam && in_array($estadoParam, \App\Enums\ReservationStatus::toArray())) {
+                    $reservasQuery->where('estado', $estadoParam);
+                }
+                $reservas = $reservasQuery->get() ?? collect();
+                $total = auth()->user()?->reservations()->count() ?? 0;
+                $activas = auth()->user()?->reservations()->activas()->count() ?? 0;
+                $completadas = auth()->user()?->reservations()->completadas()->count() ?? 0;
+                $canceladas = auth()->user()?->reservations()->canceladas()->count() ?? 0;
+            @endphp
             <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-6 mb-8">
                 <div class="flex flex-wrap gap-3">
-                    <button class="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                        Todas (3)
-                    </button>
-                    <button class="px-4 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg font-medium hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors">
-                        Activas (1)
-                    </button>
-                    <button class="px-4 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg font-medium hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors">
-                        Completadas (1)
-                    </button>
-                    <button class="px-4 py-2 bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg font-medium hover:bg-zinc-300 dark:hover:bg-zinc-600 transition-colors">
-                        Canceladas (1)
-                    </button>
+                    <a href="{{ route('mis-reservas') }}" class="px-4 py-2 rounded-lg font-medium transition-colors {{ request('estado') ? 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600' : 'bg-blue-600 text-white hover:bg-blue-700' }}">
+                        Todas ({{ $total }})
+                    </a>
+                    <a href="{{ route('mis-reservas', ['estado' => 'activa']) }}" class="px-4 py-2 rounded-lg font-medium transition-colors {{ request('estado') === 'activa' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600' }}">
+                        Activas ({{ $activas }})
+                    </a>
+                    <a href="{{ route('mis-reservas', ['estado' => 'completada']) }}" class="px-4 py-2 rounded-lg font-medium transition-colors {{ request('estado') === 'completada' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600' }}">
+                        Completadas ({{ $completadas }})
+                    </a>
+                    <a href="{{ route('mis-reservas', ['estado' => 'cancelada']) }}" class="px-4 py-2 rounded-lg font-medium transition-colors {{ request('estado') === 'cancelada' ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-600' }}">
+                        Canceladas ({{ $canceladas }})
+                    </a>
                 </div>
             </div>
 
-            <!-- Lista de Reservas (Datos Simulados) -->
             <div class="space-y-6">
-
-                <!-- Reserva Activa -->
-                <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden hover:shadow-xl transition-shadow">
-                    <div class="p-6">
-                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
-                            <!-- Info del Vehículo -->
-                            <div class="flex items-start gap-4 flex-1">
-                                <div class="w-16 h-16 bg-blue-100 dark:bg-blue-950/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                    </svg>
-                                </div>
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-2">
-                                        <h3 class="text-xl font-bold text-zinc-900 dark:text-white">Bicicleta Eléctrica</h3>
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-400">
-                                            <span class="w-2 h-2 bg-blue-500 rounded-full mr-1.5 animate-pulse"></span>
-                                            Activa
-                                        </span>
+                @forelse($reservas as $reserva)
+                    <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden hover:shadow-xl transition-shadow {{ $reserva->isCancelada() ? 'opacity-60' : ($reserva->isCompletada() ? 'opacity-75' : '') }}">
+                        <div class="p-6">
+                            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                                <div class="flex items-start gap-4 flex-1">
+                                    @php
+                                        $isDom = $reserva->isDomicilio();
+                                        $cardColor = $isDom ? $reserva->tipo->color() : ($reserva->vehicle?->tipo?->color() ?? 'blue');
+                                    @endphp
+                                    <div class="w-16 h-16 bg-{{ $cardColor }}-100 dark:bg-{{ $cardColor }}-950/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                                        @if($isDom)
+                                            <svg class="w-8 h-8 text-{{ $cardColor }}-600 dark:text-{{ $cardColor }}-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                            </svg>
+                                        @else
+                                            <svg class="w-8 h-8 text-{{ $cardColor }}-600 dark:text-{{ $cardColor }}-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                            </svg>
+                                        @endif
                                     </div>
-                                    <div class="grid sm:grid-cols-2 gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            <span>{{ now()->addDays(2)->format('d/m/Y') }} - 10:00</span>
+                                    <div class="flex-1">
+                                        <div class="flex items-center gap-2 mb-2">
+                                            <h3 class="text-xl font-bold text-zinc-900 dark:text-white">{{ $isDom ? 'Domicilio' : ($reserva->vehicle?->tipo?->label() ?? 'Vehículo') }}</h3>
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-{{ $reserva->estado->color() }}-100 text-{{ $reserva->estado->color() }}-700 dark:bg-{{ $reserva->estado->color() }}-950/70 dark:text-{{ $reserva->estado->color() }}-400">
+                                                @if($reserva->estado->isActive())
+                                                    <span class="w-2 h-2 bg-{{ $reserva->estado->color() }}-500 rounded-full mr-1.5 animate-pulse"></span>
+                                                @endif
+                                                {{ $reserva->estado->label() }}
+                                            </span>
                                         </div>
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <span>3 horas</span>
-                                        </div>
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            </svg>
-                                            <span>Cabecera del Llano</span>
-                                        </div>
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <span class="font-semibold">$15.000</span>
-                                        </div>
+                                        @if($isDom)
+                                            <div class="grid sm:grid-cols-2 gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                <div class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    </svg>
+                                                    <span>{{ $reserva->origen_direccion ?? '—' }}</span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                                                    </svg>
+                                                    <span>{{ $reserva->destino_direccion ?? '—' }}</span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <span>{{ $reserva->notas_cliente ?? '—' }}</span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span class="font-semibold">${{ number_format($reserva->monto_final, 0, ',', '.') }}</span>
+                                                </div>
+                                            </div>
+                                        @else
+                                            <div class="grid sm:grid-cols-2 gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                <div class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <span>{{ optional($reserva->fecha_inicio)->format('d/m/Y - H:i') }}</span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span>
+                                                        @php $mins = $reserva->duracion_minutos ?? $reserva->getDuracionEstimada(); @endphp
+                                                        {{ $mins >= 60 ? floor($mins/60).' horas' : $mins.' min' }}
+                                                    </span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    </svg>
+                                                    <span>{{ $reserva->branch?->nombre ?? '—' }}</span>
+                                                </div>
+                                                <div class="flex items-center">
+                                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.11 0-2.08.402-2.599 1M12 8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    <span class="font-semibold">${{ number_format($reserva->monto_final, 0, ',', '.') }}</span>
+                                                </div>
+                                            </div>
+                                        @endif
+                                        <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">ID: {{ $reserva->codigo }}</p>
                                     </div>
-                                    <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">ID: RES-ABC123</p>
                                 </div>
-                            </div>
-
-                            <!-- Acciones -->
-                            <div class="flex flex-col gap-2 sm:flex-row md:flex-col">
-                                <button class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm whitespace-nowrap">
-                                    Ver Detalle
-                                </button>
-                                <button class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-950/30 dark:hover:bg-red-950/50 dark:text-red-400 rounded-lg font-medium transition-colors text-sm whitespace-nowrap">
-                                    Cancelar Reserva
-                                </button>
+                                <div class="flex flex-col gap-2 sm:flex-row md:flex-col">
+                                    <a href="{{ route('pago', ['reserva' => $reserva->id]) }}" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors text-sm whitespace-nowrap text-center">
+                                        Ver Detalle
+                                    </a>
+                                    @if($reserva->canBeCancelled())
+                                        <form method="POST" action="{{ route('mis-reservas.cancel', ['reservation' => $reserva->id]) }}">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button type="submit" class="px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 dark:bg-red-950/30 dark:hover:bg-red-950/50 dark:text-red-400 rounded-lg font-medium transition-colors text-sm whitespace-nowrap">
+                                                Cancelar Reserva
+                                            </button>
+                                        </form>
+                                    @elseif($reserva->isFinal())
+                                        <a href="{{ route('catalogo') }}" class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:text-blue-400 rounded-lg font-medium transition-colors text-sm whitespace-nowrap text-center">
+                                            Reservar de Nuevo
+                                        </a>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Reserva Completada -->
-                <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden hover:shadow-xl transition-shadow opacity-75">
-                    <div class="p-6">
-                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
-                            <!-- Info del Vehículo -->
-                            <div class="flex items-start gap-4 flex-1">
-                                <div class="w-16 h-16 bg-purple-100 dark:bg-purple-950/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-8 h-8 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
-                                    </svg>
-                                </div>
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-2">
-                                        <h3 class="text-xl font-bold text-zinc-900 dark:text-white">Patines en Línea</h3>
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
-                                            Completada
-                                        </span>
-                                    </div>
-                                    <div class="grid sm:grid-cols-2 gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            <span>{{ now()->subDays(5)->format('d/m/Y') }} - 14:00</span>
-                                        </div>
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <span>2 horas</span>
-                                        </div>
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            </svg>
-                                            <span>Floridablanca</span>
-                                        </div>
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <span class="font-semibold">$8.000</span>
-                                        </div>
-                                    </div>
-                                    <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">ID: RES-XYZ789</p>
-                                </div>
-                            </div>
-
-                            <!-- Acciones -->
-                            <div class="flex flex-col gap-2 sm:flex-row md:flex-col">
-                                <button class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-900 dark:text-white rounded-lg font-medium transition-colors text-sm whitespace-nowrap">
-                                    Ver Detalle
-                                </button>
-                                <a href="{{ route('catalogo') }}" class="px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 dark:bg-blue-950/30 dark:hover:bg-blue-950/50 dark:text-blue-400 rounded-lg font-medium transition-colors text-sm whitespace-nowrap text-center">
-                                    Reservar de Nuevo
-                                </a>
-                            </div>
-                        </div>
+                @empty
+                    <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 p-6 text-center">
+                        <div class="text-zinc-600 dark:text-zinc-400">No tienes reservas aún.</div>
+                        <a href="{{ route('catalogo') }}" class="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">Explorar Vehículos</a>
                     </div>
-                </div>
-
-                <!-- Reserva Cancelada -->
-                <div class="bg-white dark:bg-zinc-800 rounded-xl shadow-lg border border-zinc-200 dark:border-zinc-700 overflow-hidden hover:shadow-xl transition-shadow opacity-60">
-                    <div class="p-6">
-                        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-
-                            <!-- Info del Vehículo -->
-                            <div class="flex items-start gap-4 flex-1">
-                                <div class="w-16 h-16 bg-teal-100 dark:bg-teal-950/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                                    <svg class="w-8 h-8 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                    </svg>
-                                </div>
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-2">
-                                        <h3 class="text-xl font-bold text-zinc-900 dark:text-white">Patineta Eléctrica</h3>
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400">
-                                            Cancelada
-                                        </span>
-                                    </div>
-                                    <div class="grid sm:grid-cols-2 gap-2 text-sm text-zinc-600 dark:text-zinc-400">
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                                            </svg>
-                                            <span class="line-through">{{ now()->subDays(1)->format('d/m/Y') }} - 16:00</span>
-                                        </div>
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <span>1 hora</span>
-                                        </div>
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                                            </svg>
-                                            <span>Piedecuesta</span>
-                                        </div>
-                                        <div class="flex items-center">
-                                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            <span class="font-semibold line-through">$3.500</span>
-                                        </div>
-                                    </div>
-                                    <p class="mt-2 text-xs text-red-600 dark:text-red-400">Motivo: Cancelada por el usuario</p>
-                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">ID: RES-DEF456</p>
-                                </div>
-                            </div>
-
-                            <!-- Acciones -->
-                            <div class="flex flex-col gap-2 sm:flex-row md:flex-col">
-                                <button class="px-4 py-2 bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-zinc-900 dark:text-white rounded-lg font-medium transition-colors text-sm whitespace-nowrap">
-                                    Ver Detalle
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+                @endforelse
             </div>
 
             <!-- CTA para nueva reserva -->
-            <div class="mt-12 text-center bg-gradient-to-r from-blue-50 to-blue-50 dark:from-blue-950/30 dark:to-blue-950/30 rounded-2xl p-12 border border-blue-200 dark:border-blue-800">
+            <div class="mt-12 text-center bg-gradient-to-r from-blue-50 to-blue-50 dark:from-blue-950/60 dark:to-blue-950/60 rounded-2xl p-12 border border-blue-200 dark:border-blue-800">
                 <h3 class="text-3xl font-bold text-zinc-900 dark:text-white mb-4">
                     ¿Listo para tu próxima aventura?
                 </h3>
@@ -238,4 +191,4 @@
 
         </div>
     </div>
-</x-layouts.app>
+</x-layouts.public>

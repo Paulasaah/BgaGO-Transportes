@@ -1,5 +1,5 @@
-<x-layouts.app>
-    <div class="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 py-12">
+<x-layouts.public>
+    <div class="py-24 min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-200 overflow-hidden">
         <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
             @if(session('pago_exitoso'))
@@ -10,15 +10,15 @@
 
                 <!-- Checkmark Animado -->
                 <div class="text-center mb-8">
-                    <div class="inline-flex items-center justify-center w-24 h-24 bg-blue-100 dark:bg-blue-950/50 rounded-full mb-6 animate-bounce">
-                        <svg class="w-12 h-12 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div class="inline-flex items-center justify-center w-24 h-24 bg-blue-100 dark:bg-blue-500/80 rounded-full mb-6 animate-bounce">
+                        <svg class="w-12 h-12 text-white-600 dark:text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
                         </svg>
                     </div>
-                    <h1 class="text-4xl md:text-5xl font-bold text-zinc-900 dark:text-white mb-4">
+                    <h1 class="text-4xl md:text-5xl font-bold text-blue-500 dark:text-blue mb-4">
                         ¡Pago Exitoso!
                     </h1>
-                    <p class="text-xl text-zinc-600 dark:text-zinc-400">
+                    <p class="text-xl text-zinc-800 dark:text-zinc-700">
                         Tu reserva ha sido confirmada correctamente
                     </p>
                 </div>
@@ -197,4 +197,4 @@
 
         </div>
     </div>
-</x-layouts.app>
+</x-layouts.public>

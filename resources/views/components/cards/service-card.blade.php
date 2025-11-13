@@ -1,99 +1,89 @@
 {{--
-    Componente: Service Card (CORREGIDO)
-    Propósito: Tarjeta de servicio con íconos predefinidos
+    Componente: Service Card
+    Propósito: Tarjeta de servicio con diseño EXACTO del home
     Ubicación: resources/views/components/cards/service-card.blade.php
 
     Props:
-    - iconType: Tipo de ícono ('prestamo', 'domicilio', 'gps', 'custom')
+    - iconType: 'calendar', 'package', 'map' (identificador del ícono)
     - title: Título del servicio
-    - description: Descripción del servicio
-    - features: Array de características ['feature1', 'feature2', ...]
-    - ctaText: Texto del botón
-    - ctaRoute: Ruta del botón
+    - description: Descripción
+    - features: Array de características ['text']
+    - ctaText: Texto del botón CTA
+    - ctaRoute: Ruta del CTA
 --}}
 
 @props([
-    'iconType' => 'prestamo',
+    'iconType',
     'title',
     'description',
     'features' => [],
-    'ctaText' => 'Explorar',
-    'ctaRoute' => '#'
+    'ctaText',
+    'ctaRoute'
 ])
 
-<div class="group bg-white dark:bg-zinc-800 rounded-2xl p-8 border border-zinc-200 dark:border-zinc-700 hover:shadow-2xl hover:shadow-blue-500/10 transition-all duration-300 hover:-translate-y-2">
+@php
+    $icons = [
+        'calendar' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />',
+        'package' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />',
+        'map' => '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />'
+    ];
 
-    {{-- Ícono --}}
-    <div class="mb-6 w-16 h-16 bg-blue-100 dark:bg-blue-950/50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-        @if($iconType === 'prestamo')
-            {{-- Ícono de Bicicleta/Vehículo --}}
-            <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-        @elseif($iconType === 'domicilio')
-            {{-- Ícono de Entrega/Paquete --}}
-            <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-        @elseif($iconType === 'gps')
-            {{-- Ícono de GPS/Ubicación --}}
-            <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-        @elseif($iconType === 'electric')
-            {{-- Ícono de Eléctrico/Rayo --}}
-            <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-        @elseif($iconType === 'clock')
-            {{-- Ícono de Reloj/24-7 --}}
-            <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-        @elseif($iconType === 'shield')
-            {{-- Ícono de Seguridad/Shield --}}
-            <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-        @else
-            {{-- Ícono por defecto --}}
-            <svg class="w-8 h-8 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-        @endif
+    $iconPath = $icons[$iconType] ?? $icons['calendar'];
+@endphp
+
+<div class="group relative bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-800 dark:to-zinc-900 rounded-2xl p-8 hover:shadow-2xl transition-all duration-300 border border-zinc-200 dark:border-zinc-700 hover:-translate-y-2">
+
+    <!-- Ícono -->
+    <div class="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-300">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            {!! $iconPath !!}
+        </svg>
     </div>
 
-    {{-- Título --}}
+    <!-- Título -->
     <h3 class="text-2xl font-bold text-zinc-900 dark:text-white mb-3">
         {{ $title }}
     </h3>
 
-    {{-- Descripción --}}
-    <p class="text-zinc-600 dark:text-zinc-400 mb-6 leading-relaxed">
+    <!-- Descripción -->
+    <p class="text-zinc-600 dark:text-zinc-400 mb-6">
         {{ $description }}
     </p>
 
-    {{-- Lista de características --}}
+    <!-- Lista de características -->
     @if(count($features) > 0)
         <ul class="space-y-2 mb-6">
             @foreach($features as $feature)
-                <li class="flex items-start">
-                    <svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                <li class="flex items-center text-sm text-zinc-600 dark:text-zinc-400">
+                    <svg class="w-5 h-5 text-blue-500 mr-2 flex-shrink-0"
+                         fill="none"
+                         stroke="currentColor"
+                         viewBox="0 0 24 24"
+                         aria-hidden="true">
+                        <path stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M5 13l4 4L19 7" />
                     </svg>
-                    <span class="text-zinc-600 dark:text-zinc-400 text-sm">{{ $feature }}</span>
+                    {{ is_array($feature) ? ($feature['text'] ?? '') : $feature }}
                 </li>
             @endforeach
         </ul>
     @endif
 
-    {{-- CTA Button --}}
+    <!-- CTA -->
     <a href="{{ route($ctaRoute) }}"
-       class="inline-flex items-center text-blue-600 dark:text-blue-400 font-semibold hover:text-blue-700 dark:hover:text-blue-300 transition-colors group/link">
+       class="inline-flex items-center text-blue-600 dark:text-blue-400 font-semibold group-hover:translate-x-2 transition-transform">
         {{ $ctaText }}
-        <svg class="w-5 h-5 ml-2 group-hover/link:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+        <svg class="w-5 h-5 ml-2"
+             fill="none"
+             stroke="currentColor"
+             viewBox="0 0 24 24"
+             aria-hidden="true">
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M13 7l5 5m0 0l-5 5m5-5H6" />
         </svg>
     </a>
 </div>

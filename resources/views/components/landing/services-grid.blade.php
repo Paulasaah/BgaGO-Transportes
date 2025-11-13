@@ -1,5 +1,5 @@
 {{--
-    Componente: Services Grid (CORREGIDO)
+    Componente: Services Grid
     Propósito: Grid de servicios con diseño EXACTO del home
     Ubicación: resources/views/components/landing/services-grid.blade.php
 
@@ -7,18 +7,6 @@
     - title: Título de la sección
     - subtitle: Subtítulo
     - services: Array de servicios completos
-      Estructura esperada:
-      [
-        [
-          'iconType' => 'prestamo',
-          'title' => 'Título',
-          'description' => 'Descripción',
-          'features' => ['feat1', 'feat2'],
-          'ctaText' => 'Texto',
-          'ctaRoute' => 'ruta'
-        ],
-        ...
-      ]
 --}}
 
 @props([
@@ -51,31 +39,24 @@
             </div>
 
             <!-- Grid de servicios (3 columnas) -->
-            @if(count($services) > 0)
-                <div class="grid md:grid-cols-3 gap-8">
-                    @foreach($services as $index => $service)
-                        <div x-show="inView"
-                             x-transition:enter="transition ease-out duration-700"
-                             x-transition:enter-start="opacity-0 translate-y-8"
-                             x-transition:enter-end="opacity-100 translate-y-0"
-                             style="transition-delay: {{ ($index + 1) * 100 }}ms;">
-                            <x-cards.service-card
-                                :iconType="$service['iconType'] ?? 'prestamo'"
-                                :title="$service['title']"
-                                :description="$service['description']"
-                                :features="$service['features'] ?? []"
-                                :ctaText="$service['ctaText'] ?? 'Ver más'"
-                                :ctaRoute="$service['ctaRoute'] ?? 'home'"
-                            />
-                        </div>
-                    @endforeach
-                </div>
-            @else
-                {{-- Estado vacío --}}
-                <div class="text-center py-12">
-                    <p class="text-zinc-500 dark:text-zinc-400">No hay servicios disponibles</p>
-                </div>
-            @endif
+            <div class="grid md:grid-cols-3 gap-8">
+                @foreach($services as $index => $service)
+                    <div x-show="inView"
+                         x-transition:enter="transition ease-out duration-700"
+                         x-transition:enter-start="opacity-0 translate-y-8"
+                         x-transition:enter-end="opacity-100 translate-y-0"
+                         style="transition-delay: {{ ($index + 1) * 100 }}ms;">
+                        <x-cards.service-card
+                            :iconType="$service['iconType']"
+                            :title="$service['title']"
+                            :description="$service['description']"
+                            :features="$service['features']"
+                            :ctaText="$service['ctaText']"
+                            :ctaRoute="$service['ctaRoute']"
+                        />
+                    </div>
+                @endforeach
+            </div>
 
         </div>
     </div>

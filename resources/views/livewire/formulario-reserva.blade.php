@@ -12,6 +12,7 @@
                     <input
                         type="radio"
                         wire:model.live="vehiculo_seleccionado"
+                        name="vehiculo_seleccionado"
                         value="{{ $key }}"
                         class="peer sr-only"
                     >
@@ -40,6 +41,7 @@
                     <input
                         type="radio"
                         wire:model.live="tipo_reserva"
+                        name="tipo_reserva"
                         value="punto"
                         class="peer sr-only"
                     >
@@ -56,6 +58,7 @@
                     <input
                         type="radio"
                         wire:model.live="tipo_reserva"
+                        name="tipo_reserva"
                         value="domicilio"
                         class="peer sr-only"
                     >

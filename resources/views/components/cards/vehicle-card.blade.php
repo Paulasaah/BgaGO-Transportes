@@ -20,8 +20,10 @@
     'iconType' => 'electric',
     'status' => 'available',
     'price' => null,
+    'priceDay' => null,
     'specs' => [],
-    'vehicleSlug' => ''
+    'vehicleSlug' => '',
+    'plate' => null,
 ])
 
 @if($status === 'available')
@@ -60,6 +62,9 @@
                     Disponible
                 </span>
             </div>
+            @if($plate)
+                <div class="text-xs text-zinc-500 dark:text-zinc-400 mb-2">Placa: {{ $plate }}</div>
+            @endif
 
             {{-- Descripción --}}
             <p class="text-zinc-600 dark:text-zinc-400 text-sm mb-4 leading-relaxed">
@@ -82,6 +87,11 @@
                         ${{ number_format($price, 0, ',', '.') }}
                     </div>
                     <div class="text-xs text-zinc-500 dark:text-zinc-400">por hora</div>
+                    @if($priceDay)
+                        <div class="text-sm text-zinc-600 dark:text-zinc-300 mt-1">
+                            Día: ${{ number_format($priceDay, 0, ',', '.') }}
+                        </div>
+                    @endif
                 </div>
 
                 {{-- ⭐ BOTÓN RESERVAR - LINK FUNCIONAL ⭐ --}}

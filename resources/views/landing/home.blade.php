@@ -98,44 +98,7 @@
     title="Nuestras Sedes"
     subtitle="Estamos presentes en los puntos estratégicos del Área Metropolitana"
     mapRoute="mapa"
-    :locations="[
-        [
-            'name' => 'Cabecera',
-            'zone' => 'Sede Principal',
-            'address' => 'Cra. 33 #42-90, Cabecera',
-            'phone' => '+57 300 111 1111',
-            'schedule' => 'Lun - Dom: 6:00 AM - 10:00 PM',
-            'status' => 'open',
-            'variant' => 'primary'
-        ],
-        [
-            'name' => 'Cañaveral',
-            'zone' => 'Zona Comercial',
-            'address' => 'Cra. 27 #123-45, Cañaveral',
-            'phone' => '+57 300 222 2222',
-            'schedule' => 'Lun - Dom: 7:00 AM - 9:00 PM',
-            'status' => 'open',
-            'variant' => 'default'
-        ],
-        [
-            'name' => 'Piedecuesta',
-            'zone' => 'Centro Histórico',
-            'address' => 'Calle 10 #15-30, Piedecuesta',
-            'phone' => '+57 300 333 3333',
-            'schedule' => 'Lun - Dom: 6:30 AM - 9:30 PM',
-            'status' => 'open',
-            'variant' => 'secondary'
-        ],
-        [
-            'name' => 'Floridablanca',
-            'zone' => 'Zona Sur',
-            'address' => 'Calle 52 #5-80, Floridablanca',
-            'phone' => '+57 300 444 4444',
-            'schedule' => 'Lun - Dom: 7:00 AM - 10:00 PM',
-            'status' => 'open',
-            'variant' => 'tertiary'
-        ]
-    ]"
+    :locations="$locations"
 />
 
 @endsection

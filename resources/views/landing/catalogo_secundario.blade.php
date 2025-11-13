@@ -15,76 +15,61 @@
 
         {{-- Filters --}}
         <x-catalog.filters
-            :filters="['Todos', 'Bicicletas', 'Motos', 'Patinetas', 'Patines']"
+            :filters="['Todos', 'Bicicletas', 'Motos', 'Patinetas']"
             activeFilter="Todos"
         />
 
-        {{-- Vehicle Grid --}}
+        {{-- Vehicle Grid dinámico --}}
+        @php
+            use Illuminate\Support\Str;
+
+            $tipo = request('tipo');
+            $vehicles = \App\Models\Vehicle::visiblesEnCatalogo()
+                ->when($tipo, fn($q) => $q->porTipo($tipo))
+                ->with('branch')
+                ->orderBy('marca')
+                ->get();
+
+            $iconForType = function(\App\Enums\VehicleType $tipo) {
+                return $tipo->value === 'patineta' ? 'skate' : 'electric';
+            };
+
+            $statusFor = function(\App\Enums\VehicleStatus $estado) {
+                return $estado->isAvailable() ? 'available' : 'coming-soon';
+            };
+        @endphp
+
         <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+            @forelse($vehicles as $v)
+                @php
+                    $specs = array_values(array_filter([
+                        $v->tipo->label(),
+                        $v->color ? ucfirst($v->color) : null,
+                        $v->year ? (string) $v->year : null,
+                        $v->branch ? $v->branch->nombre : null,
+                    ]));
+                @endphp
 
-            {{-- Bicicleta Eléctrica --}}
-            <x-cards.vehicle-card
-                name="Bicicleta Eléctrica"
-                description="Perfecta para trayectos urbanos. Autonomía de 50km."
-                iconType="electric"
-                status="available"
-                :price="5000"
-                :specs="['Eléctrica', '50km', '18kg']"
-                vehicleSlug="bicicleta-electrica"
-            />
-
-            {{-- Moto Eléctrica --}}
-            <x-cards.vehicle-card
-                name="Moto Eléctrica"
-                description="Mayor velocidad y confort. Autonomía de 80km."
-                iconType="electric"
-                status="available"
-                :price="15000"
-                :specs="['Eléctrica', '80km', '65kg']"
-                vehicleSlug="moto-electrica"
-            />
-
-            {{-- Patineta Eléctrica --}}
-            <x-cards.vehicle-card
-                name="Patineta Eléctrica"
-                description="Ágil y compacta. Ideal para distancias cortas."
-                iconType="electric"
-                status="available"
-                :price="3500"
-                :specs="['Eléctrica', '30km', '12kg']"
-                vehicleSlug="patineta-electrica"
-            />
-
-            {{-- Bicicleta Manual --}}
-            <x-cards.vehicle-card
-                name="Bicicleta Manual"
-                description="Clásica y económica. Perfecta para ejercitarte."
-                iconType="manual"
-                status="available"
-                :price="2500"
-                :specs="['Manual', 'Ejercicio', '14kg']"
-                vehicleSlug="bicicleta-manual"
-            />
-
-            {{-- Patines en Línea --}}
-            <x-cards.vehicle-card
-                name="Patines en Línea"
-                description="Diversión y deporte. Incluye equipo de protección."
-                iconType="skate"
-                status="available"
-                :price="4000"
-                :specs="['Manual', 'Protección', '3kg']"
-                vehicleSlug="patines-linea"
-            />
-
-            {{-- Coming Soon --}}
-            <x-cards.vehicle-card
-                name="Próximamente"
-                description="Estamos trabajando en agregar más opciones a nuestro catálogo."
-                iconType="coming-soon"
-                status="coming-soon"
-            />
-
+                <x-cards.vehicle-card
+                    :name="sprintf('%s %s', $v->marca, $v->modelo)"
+                    :description="$v->descripcion ?? 'Vehículo disponible en nuestra flota.'"
+                    :iconType="$iconForType($v->tipo)"
+                    :status="$statusFor($v->estado)"
+                    :price="$v->precio_hora ?: $v->tipo->baseHourlyRate()"
+                    :priceDay="$v->precio_dia ?: $v->tipo->baseDailyRate()"
+                    :plate="$v->placa"
+                    :specs="$specs"
+                    :vehicleSlug="Str::slug($v->marca.'-'.$v->modelo.'-'.$v->placa)"
+                />
+            @empty
+                {{-- Fallback cuando no hay vehículos --}}
+                <x-cards.vehicle-card
+                    name="Próximamente"
+                    description="Estamos trabajando en agregar más opciones a nuestro catálogo."
+                    iconType="coming-soon"
+                    status="coming-soon"
+                />
+            @endforelse
         </div>
 
         {{-- CTA --}}

@@ -6,7 +6,7 @@
     Esta vista muestra el formulario de reserva usando Livewire
 --}}
 
-<x-layouts.app>
+<x-layouts.public>
     <div class="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 py-12">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
 
@@ -66,4 +66,4 @@
 
         </div>
     </div>
-</x-layouts.app>
+</x-layouts.public>

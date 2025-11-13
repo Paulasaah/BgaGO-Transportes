@@ -55,6 +55,7 @@
                 <label class="relative cursor-pointer">
                     <input
                         type="radio"
+                        name="tamano_paquete"
                         wire:model.live="tamano_paquete"
                         value="pequeno"
                         class="peer sr-only"
@@ -71,6 +72,7 @@
                 <label class="relative cursor-pointer">
                     <input
                         type="radio"
+                        name="tamano_paquete"
                         wire:model.live="tamano_paquete"
                         value="mediano"
                         class="peer sr-only"
@@ -87,6 +89,7 @@
                 <label class="relative cursor-pointer">
                     <input
                         type="radio"
+                        name="tamano_paquete"
                         wire:model.live="tamano_paquete"
                         value="grande"
                         class="peer sr-only"
