@@ -55,25 +55,25 @@ class VehicleController extends Controller
             'conductor_id' => 'nullable|exists:users,id',
             'sede_id' => 'nullable|exists:branches,id',
             'estado' => 'required|string|in:' . implode(',', array_column(VehicleStatus::cases(), 'value')),
-            
+
             // Información adicional
             'numero_motor' => 'nullable|string|max:100',
             'numero_chasis' => 'nullable|string|max:100',
             'kilometraje' => 'nullable|integer|min:0',
             'fecha_compra' => 'nullable|date',
             'precio_compra' => 'nullable|numeric|min:0',
-            
+
             // Seguros y documentos
             'poliza_seguro' => 'nullable|string|max:100',
             'aseguradora' => 'nullable|string|max:100',
             'fecha_vencimiento_seguro' => 'nullable|date',
             'fecha_vencimiento_soat' => 'nullable|date',
             'fecha_vencimiento_tecnicomecanica' => 'nullable|date',
-            
+
             // Características
             'tiene_aire_acondicionado' => 'boolean',
             'tiene_gps' => 'boolean',
-            
+
             // Observaciones
             'observaciones' => 'nullable|string|max:1000',
         ]);
@@ -151,25 +151,25 @@ class VehicleController extends Controller
             'conductor_id' => 'nullable|exists:users,id',
             'sede_id' => 'nullable|exists:branches,id',
             'estado' => 'required|string|in:' . implode(',', array_column(VehicleStatus::cases(), 'value')),
-            
+
             // Información adicional
             'numero_motor' => 'nullable|string|max:100',
             'numero_chasis' => 'nullable|string|max:100',
             'kilometraje' => 'nullable|integer|min:0',
             'fecha_compra' => 'nullable|date',
             'precio_compra' => 'nullable|numeric|min:0',
-            
+
             // Seguros y documentos
             'poliza_seguro' => 'nullable|string|max:100',
             'aseguradora' => 'nullable|string|max:100',
             'fecha_vencimiento_seguro' => 'nullable|date',
             'fecha_vencimiento_soat' => 'nullable|date',
             'fecha_vencimiento_tecnicomecanica' => 'nullable|date',
-            
+
             // Características
             'tiene_aire_acondicionado' => 'boolean',
             'tiene_gps' => 'boolean',
-            
+
             // Observaciones
             'observaciones' => 'nullable|string|max:1000',
         ]);
