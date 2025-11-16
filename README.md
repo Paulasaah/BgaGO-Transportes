@@ -155,15 +155,6 @@ REVERB_HOST=0.0.0.0
 REVERB_PORT=6001
 ```
 
-## 📚 Documentación
-
-La documentación completa está en `.windsurf/`:
-
-- **[START-HERE.md](.windsurf/START-HERE.md)** - Guía de inicio
-- **[context.md](.windsurf/context.md)** - Contexto del proyecto
-- **[development-guide.md](.windsurf/development-guide.md)** - Guía de desarrollo
-- **[MEJORAS-URGENTES-IMPLEMENTADAS.md](.windsurf/MEJORAS-URGENTES-IMPLEMENTADAS.md)** - Mejoras recientes
-
 ## 🔐 Roles y Permisos
 
 ### Roles Disponibles
@@ -211,13 +202,6 @@ La documentación completa está en `.windsurf/`:
 - Reportes avanzados
 - App móvil
 
-## 🤝 Contribuir
-
-1. Fork el proyecto
-2. Crea una rama (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
-5. Abre un Pull Request
 
 ### Estándares de Código
 - Seguir PSR-12
@@ -279,19 +263,3 @@ php artisan tinker
 - **Modelos:** 14
 - **Migraciones:** 18
 
-## 📞 Soporte
-
-Para problemas o preguntas:
-1. Revisar documentación en `.windsurf/`
-2. Ejecutar `./scripts/verify-improvements.sh`
-3. Revisar logs con `php artisan pail`
-4. Crear un issue en el repositorio
-
-## 📄 Licencia
-
-Este proyecto es privado y confidencial.
-
----
-
-**Versión:** 2.0  
-**Última actualización:** Noviembre 2024
