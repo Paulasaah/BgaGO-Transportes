@@ -35,5 +35,11 @@ yarn-error.log
 iot/mosquitto/data/
 iot/mosquitto/log/
 
+# OSRM data (archivos grandes de mapas)
+osrm-data/
+*.osm.pbf
+*.osrm
+*.osrm.*
+
 # Docker backups
 docker-compose.yml.backup
