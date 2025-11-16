@@ -31,6 +31,10 @@ $vehicles = \App\Models\Vehicle::with(['driver', 'branch'])
                 <flux:heading size="xl">Gestión de Vehículos</flux:heading>
                 <flux:subheading>Flota de transporte BgaGo</flux:subheading>
             </div>
+            
+            <flux:button :href="route('admin.vehicles.create')" icon="plus" variant="primary">
+                Crear Vehículo
+            </flux:button>
         </div>
 
         {{-- Estadísticas --}}
@@ -216,17 +220,31 @@ $vehicles = \App\Models\Vehicle::with(['driver', 'branch'])
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex items-center justify-end gap-2">
                                         <flux:button 
+                                            :href="route('admin.vehicles.show', $vehicle)"
                                             size="sm" 
                                             variant="ghost" 
                                             icon="eye"
                                             title="Ver detalles"
                                         />
                                         <flux:button 
+                                            :href="route('admin.vehicles.edit', $vehicle)"
                                             size="sm" 
                                             variant="ghost" 
                                             icon="pencil"
                                             title="Editar"
                                         />
+                                        <form method="POST" action="{{ route('admin.vehicles.destroy', $vehicle) }}" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar el vehículo {{ $vehicle->placa }}?')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <flux:button 
+                                                type="submit"
+                                                size="sm" 
+                                                variant="ghost" 
+                                                icon="trash"
+                                                title="Eliminar"
+                                                class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+                                            />
+                                        </form>
                                     </div>
                                 </td>
                             </tr>

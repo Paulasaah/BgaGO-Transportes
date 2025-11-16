@@ -51,6 +51,13 @@
 
             <flux:spacer />
 
+            <!-- Mantenimientos -->
+            <flux:navlist variant="outline">
+                <flux:navlist.item icon="wrench" :href="route('admin.maintenances.index')" :current="request()->routeIs('admin.maintenances.*')" wire:navigate>
+                    Mantenimientos
+                </flux:navlist.item>
+            </flux:navlist>
+
             <!-- Reportes -->
             <flux:navlist variant="outline">
                 <flux:navlist.item icon="document-chart-bar" :href="route('admin.reports.index')" :current="request()->routeIs('admin.reports.index')" wire:navigate>
@@ -157,10 +164,6 @@
         {{ $slot }}
 
         @fluxScripts
-        @vite([
-            'resources/js/app.js',
-        ])
-
         @stack('scripts')
     </body>
 </html>

@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::create('telemetrias', function (Blueprint $table) {
@@ -43,10 +46,12 @@ return new class extends Migration
             
             $table->timestamps();
             
-            // Índices para mejor rendimiento
+            // Índices para mejor rendimiento y limpieza
             $table->index(['device_type', 'status']);
             $table->index('current_branch');
             $table->index('battery_health');
+            $table->index(['device_id', 'created_at']); // Para limpieza y deduplicación
+            $table->index('created_at'); // Para limpieza por fecha
         });
     }
 

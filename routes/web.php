@@ -10,34 +10,30 @@ use App\Http\Controllers\Admin\{
     ReservationController
 };
 
-// =========================================
-// 🌍 Página principal (pública)
-// =========================================
+// Página principal (pública)
 Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
 
-// =========================================
 // 👤 Dashboard de usuario autenticado
-// =========================================
+
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', App\Livewire\Dashboard\SimpleDashboard::class)->name('dashboard');
 });
 
 
-// =========================================
-// 🛠️ Panel de Administración (solo admin)
-// =========================================
+// Panel de Administración (solo admin)
+
 Route::middleware(['auth', 'verified', 'role:admin'])
     ->prefix('admin')
     ->name('admin.')
     ->group(function () {
 
-    // === DASHBOARD ===
+    // DASHBOARD 
     Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
 
-    // === USUARIOS ===
+    // USUARIOS 
     Route::get('users', [UserController::class, 'index'])->name('users.index');
     Route::get('users/create', [UserController::class, 'create'])->name('users.create');
     Route::post('users', [UserController::class, 'store'])->name('users.store');
@@ -46,11 +42,11 @@ Route::middleware(['auth', 'verified', 'role:admin'])
     Route::put('users/{user}', [UserController::class, 'update'])->name('users.update');
     Route::delete('users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 
-    // === CONDUCTORES ===
+    // CONDUCTORES 
     Route::get('drivers', [DriverController::class, 'index'])->name('drivers.index');
     Route::patch('drivers/{user}/toggle-status', [DriverController::class, 'toggleStatus'])->name('drivers.toggle-status');
 
-    // === VEHÍCULOS ===
+    // VEHÍCULOS 
     Route::get('vehicles', [VehicleController::class, 'index'])->name('vehicles.index');
     Route::get('vehicles/create', [VehicleController::class, 'create'])->name('vehicles.create');
     Route::post('vehicles', [VehicleController::class, 'store'])->name('vehicles.store');
@@ -59,23 +55,36 @@ Route::middleware(['auth', 'verified', 'role:admin'])
     Route::put('vehicles/{vehicle}', [VehicleController::class, 'update'])->name('vehicles.update');
     Route::delete('vehicles/{vehicle}', [VehicleController::class, 'destroy'])->name('vehicles.destroy');
 
-    // === RESERVAS ===
+    // RESERVAS     
     Route::get('reservations', [ReservationController::class, 'index'])->name('reservations.index');
+    Route::get('reservations/create', [ReservationController::class, 'create'])->name('reservations.create');
+    Route::post('reservations', [ReservationController::class, 'store'])->name('reservations.store');
     Route::get('reservations/{reservation}', [ReservationController::class, 'show'])->name('reservations.show');
     Route::patch('reservations/{reservation}/cancel', [ReservationController::class, 'cancel'])->name('reservations.cancel');
 
-    // === MONITOREO Y MAPAS ===
+    // MANTENIMIENTOS
+    Route::get('maintenances', [\App\Http\Controllers\Admin\MaintenanceController::class, 'index'])->name('maintenances.index');
+    Route::get('maintenances/create', [\App\Http\Controllers\Admin\MaintenanceController::class, 'create'])->name('maintenances.create');
+    Route::post('maintenances', [\App\Http\Controllers\Admin\MaintenanceController::class, 'store'])->name('maintenances.store');
+    Route::get('maintenances/{maintenance}', [\App\Http\Controllers\Admin\MaintenanceController::class, 'show'])->name('maintenances.show');
+    Route::get('maintenances/{maintenance}/edit', [\App\Http\Controllers\Admin\MaintenanceController::class, 'edit'])->name('maintenances.edit');
+    Route::put('maintenances/{maintenance}', [\App\Http\Controllers\Admin\MaintenanceController::class, 'update'])->name('maintenances.update');
+    Route::delete('maintenances/{maintenance}', [\App\Http\Controllers\Admin\MaintenanceController::class, 'destroy'])->name('maintenances.destroy');
+    Route::patch('maintenances/{maintenance}/start', [\App\Http\Controllers\Admin\MaintenanceController::class, 'start'])->name('maintenances.start');
+    Route::patch('maintenances/{maintenance}/complete', [\App\Http\Controllers\Admin\MaintenanceController::class, 'complete'])->name('maintenances.complete');
+    Route::patch('maintenances/{maintenance}/cancel', [\App\Http\Controllers\Admin\MaintenanceController::class, 'cancel'])->name('maintenances.cancel');
+
+    // MONITOREO Y MAPAS
     Route::view('map', 'admin.map')->name('map');
     Route::view('monitoring', 'admin.monitoring')->name('monitoring');
 
-    // === REPORTES ===
+    // REPORTES
     Route::view('reports', 'admin.reports.index')->name('reports.index');
 });
 
 
-// =========================================
-// 🚗 Catálogo (usuario autenticado)
-// =========================================
+// Catálogo (usuario autenticado)
+
 Route::middleware(['auth'])
     ->prefix('catalog')
     ->name('catalog.')
@@ -86,9 +95,7 @@ Route::middleware(['auth'])
     });
 
 
-// =========================================
-// ⚙️ Configuración de Usuario (Volt)
-// =========================================
+// Configuración de Usuario (Volt)
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
@@ -98,12 +105,8 @@ Route::middleware(['auth'])->group(function () {
 });
 
 
-// =========================================
-// 🧪 Ruta de pruebas
-// =========================================
+// Ruta de pruebas
 Route::view('/test-map', 'test-map');
 
-// =========================================
-// 🔐 Autenticación
-// =========================================
+// Autenticación
 require __DIR__.'/auth.php';

@@ -5,7 +5,12 @@ import threading
 import paho.mqtt.publish as publish
 import random
 import os
+import sys
 from datetime import datetime
+
+# Forzar unbuffered output para Docker
+sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', buffering=1)
+sys.stderr = os.fdopen(sys.stderr.fileno(), 'w', buffering=1)
 
 # CONFIGURACIÓN
 BROKER_HOST = os.getenv("BROKER_HOST", "127.0.0.1")
@@ -177,8 +182,9 @@ def simulate_vehicle(device_id):
                 "last_maintenance": device["last_maintenance"], "timestamp": datetime.now().isoformat()
             }
             
-            publish.single(TOPIC_TEMPLATE.format(device_id=device_id), json.dumps(payload),
-                          hostname=BROKER_HOST, port=BROKER_PORT)
+            topic = TOPIC_TEMPLATE.format(device_id=device_id)
+            publish.single(topic, json.dumps(payload), hostname=BROKER_HOST, port=BROKER_PORT)
+            print(f"📡 [{device_id}] {device['status']} | Bat: {device['battery']:.1f}% | Pos: {device['lat']:.6f},{device['lon']:.6f}", flush=True)
             time.sleep(UPDATE_INTERVAL)
         except Exception as e:
             print(f"Error en {device_id}: {e}")
@@ -281,8 +287,9 @@ def simulate_conductor(device_id):
                 "vehicle_type": device.get("vehicle_type", ""), "timestamp": datetime.now().isoformat()
             }
             
-            publish.single(TOPIC_TEMPLATE.format(device_id=device_id), json.dumps(payload),
-                          hostname=BROKER_HOST, port=BROKER_PORT)
+            topic = TOPIC_TEMPLATE.format(device_id=device_id)
+            publish.single(topic, json.dumps(payload), hostname=BROKER_HOST, port=BROKER_PORT)
+            print(f"📡 [{device_id}] {device['driver_name']} | {device['status']} | Bat: {device['battery']:.1f}%", flush=True)
             time.sleep(UPDATE_INTERVAL)
         except Exception as e:
             print(f"Error en {device_id}: {e}")

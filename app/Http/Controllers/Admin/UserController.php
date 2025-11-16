@@ -49,7 +49,10 @@ class UserController extends Controller
 
         return redirect()
             ->route('admin.users.index')
-            ->with('success', 'Usuario creado exitosamente');
+            ->with('notification', [
+                'type' => 'success',
+                'message' => 'Usuario creado exitosamente'
+            ]);
     }
 
     /**
@@ -99,7 +102,10 @@ class UserController extends Controller
 
         return redirect()
             ->route('admin.users.index')
-            ->with('success', 'Usuario actualizado exitosamente');
+            ->with('notification', [
+                'type' => 'success',
+                'message' => 'Usuario actualizado exitosamente'
+            ]);
     }
 
     /**
@@ -109,13 +115,19 @@ class UserController extends Controller
     {
         // Verificar que no se elimine a sí mismo
         if ($user->id === auth()->id()) {
-            return back()->with('error', 'No puedes eliminar tu propio usuario');
+            return back()->with('notification', [
+                'type' => 'error',
+                'message' => 'No puedes eliminar tu propio usuario'
+            ]);
         }
 
         $user->delete();
 
         return redirect()
             ->route('admin.users.index')
-            ->with('success', 'Usuario eliminado exitosamente');
+            ->with('notification', [
+                'type' => 'success',
+                'message' => 'Usuario eliminado exitosamente'
+            ]);
     }
 }

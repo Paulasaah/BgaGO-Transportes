@@ -15,8 +15,12 @@ return new class extends Migration
             $table->id();
 
             // Relaciones
-            $table->foreignId('vehiculo_id')->constrained('vehicles')->cascadeOnDelete();
+            $table->foreignId('vehiculo_id')->nullable()->constrained('vehicles')->cascadeOnDelete();
             $table->foreignId('reserva_id')->nullable()->constrained('reservations')->nullOnDelete();
+            
+            // Identificador del dispositivo (puede ser vehículo o conductor)
+            $table->string('device_id')->nullable(false)->index()->comment('ID del dispositivo (VH-XXX o CD-XXX)');
+            $table->enum('device_type', ['vehiculo', 'conductor'])->default('vehiculo');
 
             // Coordenadas geográficas
             $table->decimal('latitud', 10, 7)->comment('Latitud del vehículo');
@@ -35,7 +39,7 @@ return new class extends Migration
             $table->enum('fuente', ['gps', 'app_conductor', 'manual'])->default('gps')->comment('Origen de la información');
 
             // Registro temporal
-            $table->timestamp('fecha_registro')->useCurrent()->index()->comment('Fecha y hora del registro del GPS');
+            $table->timestamp('fecha_registro')->useCurrent()->comment('Fecha y hora del registro del GPS');
 
             $table->timestamps();
 
@@ -43,7 +47,10 @@ return new class extends Migration
             $table->index('vehiculo_id');
             $table->index('reserva_id');
             $table->index(['vehiculo_id', 'fecha_registro']);
+            $table->index(['device_id', 'fecha_registro']); // Para consultas por dispositivo
+            $table->index(['device_type', 'fecha_registro']); // Para filtrar por tipo
             $table->index(['latitud', 'longitud']);
+            $table->index('fecha_registro'); // Para limpieza por fecha
         });
     }
 

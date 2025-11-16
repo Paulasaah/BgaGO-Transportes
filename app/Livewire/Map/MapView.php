@@ -12,8 +12,8 @@ class MapView extends Component
 {
     public $vehicles = [];
     public $branches = [];
-    public $autoRefresh = true;
-    public $refreshInterval = 3;
+    public $autoRefresh = false; // Deshabilitado, usamos broadcasting
+    public $refreshInterval = 10; // Fallback si broadcasting falla
 
     public $filterType = 'all';
     public $filterStatus = 'all';

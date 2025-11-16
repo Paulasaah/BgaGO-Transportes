@@ -4,6 +4,11 @@ namespace App\Livewire\Reports;
 
 use Livewire\Component;
 use App\Facades\Data;
+use App\Exports\RevenueExport;
+use App\Exports\VehicleUsageExport;
+use App\Exports\DriverPerformanceExport;
+use Maatwebsite\Excel\Facades\Excel;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ReportsIndex extends Component
 {
@@ -104,13 +109,129 @@ class ReportsIndex extends Component
         ];
     }
 
-    public function exportReport($format = 'pdf')
+    // ========== MÉTODOS DE EXPORTACIÓN ==========
+    
+    public function exportReport($format)
     {
-        // Preparar para exportación futura
-        $this->dispatch('notify', [
-            'type' => 'info',
-            'message' => "Exportación a {$format} estará disponible próximamente"
-        ]);
+        try {
+            $timestamp = now()->format('Y-m-d_His');
+            
+            switch ($this->reporteSeleccionado) {
+                case 'ingresos':
+                    return $this->exportIngresos($format, $timestamp);
+                    
+                case 'vehiculos':
+                    return $this->exportVehiculos($format, $timestamp);
+                    
+                case 'conductores':
+                    return $this->exportConductores($format, $timestamp);
+                    
+                default:
+                    $this->dispatch('notify', [
+                        'type' => 'error',
+                        'message' => 'Tipo de reporte no válido'
+                    ]);
+            }
+        } catch (\Exception $e) {
+            \Log::error('Error al exportar reporte: ' . $e->getMessage());
+            $this->dispatch('notify', [
+                'type' => 'error',
+                'message' => 'Error al exportar: ' . $e->getMessage()
+            ]);
+        }
+    }
+
+    private function exportIngresos($format, $timestamp)
+    {
+        $reporte = Data::getRevenueReport($this->periodo);
+        
+        if ($format === 'pdf') {
+            $pdf = Pdf::loadView('pdf.revenue-report', [
+                'reporte' => $reporte,
+                'periodo' => $this->periodo
+            ]);
+            
+            return response()->streamDownload(
+                fn() => print($pdf->output()),
+                "reporte_ingresos_{$timestamp}.pdf"
+            );
+        }
+        
+        if ($format === 'excel') {
+            return Excel::download(
+                new RevenueExport($reporte, $this->periodo),
+                "reporte_ingresos_{$timestamp}.xlsx"
+            );
+        }
+        
+        if ($format === 'csv') {
+            return Excel::download(
+                new RevenueExport($reporte, $this->periodo),
+                "reporte_ingresos_{$timestamp}.csv"
+            );
+        }
+    }
+
+    private function exportVehiculos($format, $timestamp)
+    {
+        $vehiculos = Data::getVehicleUsageReport();
+        
+        if ($format === 'pdf') {
+            $pdf = Pdf::loadView('pdf.vehicle-usage-report', [
+                'vehiculos' => $vehiculos,
+                'periodo' => $this->periodo
+            ]);
+            
+            return response()->streamDownload(
+                fn() => print($pdf->output()),
+                "reporte_vehiculos_{$timestamp}.pdf"
+            );
+        }
+        
+        if ($format === 'excel') {
+            return Excel::download(
+                new VehicleUsageExport($vehiculos, $this->periodo),
+                "reporte_vehiculos_{$timestamp}.xlsx"
+            );
+        }
+        
+        if ($format === 'csv') {
+            return Excel::download(
+                new VehicleUsageExport($vehiculos, $this->periodo),
+                "reporte_vehiculos_{$timestamp}.csv"
+            );
+        }
+    }
+
+    private function exportConductores($format, $timestamp)
+    {
+        $conductores = Data::getDriverPerformance();
+        
+        if ($format === 'pdf') {
+            $pdf = Pdf::loadView('pdf.driver-performance-report', [
+                'conductores' => $conductores,
+                'periodo' => $this->periodo
+            ]);
+            
+            return response()->streamDownload(
+                fn() => print($pdf->output()),
+                "reporte_conductores_{$timestamp}.pdf"
+            );
+        }
+        
+        if ($format === 'excel') {
+            return Excel::download(
+                new DriverPerformanceExport($conductores, $this->periodo),
+                "reporte_conductores_{$timestamp}.xlsx"
+            );
+        }
+        
+        if ($format === 'csv') {
+            return Excel::download(
+                new DriverPerformanceExport($conductores, $this->periodo),
+                "reporte_conductores_{$timestamp}.csv"
+            );
+        }
     }
 
     public function render()

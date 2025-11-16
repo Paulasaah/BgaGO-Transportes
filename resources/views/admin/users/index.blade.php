@@ -32,6 +32,10 @@ $users = \App\Models\User::with('roles')
                 <flux:heading size="xl">Gestión de Usuarios</flux:heading>
                 <flux:subheading>Administra los usuarios registrados en BgaGo</flux:subheading>
             </div>
+            
+            <flux:button :href="route('admin.users.create')" icon="plus" variant="primary">
+                Crear Usuario
+            </flux:button>
         </div>
 
         {{-- Tarjetas de estadísticas --}}
@@ -174,6 +178,7 @@ $users = \App\Models\User::with('roles')
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex items-center justify-end gap-2">
                                         <flux:button 
+                                            :href="route('admin.users.show', $user)"
                                             size="sm" 
                                             variant="ghost" 
                                             icon="eye"
@@ -181,20 +186,25 @@ $users = \App\Models\User::with('roles')
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400"
                                         />
                                         <flux:button 
+                                            :href="route('admin.users.edit', $user)"
                                             size="sm" 
                                             variant="ghost" 
                                             icon="pencil"
                                             title="Editar"
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-400"
                                         />
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            icon="trash"
-                                            title="Eliminar"
-                                            onclick="return confirm('¿Estás seguro de eliminar este usuario?')"
-                                            class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
-                                        />
+                                        <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar a {{ $user->name }}? Esta acción no se puede deshacer.')">
+                                            @csrf
+                                            @method('DELETE')
+                                            <flux:button 
+                                                type="submit"
+                                                size="sm" 
+                                                variant="ghost" 
+                                                icon="trash"
+                                                title="Eliminar"
+                                                class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+                                            />
+                                        </form>
                                     </div>
                                 </td>
                             </tr>

@@ -3,6 +3,10 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { createIcons, icons } from 'lucide';
 
+// Laravel Echo para broadcasting en tiempo real
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
+
 // Fix para los iconos de Leaflet con Vite
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
@@ -13,6 +17,19 @@ L.Icon.Default.mergeOptions({
     iconUrl: icon,
     iconRetinaUrl: iconRetina,
     shadowUrl: iconShadow,
+});
+
+// Configurar Laravel Echo con Reverb
+window.Pusher = Pusher;
+
+window.Echo = new Echo({
+    broadcaster: 'reverb',
+    key: import.meta.env.VITE_REVERB_APP_KEY,
+    wsHost: import.meta.env.VITE_REVERB_HOST,
+    wsPort: import.meta.env.VITE_REVERB_PORT ?? 80,
+    wssPort: import.meta.env.VITE_REVERB_PORT ?? 443,
+    forceTLS: (import.meta.env.VITE_REVERB_SCHEME ?? 'https') === 'https',
+    enabledTransports: ['ws', 'wss'],
 });
 
 // Función para inicializar iconos

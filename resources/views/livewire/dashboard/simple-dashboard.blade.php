@@ -1,15 +1,23 @@
-<div class="flex h-full w-full flex-1 flex-col gap-6 p-6 lg:p-8">
+<div class="flex h-full w-full flex-1 flex-col gap-6 p-6 lg:p-8" wire:poll.30s="refresh">
+    
+    {{-- Sistema de notificaciones --}}
+    <x-dashboard.notification-toast />
     
     {{-- Header --}}
     <div class="flex items-center justify-between">
         <div>
             <flux:heading size="xl">Dashboard de Administrador</flux:heading>
-            <flux:subheading>Resumen general de BgaGo</flux:subheading>
+            <flux:subheading>Resumen general de BgaGo • Actualización automática cada 30s</flux:subheading>
         </div>
         
-        <flux:button wire:click="refresh" icon="arrow-path" variant="ghost" size="sm">
-            Actualizar
-        </flux:button>
+        <div class="flex items-center gap-2">
+            <span class="text-xs text-zinc-500 dark:text-zinc-400">
+                Última actualización: {{ now()->format('H:i:s') }}
+            </span>
+            <flux:button wire:click="refresh" icon="arrow-path" variant="ghost" size="sm">
+                Actualizar
+            </flux:button>
+        </div>
     </div>
 
     {{-- Tarjetas de estadísticas --}}
@@ -47,6 +55,16 @@
         />
     </div>
 
+    {{-- Fila 1: Alertas, Telemetría y Servicios Activos --}}
+    <div class="grid gap-6 lg:grid-cols-3">
+        <livewire:dashboard.alerts-widget />
+        <livewire:dashboard.telemetry-widget />
+        <livewire:dashboard.active-services-widget />
+    </div>
+
+    {{-- Fila 2: Actividad Reciente --}}
+    <livewire:dashboard.recent-activity-widget />
+
     {{-- Gráficos --}}
     <div class="grid gap-6 md:grid-cols-2">
         {{-- Gráfico de Reservas --}}
@@ -69,7 +87,7 @@
     {{-- Accesos Rápidos --}}
     <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6">
         <flux:heading size="lg" class="mb-4">Accesos Rápidos</flux:heading>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
             <x-dashboard.quick-action
                 :href="route('admin.vehicles.index')"
                 icon="cube"
@@ -92,6 +110,12 @@
                 :href="route('admin.reservations.index')"
                 icon="clipboard-document-list"
                 label="Reservas"
+            />
+
+            <x-dashboard.quick-action
+                :href="route('admin.map')"
+                icon="map"
+                label="Mapa en Vivo"
             />
         </div>
     </div>

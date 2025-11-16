@@ -20,7 +20,7 @@ return new class extends Migration
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             
             // Detalles del pago
-            $table->enum('metodo_pago', ['efectivo', 'tarjeta', 'transferencia', 'stripe']);
+            $table->enum('metodo_pago', ['efectivo', 'tarjeta', 'transferencia', 'mercadopago']);
             $table->decimal('monto', 10, 2);
             $table->enum('estado', ['pendiente', 'aprobado', 'rechazado', 'reembolsado'])->default('pendiente');
             

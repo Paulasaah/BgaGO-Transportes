@@ -32,9 +32,7 @@ class VehicleController extends Controller
             ->orderBy('name')
             ->get();
 
-        $sedes = Branch::where('is_active', true)
-            ->orderBy('nombre')
-            ->get();
+        $sedes = Branch::orderBy('nombre')->get();
 
         $tipos = VehicleType::cases();
 
@@ -84,8 +82,8 @@ class VehicleController extends Controller
             DB::beginTransaction();
 
             // Convertir booleanos
-            $validated['tiene_aire_acondicionado'] = $request->has('tiene_aire_acondicionado');
             $validated['tiene_gps'] = $request->has('tiene_gps');
+            $validated['visible_catalogo'] = $request->has('visible_catalogo');
 
             $vehicle = Vehicle::create($validated);
 
@@ -93,7 +91,10 @@ class VehicleController extends Controller
 
             return redirect()
                 ->route('admin.vehicles.index')
-                ->with('success', "Vehículo {$vehicle->placa} creado exitosamente");
+                ->with('notification', [
+                    'type' => 'success',
+                    'message' => "Vehículo {$vehicle->placa} creado exitosamente"
+                ]);
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Error al crear vehículo: ' . $e->getMessage());
@@ -101,7 +102,10 @@ class VehicleController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Error al crear el vehículo: ' . $e->getMessage());
+                ->with('notification', [
+                    'type' => 'error',
+                    'message' => 'Error al crear el vehículo: ' . $e->getMessage()
+                ]);
         }
     }
 
@@ -128,9 +132,7 @@ class VehicleController extends Controller
             ->orderBy('name')
             ->get();
 
-        $sedes = Branch::where('is_active', true)
-            ->orderBy('nombre')
-            ->get();
+        $sedes = Branch::orderBy('nombre')->get();
 
         $tipos = VehicleType::cases();
 
@@ -181,8 +183,8 @@ class VehicleController extends Controller
         try {
             DB::beginTransaction();
 
-            $validated['tiene_aire_acondicionado'] = $request->has('tiene_aire_acondicionado');
             $validated['tiene_gps'] = $request->has('tiene_gps');
+            $validated['visible_catalogo'] = $request->has('visible_catalogo');
 
             $vehicle->update($validated);
 
@@ -190,7 +192,10 @@ class VehicleController extends Controller
 
             return redirect()
                 ->route('admin.vehicles.index')
-                ->with('success', "Vehículo {$vehicle->placa} actualizado exitosamente");
+                ->with('notification', [
+                    'type' => 'success',
+                    'message' => "Vehículo {$vehicle->placa} actualizado exitosamente"
+                ]);
         } catch (\Exception $e) {
             DB::rollBack();
             \Log::error('Error al actualizar vehículo: ' . $e->getMessage());
@@ -198,7 +203,10 @@ class VehicleController extends Controller
             return redirect()
                 ->back()
                 ->withInput()
-                ->with('error', 'Error al actualizar el vehículo: ' . $e->getMessage());
+                ->with('notification', [
+                    'type' => 'error',
+                    'message' => 'Error al actualizar el vehículo: ' . $e->getMessage()
+                ]);
         }
     }
 
@@ -211,7 +219,10 @@ class VehicleController extends Controller
             if ($vehicle->reservations()->whereIn('estado', ['pendiente', 'confirmada', 'activa'])->exists()) {
                 return redirect()
                     ->back()
-                    ->with('error', 'No se puede eliminar un vehículo con reservas activas');
+                    ->with('notification', [
+                        'type' => 'error',
+                        'message' => 'No se puede eliminar un vehículo con reservas activas'
+                    ]);
             }
 
             $placa = $vehicle->placa;
@@ -219,13 +230,19 @@ class VehicleController extends Controller
 
             return redirect()
                 ->route('admin.vehicles.index')
-                ->with('success', "Vehículo {$placa} eliminado exitosamente");
+                ->with('notification', [
+                    'type' => 'success',
+                    'message' => "Vehículo {$placa} eliminado exitosamente"
+                ]);
         } catch (\Exception $e) {
             \Log::error('Error al eliminar vehículo: ' . $e->getMessage());
 
             return redirect()
                 ->back()
-                ->with('error', 'Error al eliminar el vehículo: ' . $e->getMessage());
+                ->with('notification', [
+                    'type' => 'error',
+                    'message' => 'Error al eliminar el vehículo: ' . $e->getMessage()
+                ]);
         }
     }
 }

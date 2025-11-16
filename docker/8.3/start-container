@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+if [ "$SUPERVISOR_PHP_USER" != "root" ] && [ "$SUPERVISOR_PHP_USER" != "sail" ]; then
+    echo "You should set SUPERVISOR_PHP_USER to either 'sail' or 'root'."
+    exit 1
+fi
+
+if [ ! -z "$WWWUSER" ]; then
+    usermod -u $WWWUSER sail
+fi
+
+if [ ! -d /.composer ]; then
+    mkdir /.composer
+fi
+
+chmod -R ugo+rw /.composer
+
+# Asegurar que los directorios de storage existan y tengan los permisos correctos
+echo "Configurando permisos de storage..."
+mkdir -p /var/www/html/storage/framework/cache/data
+mkdir -p /var/www/html/storage/framework/sessions
+mkdir -p /var/www/html/storage/framework/views
+mkdir -p /var/www/html/storage/logs
+mkdir -p /var/www/html/storage/fonts
+mkdir -p /var/www/html/bootstrap/cache
+
+# Corregir permisos
+chown -R sail:sail /var/www/html/storage /var/www/html/bootstrap/cache
+chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
+echo "Permisos de storage configurados correctamente"
+
+run_as_app_user() {
+    local cmd=("$@")
+
+    if [ "$SUPERVISOR_PHP_USER" = "root" ]; then
+        "${cmd[@]}"
+    else
+        if [ -n "$WWWUSER" ]; then
+            gosu "$WWWUSER" "${cmd[@]}"
+        else
+            gosu "$SUPERVISOR_PHP_USER" "${cmd[@]}"
+        fi
+    fi
+}
+
+run_artisan() {
+    local artisan_cmd=("$@")
+    run_as_app_user php -d variables_order=EGPCS /var/www/html/artisan "${artisan_cmd[@]}"
+}
+
+run_artisan_with_retry() {
+    local artisan_cmd=("$@")
+    local max_attempts="${ARTISAN_MAX_ATTEMPTS:-10}"
+    local sleep_seconds="${ARTISAN_RETRY_SLEEP_SECONDS:-5}"
+    local attempt=1
+
+    echo "Running 'php artisan ${artisan_cmd[*]}' with up to ${max_attempts} attempts..."
+
+    until run_artisan "${artisan_cmd[@]}"; do
+        if [ "$attempt" -ge "$max_attempts" ]; then
+            echo "Command 'php artisan ${artisan_cmd[*]}' failed after ${max_attempts} attempts."
+            return 1
+        fi
+
+        attempt=$((attempt + 1))
+        echo "Retrying in ${sleep_seconds}s... (attempt ${attempt}/${max_attempts})"
+        sleep "$sleep_seconds"
+    done
+
+    echo "Command 'php artisan ${artisan_cmd[*]}' completed successfully."
+}
+
+if [ $# -gt 0 ]; then
+    if [ "$SUPERVISOR_PHP_USER" = "root" ]; then
+        exec "$@"
+    else
+        exec gosu $WWWUSER "$@"
+    fi
+else
+    if [ "${RUN_MIGRATIONS_ON_START:-true}" = "true" ]; then
+        if ! run_artisan_with_retry migrate --force --no-interaction; then
+            echo "Failed to run migrations on container startup. Aborting."
+            exit 1
+        fi
+    fi
+
+    if [ "${RUN_SEEDERS_ON_START:-true}" = "true" ]; then
+        if ! run_artisan_with_retry db:seed --force --no-interaction; then
+            echo "Failed to run seeders on container startup. Aborting."
+            exit 1
+        fi
+    fi
+
+    exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+fi

@@ -6,6 +6,7 @@
 /storage/*.key
 /storage/pail
 /vendor
+/.pnpm-store
 .DS_Store
 .env
 .env.backup
@@ -22,7 +23,17 @@ yarn-error.log
 /.nova
 /.vscode
 /.zed
+/.windsurf
+/.scripts
+/scripts
+
+# Scripts y archivos de automatización
+*.sh
+*.bash
 
 # Mosquitto MQTT data
 iot/mosquitto/data/
 iot/mosquitto/log/
+
+# Docker backups
+docker-compose.yml.backup

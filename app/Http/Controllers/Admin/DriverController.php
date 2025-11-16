@@ -23,7 +23,10 @@ class DriverController extends Controller
     {
         // Verificar que el usuario es conductor
         if (!$user->hasRole('conductor')) {
-            return back()->with('error', 'El usuario no es un conductor');
+            return back()->with('notification', [
+                'type' => 'error',
+                'message' => 'El usuario no es un conductor'
+            ]);
         }
 
         // Si no tiene profile, crear uno
@@ -33,7 +36,10 @@ class DriverController extends Controller
                 'license_number' => null,
             ]);
             
-            return back()->with('success', 'Perfil de conductor creado y activado');
+            return back()->with('notification', [
+                'type' => 'success',
+                'message' => 'Perfil de conductor creado y activado'
+            ]);
         }
 
         // Toggle del estado
@@ -44,6 +50,9 @@ class DriverController extends Controller
             ? 'Conductor activado exitosamente' 
             : 'Conductor desactivado exitosamente';
 
-        return back()->with('success', $message);
+        return back()->with('notification', [
+            'type' => 'success',
+            'message' => $message
+        ]);
     }
 }

@@ -33,8 +33,10 @@ return [
             ],
 
             // Keep alive y timeout
-            'connect_timeout' => 5,
-            'keep_alive_interval' => 60,
+            'connect_timeout' => env('MQTT_CONNECT_TIMEOUT', 5), // 5 segundos para conectar
+            'socket_timeout' => env('MQTT_SOCKET_TIMEOUT', 10), // 10 segundos para operaciones
+            'keep_alive_interval' => env('MQTT_KEEP_ALIVE', 60), // 60 segundos keep alive
+            'resend_timeout' => env('MQTT_RESEND_TIMEOUT', 10), // 10 segundos para reenvío
         ],
     ],
 

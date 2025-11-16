@@ -300,14 +300,21 @@
 @script
 <script>
 (function() {
+    // Estado del mapa
     const mapState = {
         instance: null,
         markers: {},
-        branchCircles: {},
-        branchMarkers: {},
+        branches: {},
+        branchCircles: {},      // ✅ Agregado para círculos de sedes
+        branchMarkers: {},      // ✅ Agregado para marcadores de sedes
         autoRefresh: null,
         isReady: false,
-        updateQueue: []
+        broadcastingEnabled: true,
+        echoChannel: null,
+        currentFilters: {
+            type: 'all',
+            status: 'all'
+        }
     };
 
     function getStatusColor(status) {
@@ -558,9 +565,19 @@
             }
         });
 
-        // Actualizar o crear marcadores
+        // Actualizar o crear marcadores (aplicando filtros)
         vehicles.forEach(v => {
             if (!v.lat || !v.lng) return;
+
+            // Aplicar filtros
+            if (!shouldShowVehicle(v)) {
+                // Si no pasa los filtros, remover si existe
+                if (mapState.markers[v.device_id]) {
+                    mapState.instance.removeLayer(mapState.markers[v.device_id]);
+                    delete mapState.markers[v.device_id];
+                }
+                return;
+            }
 
             const icon = createVehicleIcon(v);
             const popup = createPopupContent(v);
@@ -612,7 +629,6 @@
             }, 200);
 
             mapState.isReady = true;
-            console.log('✅ Mapa inicializado');
             return true;
         } catch (err) {
             console.error('❌ Error inicializando mapa:', err);
@@ -668,7 +684,149 @@
         startAutoRefresh(data.interval || 3);
     });
 
-    Livewire.on('stopAutoRefresh', () => stopAutoRefresh());
+    Livewire.on('stopAutoRefresh', () => {
+        stopAutoRefresh();
+        stopBroadcasting();
+    });
+
+    Livewire.on('startAutoRefresh', (event) => {
+        const data = Array.isArray(event) ? event[0] : event;
+        startAutoRefresh(data.interval || 3);
+        startBroadcasting();
+    });
+
+    // Función para verificar si un vehículo pasa los filtros
+    function shouldShowVehicle(vehicle) {
+        const filters = mapState.currentFilters;
+        
+        // Filtro por tipo
+        if (filters.type !== 'all' && vehicle.type !== filters.type) {
+            return false;
+        }
+        
+        // Filtro por estado
+        if (filters.status !== 'all' && vehicle.status !== filters.status) {
+            return false;
+        }
+        
+        return true;
+    }
+
+    // Escuchar cambios en filtros desde Livewire
+    Livewire.hook('morph.updated', ({ el, component }) => {
+        // Actualizar filtros locales cuando cambian en Livewire
+        const typeSelect = document.querySelector('[wire\\:model\\.live="filterType"]');
+        const statusSelect = document.querySelector('[wire\\:model\\.live="filterStatus"]');
+        
+        if (typeSelect) {
+            mapState.currentFilters.type = typeSelect.value;
+        }
+        if (statusSelect) {
+            mapState.currentFilters.status = statusSelect.value;
+        }
+    });
+
+    // Laravel Echo - Broadcasting en tiempo real
+    function setupBroadcasting() {
+        if (typeof window.Echo === 'undefined') {
+            console.warn('⚠️ Laravel Echo no disponible, usando polling como fallback');
+            return;
+        }
+
+        // Guardar referencia al canal
+        mapState.echoChannel = window.Echo.channel('telemetry')
+            .listen('.telemetry.updated', (event) => {
+                // Solo actualizar si broadcasting está habilitado
+                if (mapState.broadcastingEnabled) {
+                    updateSingleVehicle(event);
+                }
+            });
+    }
+
+    function stopBroadcasting() {
+        if (mapState.echoChannel) {
+            window.Echo.leave('telemetry');
+            mapState.echoChannel = null;
+        }
+        mapState.broadcastingEnabled = false;
+    }
+
+    function startBroadcasting() {
+        mapState.broadcastingEnabled = true;
+        if (!mapState.echoChannel) {
+            setupBroadcasting();
+        }
+    }
+
+    function updateSingleVehicle(telemetry) {
+        if (!mapState.isReady || !mapState.instance) return;
+
+        const vehicle = {
+            device_id: telemetry.device_id,
+            type: telemetry.type,
+            status: telemetry.status,
+            status_label: getStatusLabel(telemetry.status),
+            lat: telemetry.lat,
+            lng: telemetry.lng,
+            battery: telemetry.battery,
+            battery_health: telemetry.battery_health,
+            speed: telemetry.speed,
+            current_branch: telemetry.current_branch,
+            target_branch: telemetry.target_branch,
+            odometer: telemetry.odometer,
+            trip_count: telemetry.trip_count,
+            maintenance_km_left: telemetry.maintenance_km_left,
+            needs_maintenance: telemetry.needs_maintenance,
+            driver_name: telemetry.driver_name,
+            deliveries_completed: telemetry.deliveries_completed,
+            rating: telemetry.rating
+        };
+
+        // Aplicar filtros
+        if (!shouldShowVehicle(vehicle)) {
+            // Si el vehículo no pasa los filtros, removerlo si existe
+            if (mapState.markers[vehicle.device_id]) {
+                mapState.instance.removeLayer(mapState.markers[vehicle.device_id]);
+                delete mapState.markers[vehicle.device_id];
+            }
+            return;
+        }
+
+        const icon = createVehicleIcon(vehicle);
+        const popup = createPopupContent(vehicle);
+
+        if (!mapState.markers[vehicle.device_id]) {
+            // Crear nuevo marcador
+            const marker = L.marker([vehicle.lat, vehicle.lng], { icon }).addTo(mapState.instance);
+            marker.bindPopup(popup, { maxWidth: 280 });
+            mapState.markers[vehicle.device_id] = marker;
+        } else {
+            // Actualizar marcador existente con animación suave
+            const marker = mapState.markers[vehicle.device_id];
+            const oldLatLng = marker.getLatLng();
+            const newLatLng = L.latLng(vehicle.lat, vehicle.lng);
+            
+            marker.setLatLng(newLatLng);
+            marker.setIcon(icon);
+            marker.getPopup().setContent(popup);
+        }
+
+        // Actualizar estadísticas en Livewire cada 10 actualizaciones
+        if (Math.random() < 0.1) {
+            $wire.call('loadMapData');
+        }
+    }
+
+    function getStatusLabel(status) {
+        const labels = {
+            'active': 'En ruta',
+            'idle': 'En espera',
+            'charging': 'Cargando',
+            'maintenance': 'Mantenimiento',
+            'offline': 'Desconectado'
+        };
+        return labels[status] || 'Desconocido';
+    }
 
     // Inicialización
     setTimeout(() => {
@@ -683,6 +841,9 @@
             if (vehicles && vehicles.length > 0) {
                 setTimeout(() => loadVehicles(vehicles), 600);
             }
+
+            // Configurar broadcasting en tiempo real
+            setTimeout(() => setupBroadcasting(), 1000);
 
             @if($autoRefresh)
                 setTimeout(() => startAutoRefresh({{ $refreshInterval }}), 1500);

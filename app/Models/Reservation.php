@@ -46,7 +46,8 @@ class Reservation extends Model
         'calificacion_cliente',
         'comentario_cliente',
         'motivo_cancelacion',
-        'cancelado_por'
+        'cancelado_por',
+        'fecha_cancelacion'
     ];
 
     protected $casts = [
@@ -65,6 +66,7 @@ class Reservation extends Model
         'fecha_confirmacion' => 'datetime',
         'fecha_inicio_real' => 'datetime',
         'fecha_fin_real' => 'datetime',
+        'fecha_cancelacion' => 'datetime',
     ];
 
     // ==========================================

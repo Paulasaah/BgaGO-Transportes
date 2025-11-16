@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# IDEs
+.idea
+.vscode
+.windsurf
+.fleet
+.nova
+.zed
+
+# Node
+node_modules
+npm-debug.log
+yarn-error.log
+
+# Storage (se crean en el contenedor)
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+bootstrap/cache/*
+
+# Environment
+.env
+.env.backup
+.env.production
+
+# Testing
+.phpunit.result.cache
+coverage
+
+# Build
+/public/hot
+/public/storage
+/public/build
+
+# Vendor (se instala en el contenedor)
+vendor
+
+# Scripts
+scripts
+.scripts
+
+# Documentation
+*.md
+!README.md
+
+# Docker
+docker-compose.yml.backup

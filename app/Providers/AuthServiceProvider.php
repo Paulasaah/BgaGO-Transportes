@@ -89,9 +89,9 @@ class AuthServiceProvider extends ServiceProvider
                    $user->hasPermissionTo('ver_reportes');
         });
 
-        // Asignar conductores
+        // Asignar conductores (solo admin y super_admin)
         Gate::define('assign-drivers', function ($user) {
-            return $user->hasRole(['admin', 'super_admin', 'dispatcher']) ||
+            return $user->hasRole(['admin', 'super_admin']) ||
                    $user->hasPermissionTo('asignar_conductores');
         });
 

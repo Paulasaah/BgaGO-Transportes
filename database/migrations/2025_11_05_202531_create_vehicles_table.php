@@ -43,6 +43,9 @@ return new class extends Migration
             $table->index(['estado', 'sede_id']);
         });
     }
+    /**
+     * Reverse the migrations.
+     */
 
     public function down(): void
     {

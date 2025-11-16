@@ -11,6 +11,8 @@ class GpsTrack extends Model
     use HasFactory;
 
     protected $fillable = [
+        'device_id',
+        'device_type',
         'vehiculo_id',
         'reserva_id',
         'latitud',
@@ -39,9 +41,7 @@ class GpsTrack extends Model
         'fecha_registro' => 'datetime',
     ];
 
-    // ==========================================
     // RELACIONES
-    // ==========================================
 
     public function vehicle()
     {
@@ -53,9 +53,7 @@ class GpsTrack extends Model
         return $this->belongsTo(Reservation::class, 'reserva_id');
     }
 
-    // ==========================================
     // SCOPES
-    // ==========================================
 
     public function scopeDelVehiculo(Builder $query, int $vehiculoId): Builder
     {
@@ -82,9 +80,7 @@ class GpsTrack extends Model
         return $query->orderByDesc('fecha_registro')->limit(1);
     }
 
-    // ==========================================
     // HELPER METHODS
-    // ==========================================
 
     /**
      * Calcular distancia a otro punto GPS (km)

@@ -6,6 +6,9 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
         Schema::create('reservations', function (Blueprint $table) {
@@ -59,9 +62,10 @@ return new class extends Migration
             $table->tinyInteger('calificacion_cliente')->nullable(); // 1-5
             $table->text('comentario_cliente')->nullable();
             
-            // Motivo de cancelación
+            // Cancelación
             $table->text('motivo_cancelacion')->nullable();
             $table->foreignId('cancelado_por')->nullable()->constrained('users')->nullOnDelete();
+            $table->dateTime('fecha_cancelacion')->nullable();
             
             $table->timestamps();
             $table->softDeletes();
@@ -77,6 +81,9 @@ return new class extends Migration
 
         });
     }
+    /**
+     * Reverse the migrations.
+     */
 
     public function down(): void
     {

@@ -33,6 +33,10 @@ $reservations = \App\Models\Reservation::with(['user', 'vehicle', 'driver'])
                 <flux:heading size="xl">Gestión de Reservas</flux:heading>
                 <flux:subheading>Visualiza y controla todas las reservas activas, completadas o canceladas</flux:subheading>
             </div>
+            
+            <flux:button :href="route('admin.reservations.create')" icon="plus" variant="primary">
+                Crear Reserva
+            </flux:button>
         </div>
 
         {{-- Estadísticas --}}
@@ -229,28 +233,26 @@ $reservations = \App\Models\Reservation::with(['user', 'vehicle', 'driver'])
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex items-center justify-end gap-2">
                                         <flux:button 
+                                            :href="route('admin.reservations.show', $reserva)"
                                             size="sm" 
                                             variant="ghost" 
                                             icon="eye"
                                             title="Ver detalles"
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400"
                                         />
-                                        <flux:button 
-                                            size="sm" 
-                                            variant="ghost" 
-                                            icon="pencil"
-                                            title="Editar"
-                                            class="text-zinc-600 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-400"
-                                        />
                                         @if($reserva->estado !== ReservationStatus::Completada && $reserva->estado !== ReservationStatus::Cancelada)
-                                            <flux:button 
-                                                size="sm" 
-                                                variant="ghost" 
-                                                icon="x-mark"
-                                                title="Cancelar reserva"
-                                                onclick="return confirm('¿Estás seguro de cancelar esta reserva?')"
-                                                class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
-                                            />
+                                            <form method="POST" action="{{ route('admin.reservations.cancel', $reserva) }}" class="inline" onsubmit="return confirm('¿Estás seguro de cancelar la reserva {{ $reserva->codigo }}?')">
+                                                @csrf
+                                                @method('PATCH')
+                                                <flux:button 
+                                                    type="submit"
+                                                    size="sm" 
+                                                    variant="ghost" 
+                                                    icon="x-mark"
+                                                    title="Cancelar reserva"
+                                                    class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
+                                                />
+                                            </form>
                                         @endif
                                     </div>
                                 </td>

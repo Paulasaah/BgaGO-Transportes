@@ -21,7 +21,6 @@ class DataService
     
     public static function getDashboardStats(): array
     {
-        \Log::info('[DataService] Ejecutando getDashboardStats()');
         try {
             return Cache::remember('dashboard_stats', 300, function () {
                 // Reservas activas
@@ -95,7 +94,6 @@ class DataService
 
     public static function getReservasPorMes(): array
     {
-        \Log::info('[DataService] Ejecutando getReservasPorMes()');
         try {
             $reservas = Reservation::select(
                 DB::raw('MONTH(created_at) as mes'),
@@ -125,7 +123,6 @@ class DataService
 
     public static function getDistribucionSedes(): array
     {
-        \Log::info('[DataService] Ejecutando getDistribucionSedes()');
         try {
             $distribucion = Reservation::join('branches', 'reservations.sede_id', '=', 'branches.id')
                 ->select('branches.nombre', DB::raw('COUNT(*) as total'))
@@ -148,7 +145,6 @@ class DataService
     
     public static function getLiveServices(): array
     {
-        \Log::info('[DataService] Ejecutando getLiveServices()');
         try {
             return Reservation::with(['user:id,name', 'driver:id,name', 'vehicle:id,placa'])
                 ->where('estado', ReservationStatus::Activa)
@@ -181,7 +177,6 @@ class DataService
 
     public static function getVehicleStatusSummary(): array
     {
-        \Log::info('[DataService] Ejecutando getVehicleStatusSummary()');
         try {
             $disponibles = Vehicle::where('estado', VehicleStatus::Disponible)->limit(3)->pluck('placa')->toArray();
             $enServicio = Vehicle::where('estado', VehicleStatus::Ocupado)->limit(3)->pluck('placa')->toArray();
@@ -209,8 +204,6 @@ class DataService
 
     public static function getVehicleLocations(): array
     {
-        \Log::info('[DataService] Ejecutando getVehicleLocations()');
-        
         try {
             return Vehicle::with(['driver:id,name', 'reservations' => function($q) {
                     $q->where('estado', ReservationStatus::Activa)
@@ -250,8 +243,6 @@ class DataService
 
     public static function getActiveAlerts(): array
     {
-        \Log::info('[DataService] Ejecutando getActiveAlerts()');
-        
         try {
             $alerts = [];
 
@@ -314,8 +305,6 @@ class DataService
 
     public static function getRecentEvents(int $limit = 10): array
     {
-        \Log::info('[DataService] Ejecutando getRecentEvents()');
-        
         try {
             $events = [];
 
@@ -372,8 +361,6 @@ class DataService
     
     public static function getRevenueReport(string $periodo = 'mes'): array
     {
-        \Log::info("[DataService] Ejecutando getRevenueReport($periodo)");
-        
         try {
             $fechaInicio = match($periodo) {
                 'mes' => now()->startOfMonth(),
@@ -454,8 +441,6 @@ class DataService
 
     public static function getVehicleUsageReport(): array
     {
-        \Log::info('[DataService] Ejecutando getVehicleUsageReport()');
-        
         try {
             $vehicles = Vehicle::with(['reservations' => function ($query) {
                     $query->where('estado', ReservationStatus::Completada)
@@ -506,8 +491,6 @@ class DataService
 
     public static function getDriverPerformance(): array
     {
-        \Log::info('[DataService] Ejecutando getDriverPerformance()');
-        
         try {
             $drivers = User::role('conductor')
                 ->with(['conductorReservations' => function ($query) {
@@ -554,9 +537,7 @@ class DataService
         }
     }
 
-    // ==========================================
     // ESTADÍSTICAS ADMINISTRATIVAS
-    // ==========================================
 
     public static function getVehicleStats(): array
     {
@@ -658,9 +639,7 @@ class DataService
         }
     }
 
-    // ==========================================
     // LISTADOS ADMIN
-    // ==========================================
 
     public static function getUsers()
     {
@@ -684,9 +663,8 @@ class DataService
             ->get();
     }
 
-    // ==========================================
+
     // HELPERS PRIVADOS
-    // ==========================================
     
     private static function calcularProgreso(Reservation $reserva): int
     {

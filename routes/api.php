@@ -6,18 +6,15 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use App\Models\Telemetria;
 
-// Controladores API existentes (Telemetría IoT)
-use App\Http\Controllers\Api\IotDataController;
-use App\Http\Controllers\Api\AzureTelemetryController;
-use App\Http\Controllers\Api\AzureDeviceController;
-use App\Http\Controllers\Api\TelemetryController;
-
 // Nuevos Controladores (Sistema de Reservas y Domicilios)
+use App\Http\Controllers\Api\TelemetryController;
 use App\Http\Controllers\Api\ReservationController;
 use App\Http\Controllers\Api\DeliveryController;
 use App\Http\Controllers\Api\VehicleController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\BranchController;
+use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\StatsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -30,21 +27,23 @@ use App\Http\Controllers\Api\BranchController;
 | - Integración con Azure IoT Central
 */
 
-// ============================================================================
-// 🔵 AZURE IOT CENTRAL
-// ============================================================================
+
+/* AZURE IOT CENTRAL - Posible integracion esta por verse
 
 Route::prefix('azure')->group(function () {
     Route::put('/device/{deviceId}', [AzureDeviceController::class, 'registerDevice']);
     Route::get('/telemetria/{deviceId}', [AzureTelemetryController::class, 'getDeviceTelemetry']);
 });
+*/
 
-// ============================================================================
-// 🟢 ESTADO DEL API
-// ============================================================================
 
+// ESTADO DEL API
+// Rate limit: 120 requests/min para endpoints públicos
+
+Route::middleware('throttle:public')->group(function () {
 Route::get('/status', function () {
     return response()->json([
+        'success' => true,
         'status' => 'online',
         'message' => 'BgaGO API funcionando correctamente 🚀',
         'timestamp' => now()->toIso8601String(),
@@ -65,301 +64,51 @@ Route::get('/ping', function () {
         'server_time' => now()->toIso8601String()
     ]);
 });
+}); // Fin throttle:public
 
-// ============================================================================
-// 📡 RECEPCIÓN DE TELEMETRÍA (MQTT → Laravel)
-// ============================================================================
 
-Route::prefix('telemetria')->group(function () {
-    // Endpoint principal para telemetría completa
-    Route::post('/', [TelemetryController::class, 'store']);
-    Route::get('/realtime', [TelemetryController::class, 'realtime']);
-    
-    // Endpoint legacy (formato simple)
-    Route::post('/simple', function (Request $request) {
-        try {
-            $data = $request->all();
-            
-            Log::info('📡 Telemetría simple recibida', [
-                'device_id' => $data['device_id'] ?? 'unknown'
-            ]);
-            
-            $lat = $data['lat'] ?? $data['Geopoint']['lat'] ?? 0;
-            $lon = $data['lon'] ?? $data['Geopoint']['lon'] ?? 0;
-            $alt = $data['alt'] ?? $data['Geopoint']['alt'] ?? null;
-            $battery = $data['battery'] ?? $data['Battery'] ?? 100;
-            $deviceId = $data['device_id'] ?? 'desconocido';
-            
-            $telemetria = Telemetria::create([
-                'device_id' => $deviceId,
-                'device_type' => 'vehiculo',
-                'status' => 'active',
-                'lat' => (float) $lat,
-                'lon' => (float) $lon,
-                'alt' => $alt ? (float) $alt : null,
-                'battery' => (float) $battery,
-            ]);
-            
-            Log::info('✅ Telemetría simple guardada', ['id' => $telemetria->id]);
-            
-            return response()->json([
-                'success' => true,
-                'message' => 'Telemetría guardada',
-                'data' => $telemetria
-            ], 201);
-            
-        } catch (\Throwable $e) {
-            Log::error('❌ Error en telemetría simple', ['error' => $e->getMessage()]);
-            return response()->json([
-                'success' => false,
-                'message' => 'Error al guardar telemetría',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    });
-    
+// TELEMETRÍA - SOLO LECTURA (La escritura es vía MQTT Listener)
+// ✅ PROTEGIDO: Requiere autenticación y permiso ver_telemetria
+
+Route::middleware('auth:sanctum')->prefix('telemetria')->group(function () {
     // Consultas de telemetría
-    Route::get('/latest', [TelemetryController::class, 'latest']);
-    Route::get('/{deviceId}', [TelemetryController::class, 'show']);
-    Route::get('/{deviceId}/history', [TelemetryController::class, 'history']);
-    
-    // Debug
-    Route::get('/all/debug', function (Request $request) {
-        $perPage = $request->input('per_page', 50);
-        $telemetry = Telemetria::orderByDesc('id')->paginate($perPage);
-        
-        return response()->json([
-            'success' => true,
-            'data' => $telemetry->items(),
-            'pagination' => [
-                'total' => $telemetry->total(),
-                'per_page' => $telemetry->perPage(),
-                'current_page' => $telemetry->currentPage(),
-                'last_page' => $telemetry->lastPage(),
-            ]
-        ]);
-    });
-    
-    // Cleanup (protegido)
-    Route::delete('/cleanup', function (Request $request) {
-        $days = $request->input('days', 7);
-        $deleted = Telemetria::where('created_at', '<', now()->subDays($days))->delete();
-        
-        return response()->json([
-            'success' => true,
-            'message' => "Registros eliminados correctamente",
-            'deleted_count' => $deleted,
-            'older_than_days' => $days
-        ]);
-    })->middleware('auth:sanctum');
+    Route::get('/latest', [TelemetryController::class, 'latest'])
+        ->middleware('can:view-telemetry');
+    Route::get('/realtime', [TelemetryController::class, 'realtime'])
+        ->middleware('can:view-telemetry');
+    Route::get('/{deviceId}', [TelemetryController::class, 'show'])
+        ->middleware('can:view-telemetry');
+    Route::get('/{deviceId}/history', [TelemetryController::class, 'history'])
+        ->middleware('can:view-telemetry');
+    Route::get('/{deviceId}/route', [TelemetryController::class, 'getRoute'])
+        ->middleware('can:view-telemetry');
 });
 
-// ============================================================================
-// 🗺️ RUTAS Y TRACKING
-// ============================================================================
+// DISPOSITIVOS - FILTROS Y BÚSQUEDAS
+// ✅ PROTEGIDO: Solo administradores pueden ver dispositivos IoT
 
-Route::get('/ruta/{device_id}', function ($device_id) {
-    try {
-        $route = Telemetria::where('device_id', $device_id)
-            ->orderByDesc('id')
-            ->take(20)
-            ->get(['id', 'device_id', 'lat', 'lon', 'battery', 'speed', 'created_at'])
-            ->reverse()
-            ->values();
-        
-        return response()->json([
-            'success' => true,
-            'device_id' => $device_id,
-            'points' => $route,
-            'count' => $route->count()
-        ]);
-        
-    } catch (\Throwable $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Error al obtener ruta',
-            'error' => $e->getMessage()
-        ], 500);
-    }
+Route::middleware(['auth:sanctum', 'role:admin'])->prefix('devices')->group(function () {
+    Route::get('/', [DeviceController::class, 'index']);
+    Route::get('/{deviceId}', [DeviceController::class, 'show']);
+    Route::get('/type/{type}', [DeviceController::class, 'byType']);
+    Route::get('/status/{status}', [DeviceController::class, 'byStatus']);
+    Route::get('/branch/{branch}', [DeviceController::class, 'byBranch']);
+    Route::get('/maintenance/required', [DeviceController::class, 'needsMaintenance']);
 });
 
-Route::get('/ultimas', function () {
-    try {
-        $subquery = DB::table('telemetrias')
-            ->select('device_id', DB::raw('MAX(created_at) as last_time'))
-            ->groupBy('device_id');
-        
-        $latest = DB::table('telemetrias')
-            ->joinSub($subquery, 't2', function ($join) {
-                $join->on('telemetrias.device_id', '=', 't2.device_id')
-                     ->on('telemetrias.created_at', '=', 't2.last_time');
-            })
-            ->select('telemetrias.*')
-            ->get();
-        
-        return response()->json([
-            'success' => true,
-            'data' => $latest,
-            'count' => $latest->count()
-        ]);
-        
-    } catch (\Throwable $e) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Error al obtener últimas posiciones',
-            'error' => $e->getMessage()
-        ], 500);
-    }
+// ESTADÍSTICAS Y MÉTRICAS
+// ✅ PROTEGIDO: Solo administradores pueden ver estadísticas del sistema
+
+Route::middleware(['auth:sanctum', 'role:admin'])->prefix('stats')->group(function () {
+    Route::get('/', [StatsController::class, 'general']);
+    Route::get('/dashboard', [StatsController::class, 'dashboard']);
+    Route::get('/branches', [StatsController::class, 'branches']);
+    Route::get('/battery', [StatsController::class, 'battery']);
+    Route::get('/maintenance', [StatsController::class, 'maintenance']);
 });
 
-// ============================================================================
-// 🔍 FILTROS Y BÚSQUEDAS DE DISPOSITIVOS
-// ============================================================================
 
-Route::prefix('dispositivos')->group(function () {
-    Route::get('/tipo/{tipo}', function ($tipo) {
-        if (!in_array($tipo, ['vehiculo', 'conductor'])) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tipo inválido. Use: vehiculo o conductor'
-            ], 400);
-        }
-        
-        $devices = Telemetria::latestByDevice()
-            ->where('device_type', $tipo)
-            ->get();
-        
-        return response()->json([
-            'success' => true,
-            'tipo' => $tipo,
-            'data' => $devices,
-            'count' => $devices->count()
-        ]);
-    });
-    
-    Route::get('/estado/{estado}', function ($estado) {
-        $validStatuses = ['active', 'idle', 'charging', 'maintenance', 'offline'];
-        
-        if (!in_array($estado, $validStatuses)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Estado inválido',
-                'valid_states' => $validStatuses
-            ], 400);
-        }
-        
-        $devices = Telemetria::latestByDevice()
-            ->where('status', $estado)
-            ->get();
-        
-        return response()->json([
-            'success' => true,
-            'estado' => $estado,
-            'data' => $devices,
-            'count' => $devices->count()
-        ]);
-    });
-    
-    Route::get('/sede/{sede}', function ($sede) {
-        $devices = Telemetria::latestByDevice()
-            ->where('current_branch', $sede)
-            ->get();
-        
-        return response()->json([
-            'success' => true,
-            'sede' => $sede,
-            'data' => $devices,
-            'count' => $devices->count()
-        ]);
-    });
-    
-    Route::get('/mantenimiento', function () {
-        $devices = Telemetria::latestByDevice()
-            ->where(function ($query) {
-                $query->where('maintenance_km_left', '<=', 100)
-                      ->orWhere('battery_health', '<=', 70);
-            })
-            ->get();
-        
-        return response()->json([
-            'success' => true,
-            'message' => 'Dispositivos que requieren mantenimiento',
-            'data' => $devices,
-            'count' => $devices->count()
-        ]);
-    });
-});
-
-// ============================================================================
-// 📈 ESTADÍSTICAS
-// ============================================================================
-
-Route::prefix('estadisticas')->group(function () {
-    Route::get('/', function () {
-        $latest = Telemetria::latestByDevice()->get();
-        
-        $stats = [
-            'total_dispositivos' => $latest->count(),
-            'vehiculos' => [
-                'total' => $latest->where('device_type', 'vehiculo')->count(),
-                'activos' => $latest->where('device_type', 'vehiculo')->where('status', 'active')->count(),
-                'en_espera' => $latest->where('device_type', 'vehiculo')->where('status', 'idle')->count(),
-                'cargando' => $latest->where('device_type', 'vehiculo')->where('status', 'charging')->count(),
-                'mantenimiento' => $latest->where('device_type', 'vehiculo')->where('status', 'maintenance')->count(),
-            ],
-            'conductores' => [
-                'total' => $latest->where('device_type', 'conductor')->count(),
-                'activos' => $latest->where('device_type', 'conductor')->where('status', 'active')->count(),
-                'en_espera' => $latest->where('device_type', 'conductor')->where('status', 'idle')->count(),
-            ],
-            'bateria' => [
-                'promedio' => round($latest->avg('battery'), 1),
-                'critica' => $latest->where('battery', '<', 20)->count(),
-                'baja' => $latest->whereBetween('battery', [20, 40])->count(),
-                'normal' => $latest->where('battery', '>=', 40)->count(),
-            ],
-            'mantenimiento' => [
-                'requerido' => $latest->filter(fn($d) => $d->needsMaintenance())->count(),
-            ],
-            'timestamp' => now()->toIso8601String(),
-        ];
-        
-        return response()->json([
-            'success' => true,
-            'data' => $stats
-        ]);
-    });
-    
-    Route::get('/sedes', function () {
-        $branches = \App\Models\Branch::all();
-        $latest = Telemetria::latestByDevice()->get();
-        
-        $branchStats = $branches->map(function ($branch) use ($latest) {
-            $devicesInBranch = $latest->where('current_branch', $branch->nombre);
-            
-            return [
-                'nombre' => $branch->nombre,
-                'total_dispositivos' => $devicesInBranch->count(),
-                'vehiculos' => $devicesInBranch->where('device_type', 'vehiculo')->count(),
-                'conductores' => $devicesInBranch->where('device_type', 'conductor')->count(),
-                'capacidad' => $branch->capacidad_vehiculos,
-                'ocupacion_porcentaje' => $branch->capacidad_vehiculos > 0 
-                    ? round(($devicesInBranch->count() / $branch->capacidad_vehiculos) * 100, 1)
-                    : 0,
-                'bateria_promedio' => round($devicesInBranch->avg('battery'), 1),
-            ];
-        });
-        
-        return response()->json([
-            'success' => true,
-            'data' => $branchStats
-        ]);
-    });
-});
-
-// ============================================================================
-// 🚗 VEHÍCULOS - CATÁLOGO Y DISPONIBILIDAD
-// ============================================================================
+// VEHÍCULOS - CATÁLOGO Y DISPONIBILIDAD
 
 Route::prefix('vehicles')->group(function () {
     // Catálogo público
@@ -379,38 +128,38 @@ Route::prefix('vehicles')->group(function () {
     Route::get('/tipo/{tipo}', [VehicleController::class, 'byType']);
     Route::get('/sede/{sedeId}', [VehicleController::class, 'byBranch']);
     
-    // Tracking
-    Route::get('/{vehicle}/location', [VehicleController::class, 'location']);
+    // Tracking (requiere autenticación)
+    Route::get('/{vehicle}/location', [VehicleController::class, 'location'])
+        ->middleware('auth:sanctum');
     
     // Stats (admin)
     Route::get('/{vehicle}/stats', [VehicleController::class, 'stats'])
         ->middleware('auth:sanctum');
 });
 
-// ============================================================================
-// 🏢 SEDES - UBICACIONES Y COBERTURA
-// ============================================================================
+// SEDES - UBICACIONES Y COBERTURA
 
 Route::prefix('branches')->group(function () {
     Route::get('/', [BranchController::class, 'index']);
     Route::get('/{branch}', [BranchController::class, 'show']);
-    Route::get('/{branch}/vehicles', [BranchController::class, 'vehicles']);
-    Route::get('/{branch}/stats', [BranchController::class, 'stats']);
+    Route::get('/{branch}/vehicles', [BranchController::class, 'vehicles'])
+        ->middleware('auth:sanctum');
+    Route::get('/{branch}/stats', [BranchController::class, 'stats'])
+        ->middleware('auth:sanctum');
     
     // Búsqueda geográfica
     Route::post('/nearest', [BranchController::class, 'nearest']);
     Route::post('/in-radius', [BranchController::class, 'inRadius']);
 });
 
-// ============================================================================
-// 📅 RESERVAS - REQUIERE AUTENTICACIÓN
-// ============================================================================
+// RESERVAS - REQUIERE AUTENTICACIÓN
 
 Route::middleware('auth:sanctum')->prefix('reservations')->group(function () {
     // CRUD básico (admin)
     Route::get('/', [ReservationController::class, 'index'])
         ->middleware('can:viewAny,App\Models\Reservation');
-    Route::post('/', [ReservationController::class, 'store']);
+    Route::post('/', [ReservationController::class, 'store'])
+        ->middleware('throttle:reservations');
     Route::get('/{reservation}', [ReservationController::class, 'show']);
     
     // Acciones sobre reservas
@@ -425,9 +174,7 @@ Route::middleware('auth:sanctum')->prefix('reservations')->group(function () {
     Route::get('/me/stats', [ReservationController::class, 'myStats']);
 });
 
-// ============================================================================
-// 📦 DOMICILIOS - REQUIERE AUTENTICACIÓN
-// ============================================================================
+// DOMICILIOS - REQUIERE AUTENTICACIÓN
 
 Route::middleware('auth:sanctum')->prefix('deliveries')->group(function () {
     // CRUD
@@ -439,7 +186,7 @@ Route::middleware('auth:sanctum')->prefix('deliveries')->group(function () {
     
     // Acciones
     Route::post('/{delivery}/assign-driver', [DeliveryController::class, 'assignDriver'])
-        ->middleware('role:admin|dispatcher');
+        ->middleware('role:admin');
     Route::post('/{delivery}/start', [DeliveryController::class, 'start']);
     Route::post('/{delivery}/complete', [DeliveryController::class, 'complete']);
     
@@ -453,24 +200,24 @@ Route::middleware('auth:sanctum')->prefix('deliveries')->group(function () {
     Route::get('/me/assigned', [DeliveryController::class, 'myAssignedDeliveries'])
         ->middleware('role:conductor');
     
-    // Para admin/dispatcher
+    // Para admin
     Route::get('/pending/list', [DeliveryController::class, 'pending'])
-        ->middleware('role:admin|dispatcher');
+        ->middleware('role:admin');
 });
 
-// ============================================================================
-// 💳 PAGOS - REQUIERE AUTENTICACIÓN
-// ============================================================================
+// PAGOS - REQUIERE AUTENTICACIÓN
 
     // Métodos disponibles
 Route::get('/payments/methods/available', [PaymentController::class, 'paymentMethods']);
 
 Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
     // Crear intención de pago
-    Route::post('/reservations/{reservation}/create-intent', [PaymentController::class, 'createPaymentIntent']);
+    Route::post('/reservations/{reservation}/create-intent', [PaymentController::class, 'createPaymentIntent'])
+        ->middleware('throttle:payments');
     
     // Procesar pago
-    Route::post('/{payment}/process', [PaymentController::class, 'processPayment']);
+    Route::post('/{payment}/process', [PaymentController::class, 'processPayment'])
+        ->middleware('throttle:payments');
     
     // Acciones de admin
     Route::post('/{payment}/approve', [PaymentController::class, 'approve'])
@@ -490,9 +237,7 @@ Route::middleware('auth:sanctum')->prefix('payments')->group(function () {
 
 });
 
-// ============================================================================
-// 🚫 RUTA 404 PERSONALIZADA
-// ============================================================================
+// RUTA 404 PERSONALIZADA
 
 Route::fallback(function () {
     return response()->json([
