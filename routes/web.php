@@ -44,3 +44,28 @@ Route::middleware(['auth'])->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+use Illuminate\Support\Facades\Mail;
+use App\Mail\NotificacionGeneral;
+
+Route::get('/test-correo', function () {
+    Mail::to('test@example.com')->send(new NotificacionGeneral('Este es un correo de prueba de BgaGO.'));
+    return 'Correo enviado correctamente';
+});
+
+
+use App\Http\Controllers\PagoController;
+
+Route::get('/crear-pago', [PagoController::class, 'crearPreferencia']);
+
+Route::get('/pago-exitoso', function () {
+    return "<h1>✓ PAGO APROBADO</h1>";
+});
+
+Route::get('/pago-fallido', function () {
+    return "<h1>✗ PAGO FALLIDO</h1>";
+});
+
+Route::get('/pago-pendiente', function () {
+    return "<h1>⌛ PAGO PENDIENTE</h1>";
+});
