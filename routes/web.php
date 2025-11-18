@@ -110,3 +110,29 @@ Route::view('/test-map', 'test-map');
 
 // Autenticación
 require __DIR__.'/auth.php';
+
+
+//Pasarela de pago
+use App\Http\Controllers\PagoController;
+
+Route::get('/pago', [PagoController::class, 'pagar']);
+
+Route::get('/pago-exitoso', function () {
+    return "Pago exitoso";
+});
+
+Route::get('/pago-fallido', function () {
+    return "Pago fallido";
+});
+
+Route::get('/pago-pendiente', function () {
+    return "Pago pendiente";
+});
+
+
+
+//Mail
+use App\Http\Controllers\MailController;
+
+Route::get('send-mail', [MailController::class,"index"]);
+
