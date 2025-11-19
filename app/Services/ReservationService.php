@@ -53,12 +53,14 @@ class ReservationService extends BaseService
                 throw new Exception($isAvailable['message']);
             }
 
-            // Calcular precio
             $pricing = $this->pricingService->calculateReservationPrice(
                 $vehicle,
                 $fechaInicio,
                 $fechaFin
             );
+
+            $total = ($pricing['data']['total'] ?? 0)
+                + ((isset($data['entrega_domicilio']) && $data['entrega_domicilio']) ? 5000 : 0);
 
             // Crear reserva
             $reservation = Reservation::create([
@@ -72,7 +74,7 @@ class ReservationService extends BaseService
                 'fecha_fin' => $fechaFin,
                 'monto' => $pricing['data']['subtotal'],
                 'descuento' => $pricing['data']['descuento'] ?? 0,
-                'monto_final' => $pricing['data']['total'],
+                'monto_final' => $total,
                 'duracion_minutos' => $fechaInicio->diffInMinutes($fechaFin),
                 'notas_cliente' => $data['notas_cliente'] ?? null,
                 'origen_direccion' => $data['origen_direccion'] ?? 'Sin dirección',
