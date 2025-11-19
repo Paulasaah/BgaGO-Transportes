@@ -11,13 +11,16 @@ use App\Services\ReservationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\Auth;
+
 
 class ReservationController extends BaseApiController
 {
     use AuthorizesRequests;
 
     public function __construct(
-        protected ReservationService $reservationService
+        protected ReservationService $reservationService,
+        protected \App\Services\MailNotificationService $mailService
     ) {}
 
     /**
@@ -61,12 +64,13 @@ class ReservationController extends BaseApiController
      */
     public function store(StoreReservationRequest $request): JsonResponse
     {
-        if (!auth()->check()) {
+        $user = $request->user();
+        if (!$user) {
             return $this->error('Usuario no autenticado', 401);
         }
 
         $data = $request->validated();
-        $data['user_id'] = auth()->id();
+        $data['user_id'] = $user->id;
 
         $result = $this->reservationService->createReservation($data);
 
@@ -140,7 +144,7 @@ class ReservationController extends BaseApiController
      */
     public function cancel(CancelReservationRequest $request, Reservation $reservation): JsonResponse
     {
-        $user = auth()->user();
+        $user = $request->user();
 
         // ✅ Verificar autorización (Policy)
         $this->authorize('cancel', $reservation);
@@ -162,8 +166,10 @@ class ReservationController extends BaseApiController
                 $reservation->vehicle->update(['estado' => 'disponible']);
             }
 
+            $reservation = $reservation->fresh();
+            $this->mailService->sendReservationCancelled($reservation);
             return $this->success(
-                new ReservationResource($reservation->fresh()),
+                new ReservationResource($reservation),
                 'Reserva cancelada por administrador.'
             );
         }

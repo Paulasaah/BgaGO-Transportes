@@ -43,3 +43,6 @@ osrm-data/
 
 # Docker backups
 docker-compose.yml.backup
+
+# Contexto generado por Trae (no versionar)
+trae/

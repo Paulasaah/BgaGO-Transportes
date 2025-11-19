@@ -244,13 +244,24 @@ foreach ($drivers as $driver) {
                                             variant="ghost" 
                                             icon="eye"
                                             title="Ver detalles"
+                                            href="{{ route('admin.drivers.show', $driver) }}"
                                         />
                                         <flux:button 
                                             size="sm" 
                                             variant="ghost" 
                                             icon="pencil"
                                             title="Editar"
+                                            href="{{ route('admin.drivers.edit', $driver) }}"
                                         />
+                                        <form action="{{ route('admin.drivers.toggle-status', $driver) }}" method="POST" class="inline">
+                                            @csrf
+                                            @method('PATCH')
+                                            <flux:button 
+                                                size="sm" 
+                                                variant="ghost" 
+                                                icon="power"
+                                            >{{ ($driver->driverProfile?->is_active ?? false) ? 'Desactivar' : 'Activar' }}</flux:button>
+                                        </form>
                                     </div>
                                 </td>
                             </tr>

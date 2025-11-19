@@ -12,6 +12,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class PaymentController extends BaseApiController
 {
+    protected \App\Services\MailNotificationService $mailService;
     /**
      * Crear intención de pago
      *
@@ -60,6 +61,11 @@ class PaymentController extends BaseApiController
     /**
      * Procesar pago (simulación - sin pasarela real)
      */
+    public function __construct()
+    {
+        $this->mailService = app(\App\Services\MailNotificationService::class);
+    }
+
     public function processPayment(Request $request, Payment $payment): JsonResponse
     {
         $this->authorize('update', $payment->reservation);
@@ -87,9 +93,10 @@ class PaymentController extends BaseApiController
                 }
 
                 DB::commit();
-
+                $payment = $payment->fresh(['reservation', 'user']);
+                $this->mailService->sendPaymentProcessed($payment);
                 return $this->success(
-                    new PaymentResource($payment->fresh(['reservation', 'user'])),
+                    new PaymentResource($payment),
                     'Pago procesado exitosamente'
                 );
             } else {

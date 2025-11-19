@@ -5,6 +5,10 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
+use App\Services\ReservationService;
+use App\Models\Reservation;
+use App\Models\Payment;
+use Illuminate\Support\Facades\Auth;
 
 class UserController extends Controller
 {
@@ -49,10 +53,7 @@ class UserController extends Controller
 
         return redirect()
             ->route('admin.users.index')
-            ->with('notification', [
-                'type' => 'success',
-                'message' => 'Usuario creado exitosamente'
-            ]);
+            ->with('success', 'Usuario creado exitosamente');
     }
 
     /**
@@ -61,7 +62,36 @@ class UserController extends Controller
     public function show(User $user)
     {
         $user->load('roles');
-        return view('admin.users.show', compact('user'));
+
+        $reservationService = app(ReservationService::class);
+        $stats = $reservationService->getUserStats($user->id);
+
+        $paymentsCount = Payment::where('user_id', $user->id)->count();
+        $lastReservation = Reservation::with(['vehicle', 'driver', 'branch'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->first();
+
+        $recentReservations = Reservation::with(['vehicle', 'driver', 'branch'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->take(5)
+            ->get();
+
+        $recentPayments = Payment::with(['reservation'])
+            ->where('user_id', $user->id)
+            ->orderByDesc('created_at')
+            ->take(5)
+            ->get();
+
+        return view('admin.users.show', compact(
+            'user',
+            'stats',
+            'paymentsCount',
+            'lastReservation',
+            'recentReservations',
+            'recentPayments'
+        ));
     }
 
     /**
@@ -102,10 +132,7 @@ class UserController extends Controller
 
         return redirect()
             ->route('admin.users.index')
-            ->with('notification', [
-                'type' => 'success',
-                'message' => 'Usuario actualizado exitosamente'
-            ]);
+            ->with('success', 'Usuario actualizado exitosamente');
     }
 
     /**
@@ -113,21 +140,14 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
-        // Verificar que no se elimine a sí mismo
-        if ($user->id === auth()->id()) {
-            return back()->with('notification', [
-                'type' => 'error',
-                'message' => 'No puedes eliminar tu propio usuario'
-            ]);
-        }
+        if (Auth::id() === $user->id) {
+       return back()->with('error', 'No puedes eliminar tu propio usuario');
+    }
 
         $user->delete();
 
         return redirect()
             ->route('admin.users.index')
-            ->with('notification', [
-                'type' => 'success',
-                'message' => 'Usuario eliminado exitosamente'
-            ]);
+            ->with('success', 'Usuario eliminado exitosamente');
     }
 }

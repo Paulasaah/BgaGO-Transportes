@@ -4,6 +4,9 @@ namespace App\Providers;
 
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Auth\Events\Login;
+use App\Listeners\SendUserLoginEmail;
 
 // Importar modelos
 use App\Models\Reservation;
@@ -46,6 +49,8 @@ class AuthServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->registerPolicies();
+
+        Event::listen(Login::class, [SendUserLoginEmail::class, 'handle']);
 
         // ==========================================
         // SUPER ADMIN BYPASS

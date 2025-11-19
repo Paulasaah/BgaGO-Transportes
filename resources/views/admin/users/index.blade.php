@@ -1,6 +1,4 @@
 @php
-use App\Facades\Data;
-
 // Obtener stats agrupados por rol
 $allUsers = \App\Models\User::with('roles')->get();
 $stats = [
@@ -20,7 +18,8 @@ $users = \App\Models\User::with('roles')
         $query->role($role);
     })
     ->orderBy('created_at', 'desc')
-    ->paginate(15);
+    ->paginate(15)
+    ->withQueryString();
 @endphp
 
 <x-layouts.app>
@@ -32,10 +31,11 @@ $users = \App\Models\User::with('roles')
                 <flux:heading size="xl">Gestión de Usuarios</flux:heading>
                 <flux:subheading>Administra los usuarios registrados en BgaGo</flux:subheading>
             </div>
-            
-            <flux:button :href="route('admin.users.create')" icon="plus" variant="primary">
-                Crear Usuario
-            </flux:button>
+            <div class="flex items-center gap-2">
+                <flux:button href="{{ route('admin.users.create') }}" icon="plus" variant="primary" wire:navigate>
+                    Nuevo usuario
+                </flux:button>
+            </div>
         </div>
 
         {{-- Tarjetas de estadísticas --}}
@@ -68,6 +68,16 @@ $users = \App\Models\User::with('roles')
 
         {{-- Filtros --}}
         <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-4">
+            @if(session('success'))
+                <div class="mb-3 rounded-md border border-green-200 bg-green-50 px-4 py-2 text-sm text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400">
+                    {{ session('success') }}
+                </div>
+            @endif
+            @if(session('error'))
+                <div class="mb-3 rounded-md border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-400">
+                    {{ session('error') }}
+                </div>
+            @endif
             <form method="GET" class="flex flex-wrap gap-3">
                 <flux:input 
                     name="search" 
@@ -178,30 +188,33 @@ $users = \App\Models\User::with('roles')
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex items-center justify-end gap-2">
                                         <flux:button 
-                                            :href="route('admin.users.show', $user)"
                                             size="sm" 
                                             variant="ghost" 
                                             icon="eye"
                                             title="Ver detalles"
+                                            href="{{ route('admin.users.show', $user) }}"
+                                            wire:navigate
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-blue-600 dark:hover:text-blue-400"
                                         />
                                         <flux:button 
-                                            :href="route('admin.users.edit', $user)"
                                             size="sm" 
                                             variant="ghost" 
                                             icon="pencil"
                                             title="Editar"
+                                            href="{{ route('admin.users.edit', $user) }}"
+                                            wire:navigate
                                             class="text-zinc-600 dark:text-zinc-400 hover:text-green-600 dark:hover:text-green-400"
                                         />
-                                        <form method="POST" action="{{ route('admin.users.destroy', $user) }}" class="inline" onsubmit="return confirm('¿Estás seguro de eliminar a {{ $user->name }}? Esta acción no se puede deshacer.')">
+                                        <form action="{{ route('admin.users.destroy', $user) }}" method="POST" class="inline">
                                             @csrf
                                             @method('DELETE')
                                             <flux:button 
-                                                type="submit"
                                                 size="sm" 
                                                 variant="ghost" 
                                                 icon="trash"
                                                 title="Eliminar"
+                                                type="submit"
+                                                onclick="return confirm('¿Estás seguro de eliminar este usuario?')"
                                                 class="text-zinc-600 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400"
                                             />
                                         </form>

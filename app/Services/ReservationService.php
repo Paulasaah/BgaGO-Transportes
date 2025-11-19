@@ -8,18 +8,22 @@ use App\Enums\ReservationStatus;
 use App\Enums\ReservationType;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Support\Facades\Auth;
 
 class ReservationService extends BaseService
 {
     protected PricingService $pricingService;
     protected VehicleAvailabilityService $availabilityService;
+    protected MailNotificationService $mailService;
 
     public function __construct(
         PricingService $pricingService,
-        VehicleAvailabilityService $availabilityService
+        VehicleAvailabilityService $availabilityService,
+        MailNotificationService $mailService
     ) {
         $this->pricingService = $pricingService;
         $this->availabilityService = $availabilityService;
+        $this->mailService = $mailService;
     }
 
     /**
@@ -81,8 +85,9 @@ class ReservationService extends BaseService
 
             // Actualizar estado del vehículo
             $vehicle->update(['estado' => 'ocupado']);
-
-            return $reservation->load(['vehicle', 'user', 'branch']);
+            $reservation = $reservation->load(['vehicle', 'user', 'branch']);
+            $this->mailService->sendReservationCreated($reservation);
+            return $reservation;
         }, 'crear_reserva');
     }
 
@@ -196,13 +201,13 @@ class ReservationService extends BaseService
                 );
             }
 
-            $user = auth()->user();
+
             $motivoFinal = $motivo ?: 'Cancelación sin motivo especificado';
 
             $reservation->update([
                 'estado' => ReservationStatus::Cancelada,
                 'motivo_cancelacion' => $motivoFinal,
-                'cancelado_por' => $canceladoPor ?? $user?->id,
+                'cancelado_por' => $canceladoPor ?? Auth::id(),
                 'fecha_cancelacion' => now(),
             ]);
 
@@ -210,8 +215,9 @@ class ReservationService extends BaseService
             if ($reservation->vehicle && $reservation->vehicle->isOcupado()) {
                 $reservation->vehicle->update(['estado' => 'disponible']);
             }
-
-            return $reservation->fresh();
+            $reservation = $reservation->fresh();
+            $this->mailService->sendReservationCancelled($reservation);
+            return $reservation;
         }, 'cancelar_reserva');
     }
 

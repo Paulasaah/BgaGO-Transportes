@@ -21,17 +21,17 @@ class UserSeeder extends Seeder
         $users = [
             [
                 'name' => 'Admin BgaGO',
-                'email' => 'admin@bgago.com',
+                'email' => 'paulasaavedra1101@gmail.com',
                 'role' => 'admin',
             ],
             [
                 'name' => 'Cliente Test',
-                'email' => 'cliente@bgago.com',
+                'email' => 'santiagocardona2004@gmail.com',
                 'role' => 'cliente',
             ],
             [
                 'name' => 'Conductor Test',
-                'email' => 'conductor@bgago.com',
+                'email' => 'msaavedra516@unab.ed.co',
                 'role' => 'conductor',
             ],
         ];
