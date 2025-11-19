@@ -307,6 +307,8 @@
         branches: {},
         branchCircles: {},      // ✅ Agregado para círculos de sedes
         branchMarkers: {},      // ✅ Agregado para marcadores de sedes
+        routes: {},             // ✅ NUEVO: Almacenar rutas dibujadas
+        routeMarkers: {},       // ✅ NUEVO: Marcadores de origen/destino
         autoRefresh: null,
         isReady: false,
         broadcastingEnabled: true,
@@ -467,6 +469,279 @@
                 </div>
             </div>
         `;
+    }
+
+    // ========================================
+    // 🗺️ FUNCIONES PARA DIBUJAR RUTAS OSRM
+    // ========================================
+
+    /**
+     * Dibuja una ruta en el mapa usando datos de OSRM
+     * @param {Object} routeData - Datos de la ruta { geometry, distance_km, duration_minutes }
+     * @param {String} routeId - ID único para la ruta
+     * @param {Object} options - Opciones de estilo { color, weight, opacity }
+     */
+    function drawRoute(routeData, routeId = 'default', options = {}) {
+        if (!mapState.isReady || !mapState.instance) {
+            console.warn('⚠️ Mapa no está listo para dibujar rutas');
+            return;
+        }
+
+        // Remover ruta anterior si existe
+        if (mapState.routes[routeId]) {
+            mapState.instance.removeLayer(mapState.routes[routeId]);
+            delete mapState.routes[routeId];
+        }
+
+        // Opciones de estilo por defecto
+        const defaultOptions = {
+            color: '#3b82f6',
+            weight: 5,
+            opacity: 0.8,
+            lineJoin: 'round',
+            lineCap: 'round',
+            dashArray: null
+        };
+
+        const style = { ...defaultOptions, ...options };
+
+        try {
+            // Dibujar la ruta usando GeoJSON
+            const routeLayer = L.geoJSON(routeData.geometry, {
+                style: style
+            }).addTo(mapState.instance);
+
+            // Agregar popup con información de la ruta
+            const popupContent = `
+                <div style="padding:10px;font-family:system-ui;">
+                    <div style="font-weight:700;font-size:14px;margin-bottom:8px;color:#18181b;">
+                        📍 Información de Ruta
+                    </div>
+                    <div style="font-size:13px;line-height:1.8;">
+                        <div style="display:flex;justify-content:space-between;margin:4px 0;">
+                            <span style="color:#71717a;">Distancia:</span>
+                            <span style="font-weight:600;color:#18181b;">${routeData.distance_km} km</span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;margin:4px 0;">
+                            <span style="color:#71717a;">Duración:</span>
+                            <span style="font-weight:600;color:#18181b;">${routeData.duration_minutes} min</span>
+                        </div>
+                        ${routeData.price ? `
+                        <div style="display:flex;justify-content:space-between;margin:4px 0;padding-top:6px;border-top:1px solid #e4e4e7;">
+                            <span style="color:#71717a;">Precio:</span>
+                            <span style="font-weight:700;color:#3b82f6;font-size:15px;">$${routeData.price}</span>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            routeLayer.bindPopup(popupContent, { maxWidth: 250 });
+
+            // Guardar referencia
+            mapState.routes[routeId] = routeLayer;
+
+            // Ajustar vista del mapa para mostrar toda la ruta
+            mapState.instance.fitBounds(routeLayer.getBounds(), {
+                padding: [50, 50],
+                maxZoom: 15
+            });
+
+            console.log(`✅ Ruta "${routeId}" dibujada exitosamente`);
+            return routeLayer;
+
+        } catch (error) {
+            console.error('❌ Error dibujando ruta:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Agrega marcadores de origen y destino a una ruta
+     * @param {Number} originLat - Latitud del origen
+     * @param {Number} originLng - Longitud del origen
+     * @param {Number} destLat - Latitud del destino
+     * @param {Number} destLng - Longitud del destino
+     * @param {String} routeId - ID de la ruta asociada
+     */
+    function addRouteMarkers(originLat, originLng, destLat, destLng, routeId = 'default') {
+        if (!mapState.isReady || !mapState.instance) return;
+
+        // Remover marcadores anteriores si existen
+        if (mapState.routeMarkers[routeId]) {
+            mapState.routeMarkers[routeId].forEach(marker => {
+                mapState.instance.removeLayer(marker);
+            });
+        }
+
+        // Crear icono de origen (verde)
+        const originIcon = L.divIcon({
+            html: `<div style="position:relative;">
+                     <svg width="32" height="40" viewBox="0 0 32 40">
+                       <path d="M16 0C7.2 0 0 7.2 0 16c0 8.8 16 24 16 24s16-15.2 16-24C32 7.2 24.8 0 16 0z" 
+                             fill="#22c55e" stroke="white" stroke-width="2"/>
+                       <circle cx="16" cy="16" r="6" fill="white"/>
+                       <text x="16" y="20" text-anchor="middle" font-size="12" font-weight="bold" fill="#22c55e">A</text>
+                     </svg>
+                   </div>`,
+            className: '',
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -40]
+        });
+
+        // Crear icono de destino (rojo)
+        const destIcon = L.divIcon({
+            html: `<div style="position:relative;">
+                     <svg width="32" height="40" viewBox="0 0 32 40">
+                       <path d="M16 0C7.2 0 0 7.2 0 16c0 8.8 16 24 16 24s16-15.2 16-24C32 7.2 24.8 0 16 0z" 
+                             fill="#ef4444" stroke="white" stroke-width="2"/>
+                       <circle cx="16" cy="16" r="6" fill="white"/>
+                       <text x="16" y="20" text-anchor="middle" font-size="12" font-weight="bold" fill="#ef4444">B</text>
+                     </svg>
+                   </div>`,
+            className: '',
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -40]
+        });
+
+        // Agregar marcador de origen
+        const originMarker = L.marker([originLat, originLng], { 
+            icon: originIcon,
+            zIndexOffset: 1000
+        }).addTo(mapState.instance);
+        
+        originMarker.bindPopup(`
+            <div style="padding:8px;font-family:system-ui;">
+                <div style="font-weight:700;color:#22c55e;margin-bottom:4px;">🟢 Origen</div>
+                <div style="font-size:12px;color:#71717a;">
+                    ${originLat.toFixed(6)}, ${originLng.toFixed(6)}
+                </div>
+            </div>
+        `);
+
+        // Agregar marcador de destino
+        const destMarker = L.marker([destLat, destLng], { 
+            icon: destIcon,
+            zIndexOffset: 1000
+        }).addTo(mapState.instance);
+        
+        destMarker.bindPopup(`
+            <div style="padding:8px;font-family:system-ui;">
+                <div style="font-weight:700;color:#ef4444;margin-bottom:4px;">🔴 Destino</div>
+                <div style="font-size:12px;color:#71717a;">
+                    ${destLat.toFixed(6)}, ${destLng.toFixed(6)}
+                </div>
+            </div>
+        `);
+
+        // Guardar referencias
+        mapState.routeMarkers[routeId] = [originMarker, destMarker];
+    }
+
+    /**
+     * Calcula y dibuja una ruta usando el backend Laravel + OSRM
+     * @param {Number} originLat - Latitud del origen
+     * @param {Number} originLng - Longitud del origen
+     * @param {Number} destLat - Latitud del destino
+     * @param {Number} destLng - Longitud del destino
+     * @param {String} routeId - ID único para la ruta
+     */
+    async function calculateAndDrawRoute(originLat, originLng, destLat, destLng, routeId = 'default') {
+        if (!mapState.isReady || !mapState.instance) {
+            console.warn('⚠️ Mapa no está listo');
+            return;
+        }
+
+        try {
+            console.log('🔄 Calculando ruta...');
+
+            // Llamar al backend Laravel (API REST). Requiere auth válida (Sanctum/token) configurada a nivel de proyecto.
+            const response = await fetch('/api/routes/calculate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify({
+                    origin_lat: originLat,
+                    origin_lng: originLng,
+                    dest_lat: destLat,
+                    dest_lng: destLng
+                })
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.data) {
+                // Dibujar la ruta
+                drawRoute(result.data, routeId);
+                
+                // Agregar marcadores de origen/destino
+                addRouteMarkers(originLat, originLng, destLat, destLng, routeId);
+
+                // Mostrar notificación de éxito
+                showNotification(
+                    `✅ Ruta calculada: ${result.data.distance_km} km, ${result.data.duration_minutes} min`,
+                    'success'
+                );
+
+                return result.data;
+            } else {
+                throw new Error(result.message || 'Error al calcular ruta');
+            }
+
+        } catch (error) {
+            console.error('❌ Error calculando ruta:', error);
+            showNotification('❌ Error al calcular la ruta: ' + error.message, 'error');
+            return null;
+        }
+    }
+
+    /**
+     * Limpia una ruta específica del mapa
+     * @param {String} routeId - ID de la ruta a limpiar
+     */
+    function clearRoute(routeId = 'default') {
+        // Remover línea de ruta
+        if (mapState.routes[routeId]) {
+            mapState.instance.removeLayer(mapState.routes[routeId]);
+            delete mapState.routes[routeId];
+        }
+
+        // Remover marcadores
+        if (mapState.routeMarkers[routeId]) {
+            mapState.routeMarkers[routeId].forEach(marker => {
+                mapState.instance.removeLayer(marker);
+            });
+            delete mapState.routeMarkers[routeId];
+        }
+
+        console.log(`🗑️ Ruta "${routeId}" limpiada`);
+    }
+
+    /**
+     * Limpia todas las rutas del mapa
+     */
+    function clearAllRoutes() {
+        Object.keys(mapState.routes).forEach(routeId => {
+            clearRoute(routeId);
+        });
+        console.log('🗑️ Todas las rutas limpiadas');
+    }
+
+    /**
+     * Muestra una notificación temporal
+     */
+    function showNotification(message, type = 'info') {
+        // Si existe Livewire, usar su sistema de notificaciones
+        if (typeof $wire !== 'undefined') {
+            $wire.dispatch('showNotification', { message, type });
+        } else {
+            // Fallback: console
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
     }
 
 
@@ -695,6 +970,134 @@
         startBroadcasting();
     });
 
+    // ========================================
+    // 🗺️ EVENTOS DE LIVEWIRE PARA RUTAS
+    // ========================================
+
+    /**
+     * Evento: Dibujar una ruta desde el backend
+     * Uso: $this->dispatch('drawRoute', route: $routeData, routeId: 'my-route')
+     */
+    Livewire.on('drawRoute', (event) => {
+        const data = Array.isArray(event) ? event[0] : event;
+        
+        if (data.route) {
+            const routeId = data.routeId || data.route_id || 'default';
+            const options = data.options || {};
+            
+            drawRoute(data.route, routeId, options);
+            
+            // Si hay coordenadas de origen/destino, agregar marcadores
+            if (data.origin_lat && data.origin_lng && data.dest_lat && data.dest_lng) {
+                addRouteMarkers(
+                    data.origin_lat, 
+                    data.origin_lng, 
+                    data.dest_lat, 
+                    data.dest_lng, 
+                    routeId
+                );
+            }
+        }
+    });
+
+    /**
+     * Evento: Calcular y dibujar ruta
+     * Uso: $this->dispatch('calculateRoute', originLat: 7.1, originLng: -73.1, ...)
+     */
+    Livewire.on('calculateRoute', (event) => {
+        const data = Array.isArray(event) ? event[0] : event;
+        
+        if (data.origin_lat && data.origin_lng && data.dest_lat && data.dest_lng) {
+            const routeId = data.routeId || data.route_id || 'default';
+            
+            calculateAndDrawRoute(
+                data.origin_lat,
+                data.origin_lng,
+                data.dest_lat,
+                data.dest_lng,
+                routeId
+            );
+        }
+    });
+
+    /**
+     * Evento: Limpiar una ruta específica
+     * Uso: $this->dispatch('clearRoute', routeId: 'my-route')
+     */
+    Livewire.on('clearRoute', (event) => {
+        const data = Array.isArray(event) ? event[0] : event;
+        const routeId = data.routeId || data.route_id || 'default';
+        
+        clearRoute(routeId);
+    });
+
+    /**
+     * Evento: Limpiar todas las rutas
+     * Uso: $this->dispatch('clearAllRoutes')
+     */
+    Livewire.on('clearAllRoutes', () => {
+        clearAllRoutes();
+    });
+
+    /**
+     * Evento: Mostrar ruta de reserva
+     * Uso: $this->dispatch('showReservationRoute', reservation: $reservation)
+     */
+    Livewire.on('showReservationRoute', (event) => {
+        const data = Array.isArray(event) ? event[0] : event;
+        const reservation = data.reservation || data;
+        
+        // Asegurar que el mapa esté inicializado
+        if (!mapState.isReady || !mapState.instance) {
+            const ok = typeof initMap === 'function' ? initMap() : false;
+            if (!ok || !mapState.instance) {
+                console.warn('⚠️ No se pudo inicializar el mapa para mostrar la reserva');
+                return;
+            }
+        }
+
+        if (reservation.waypoints) {
+            const routeData = {
+                geometry: reservation.waypoints,
+                distance_km: reservation.distancia_km,
+                duration_minutes: reservation.duracion_minutos,
+                price: reservation.monto_final
+            };
+            
+            const routeId = `reservation-${reservation.id}`;
+            
+            // Dibujar ruta con estilo especial para reservas
+            const options = {
+                color: reservation.estado === 'activa' ? '#10b981' : '#6b7280',
+                weight: 4,
+                opacity: 0.7,
+                dashArray: reservation.estado === 'pendiente' ? '10, 5' : null
+            };
+            
+            drawRoute(routeData, routeId, options);
+            
+            // Agregar marcadores
+            if (reservation.origen_lat && reservation.destino_lat) {
+                addRouteMarkers(
+                    reservation.origen_lat,
+                    reservation.origen_lng,
+                    reservation.destino_lat,
+                    reservation.destino_lng,
+                    routeId
+                );
+            }
+        } else if (reservation.branch_lat && reservation.branch_lng) {
+            // Sin geometría: centrar en la sede asociada a la reserva
+            mapState.instance.setView([
+                reservation.branch_lat,
+                reservation.branch_lng
+            ], 14, {
+                animate: true,
+                duration: 0.8
+            });
+        }
+    });
+
     // Función para verificar si un vehículo pasa los filtros
     function shouldShowVehicle(vehicle) {
         const filters = mapState.currentFilters;
@@ -850,6 +1253,42 @@
             @endif
         }
     }, 100);
+
+    // ========================================
+    // 🌐 EXPONER FUNCIONES GLOBALMENTE
+    // ========================================
+    // Esto permite usar las funciones desde la consola del navegador
+    
+    window.BgaGOMap = {
+        // Estado del mapa
+        state: mapState,
+        
+        // Funciones de rutas
+        drawRoute: drawRoute,
+        addRouteMarkers: addRouteMarkers,
+        calculateAndDrawRoute: calculateAndDrawRoute,
+        clearRoute: clearRoute,
+        clearAllRoutes: clearAllRoutes,
+        
+        // Funciones de vehículos
+        loadVehicles: loadVehicles,
+        loadBranches: loadBranches,
+        
+        // Utilidades
+        getStatusColor: getStatusColor,
+        getBatteryColor: getBatteryColor,
+        
+        // Acceso directo al mapa de Leaflet
+        getMap: () => mapState.instance
+    };
+
+    // Log de bienvenida
+    console.log('%c🗺️ BgaGO Map API Ready!', 'color: #3b82f6; font-size: 16px; font-weight: bold;');
+    console.log('%cPrueba estas funciones en la consola:', 'color: #6b7280; font-size: 12px;');
+    console.log('%c  BgaGOMap.drawRoute(routeData, "my-route")', 'color: #10b981; font-size: 11px;');
+    console.log('%c  BgaGOMap.calculateAndDrawRoute(7.1193, -73.1227, 7.0652, -73.0889)', 'color: #10b981; font-size: 11px;');
+    console.log('%c  BgaGOMap.clearAllRoutes()', 'color: #10b981; font-size: 11px;');
+    console.log('%cVer guía completa: .windsurf/docs/GUIA_DIBUJAR_RUTAS.md', 'color: #6b7280; font-size: 11px;');
 })();
 </script>
 @endscript

@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\StatsController;
+use App\Http\Controllers\Api\RouteController;
 
 /*
 |--------------------------------------------------------------------------
@@ -152,6 +153,36 @@ Route::prefix('branches')->group(function () {
     Route::post('/in-radius', [BranchController::class, 'inRadius']);
 });
 
+// RUTAS OSRM - CÁLCULO DE RUTAS Y NAVEGACIÓN
+// ✅ PROTEGIDO: Requiere autenticación para evitar abuso
+
+Route::middleware('auth:sanctum')->prefix('routes')->group(function () {
+    // Cálculo de rutas
+    Route::post('/calculate', [RouteController::class, 'calculate'])
+        ->middleware('throttle:60,1'); // 60 requests por minuto
+    
+    // Map matching (ajustar GPS a carreteras)
+    Route::post('/match', [RouteController::class, 'match'])
+        ->middleware('throttle:60,1');
+    
+    // Estimar tiempo de llegada
+    Route::post('/eta', [RouteController::class, 'estimateArrival'])
+        ->middleware('throttle:120,1'); // Más requests para tracking en tiempo real
+    
+    // Optimizar ruta con múltiples paradas
+    Route::post('/optimize', [RouteController::class, 'optimize'])
+        ->middleware('throttle:30,1');
+    
+    // Matriz de distancias
+    Route::post('/matrix', [RouteController::class, 'distanceMatrix'])
+        ->middleware('throttle:30,1');
+    
+    // Health check (público)
+    Route::get('/health', [RouteController::class, 'health'])
+        ->withoutMiddleware('auth:sanctum')
+        ->middleware('throttle:10,1');
+});
+
 // RESERVAS - REQUIERE AUTENTICACIÓN
 
 Route::middleware('auth:sanctum')->prefix('reservations')->group(function () {
@@ -247,6 +278,7 @@ Route::fallback(function () {
             'telemetria' => '/api/telemetria/*',
             'vehiculos' => '/api/vehicles/*',
             'sedes' => '/api/branches/*',
+            'rutas' => '/api/routes/* (auth)',
             'reservas' => '/api/reservations/* (auth)',
             'domicilios' => '/api/deliveries/* (auth)',
             'pagos' => '/api/payments/* (auth)',

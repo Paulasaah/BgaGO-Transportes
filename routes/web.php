@@ -7,8 +7,10 @@ use App\Http\Controllers\Admin\{
     UserController,
     DriverController,
     VehicleController,
-    ReservationController
+    ReservationController,
+    GeocodingController
 };
+use App\Http\Controllers\Api\RouteController as ApiRouteController;
 
 // Página principal (pública)
 Route::get('/', function () {
@@ -80,6 +82,10 @@ Route::middleware(['auth', 'verified', 'role:admin'])
 
     // REPORTES
     Route::view('reports', 'admin.reports.index')->name('reports.index');
+
+    // GEOCODING (para autocompletado en panel admin)
+    Route::get('geocode/search', [GeocodingController::class, 'search'])
+        ->name('geocode.search');
 });
 
 

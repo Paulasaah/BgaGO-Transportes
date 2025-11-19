@@ -5,10 +5,16 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Enums\ReservationStatus;
+use App\Services\ReservationService;
+use App\Services\DeliveryService;
 use Illuminate\Http\Request;
 
 class ReservationController extends Controller
 {
+    public function __construct(
+        protected ReservationService $reservationService,
+        protected DeliveryService $deliveryService,
+    ) {}
     /**
      * Display a listing of reservations
      */
@@ -29,40 +35,119 @@ class ReservationController extends Controller
 
     public function store(Request $request)
     {
-        // Validaciones base
+        // Auto-asignar sede para domicilios si no se seleccionó explícitamente pero hay coordenadas de origen
+        if (
+            $request->tipo === 'domicilio' &&
+            !$request->filled('sede_id') &&
+            $request->filled('lat_origen') &&
+            $request->filled('lon_origen')
+        ) {
+            $nearestBranch = \App\Models\Branch::findNearestTo(
+                (float) $request->input('lat_origen'),
+                (float) $request->input('lon_origen')
+            );
+
+            if ($nearestBranch) {
+                $request->merge(['sede_id' => $nearestBranch->id]);
+            }
+        }
+
+        // Validaciones base comunes
         $rules = [
-            'user_id' => 'required|exists:users,id',
-            'tipo' => 'required|in:reserva,domicilio',
-            'fecha_inicio' => 'required|date',
-            'vehicle_id' => 'nullable|exists:vehicles,id',
-            'conductor_id' => 'nullable|exists:users,id',
-            'sede_id' => 'nullable|exists:branches,id',
+            'user_id'       => 'required|exists:users,id',
+            'tipo'          => 'required|in:reserva,domicilio',
+            'fecha_inicio'  => 'nullable|date',
+            'vehicle_id'    => 'nullable|exists:vehicles,id',
+            'conductor_id'  => 'nullable|exists:users,id',
+            'sede_id'       => 'required|exists:branches,id',
             'observaciones' => 'nullable|string|max:1000',
+            // Coordenadas opcionales (por autocompletado)
+            'lat_origen'    => 'nullable|numeric|between:-90,90',
+            'lon_origen'    => 'nullable|numeric|between:-180,180',
+            'lat_destino'   => 'nullable|numeric|between:-90,90',
+            'lon_destino'   => 'nullable|numeric|between:-180,180',
         ];
 
         // Validaciones según tipo de servicio
         if ($request->tipo === 'reserva') {
-            // Para reservas: fecha_fin es obligatoria
-            $rules['fecha_fin'] = 'required|date|after:fecha_inicio';
+            $rules['vehicle_id']       = 'required|exists:vehicles,id';
+            $rules['fecha_fin']        = 'required|date|after:fecha_inicio';
+            $rules['direccion_origen'] = 'nullable|string|max:500';
+            $rules['direccion_destino']= 'nullable|string|max:500';
         } else {
-            // Para domicilios: direcciones son obligatorias
+            $rules['fecha_fin']        = 'nullable';
             $rules['direccion_origen'] = 'required|string|max:500';
-            $rules['direccion_destino'] = 'required|string|max:500';
-            $rules['fecha_fin'] = 'nullable|date|after:fecha_inicio';
+            $rules['direccion_destino']= 'required|string|max:500';
         }
 
         $validated = $request->validate($rules);
 
-        // Generar código único
-        $validated['codigo'] = 'RES-' . strtoupper(uniqid());
-        $validated['estado'] = ReservationStatus::Pendiente;
+        if ($request->tipo === 'reserva') {
+            // Usar ReservationService para respetar la lógica de negocio (precio, disponibilidad, etc.)
+            $data = [
+                'user_id'           => (int) $validated['user_id'],
+                'vehiculo_id'       => (int) $validated['vehicle_id'],
+                'sede_id'           => (int) $validated['sede_id'],
+                'fecha_inicio'      => $validated['fecha_inicio'],
+                'fecha_fin'         => $validated['fecha_fin'],
+                'origen_direccion'  => $validated['direccion_origen']  ?? 'Sin dirección',
+                'destino_direccion' => $validated['direccion_destino'] ?? 'Sin destino',
+                'notas_cliente'     => $validated['observaciones'] ?? null,
+            ];
 
-        // Si es domicilio y no tiene fecha_fin, calcular automáticamente (+2 horas)
-        if ($request->tipo === 'domicilio' && !isset($validated['fecha_fin'])) {
-            $validated['fecha_fin'] = \Carbon\Carbon::parse($validated['fecha_inicio'])->addHours(2);
+            $result = $this->reservationService->createReservation($data);
+
+            if (!$result['success']) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('notification', [
+                        'type'    => 'error',
+                        'message' => $result['message'],
+                    ]);
+            }
+
+            $reservation = $result['data'];
+        } else {
+            $deliveryData = [
+                'user_id' => (int) $validated['user_id'],
+                'sede_id' => (int) $validated['sede_id'],
+                'direccion_origen' => $validated['direccion_origen'],
+                'direccion_destino' => $validated['direccion_destino'],
+                'instrucciones_especiales' => $validated['observaciones'] ?? null,
+            ];
+
+            // Solo programar domicilio si se marcó explícitamente
+            if ($request->boolean('programar_domicilio') && !empty($validated['fecha_inicio'])) {
+                $deliveryData['fecha_recogida'] = $validated['fecha_inicio'];
+            }
+
+            // Si el autocompletado proporcionó coordenadas, usarlas en vez de volver a geocodificar
+            if (!empty($validated['lat_origen']) && !empty($validated['lon_origen'])) {
+                $deliveryData['lat_origen'] = (float) $validated['lat_origen'];
+                $deliveryData['lon_origen'] = (float) $validated['lon_origen'];
+            }
+
+            if (!empty($validated['lat_destino']) && !empty($validated['lon_destino'])) {
+                $deliveryData['lat_destino'] = (float) $validated['lat_destino'];
+                $deliveryData['lon_destino'] = (float) $validated['lon_destino'];
+            }
+
+            $result = $this->deliveryService->createPackageDelivery($deliveryData);
+
+            if (!$result['success']) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('notification', [
+                        'type'    => 'error',
+                        'message' => $result['message'],
+                    ]);
+            }
+
+            $delivery = $result['data'];
+            $reservation = $delivery->reservation;
         }
-
-        $reservation = Reservation::create($validated);
 
         return redirect()
             ->route('admin.reservations.show', $reservation)

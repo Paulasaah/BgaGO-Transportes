@@ -13,13 +13,16 @@ class ReservationService extends BaseService
 {
     protected PricingService $pricingService;
     protected VehicleAvailabilityService $availabilityService;
+    protected RouteService $routeService;
 
     public function __construct(
         PricingService $pricingService,
-        VehicleAvailabilityService $availabilityService
+        VehicleAvailabilityService $availabilityService,
+        RouteService $routeService
     ) {
         $this->pricingService = $pricingService;
         $this->availabilityService = $availabilityService;
+        $this->routeService = $routeService;
     }
 
     /**
@@ -60,6 +63,26 @@ class ReservationService extends BaseService
                 $fechaFin
             );
 
+            // Calcular ruta OSRM de forma opcional (solo si vienen coordenadas)
+            $route = null;
+            if (
+                !empty($data['origen_lat']) &&
+                !empty($data['origen_lng']) &&
+                !empty($data['destino_lat']) &&
+                !empty($data['destino_lng'])
+            ) {
+                $routeResult = $this->routeService->calculateRoute(
+                    (float) $data['origen_lat'],
+                    (float) $data['origen_lng'],
+                    (float) $data['destino_lat'],
+                    (float) $data['destino_lng']
+                );
+
+                if ($routeResult['success']) {
+                    $route = $routeResult['data'];
+                }
+            }
+
             // Crear reserva
             $reservation = Reservation::create([
                 'codigo' => Reservation::generateCode(),
@@ -76,7 +99,13 @@ class ReservationService extends BaseService
                 'duracion_minutos' => $fechaInicio->diffInMinutes($fechaFin),
                 'notas_cliente' => $data['notas_cliente'] ?? null,
                 'origen_direccion' => $data['origen_direccion'] ?? 'Sin dirección',
+                'origen_lat' => $data['origen_lat'] ?? null,
+                'origen_lng' => $data['origen_lng'] ?? null,
                 'destino_direccion' => $data['destino_direccion'] ?? null,
+                'destino_lat' => $data['destino_lat'] ?? null,
+                'destino_lng' => $data['destino_lng'] ?? null,
+                'waypoints' => $route['geometry'] ?? null,
+                'distancia_km' => $route['distance_km'] ?? null,
             ]);
 
             // Actualizar estado del vehículo

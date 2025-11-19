@@ -104,9 +104,10 @@ services:
       - '5000:5000'
     volumes:
       - ./osrm-data:/data
-    command: osrm-routed /data/colombia.osrm
+    command: osrm-routed --algorithm mld /data/colombia-latest.osrm
     networks:
       - sail
+    restart: unless-stopped
 
 # =======================================
 # REDES Y VOLUMENES

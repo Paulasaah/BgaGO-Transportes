@@ -38,7 +38,13 @@ class DataService
 
                 // Domicilios hoy
                 $domiciliosHoy = Delivery::whereDate('created_at', today())->count();
-                $domiciliosEnProgreso = Delivery::whereIn('estado', ['pendiente', 'en_camino'])->count();
+
+                // Domicilios en progreso (no finalizados): pendientes, asignados o en camino
+                $domiciliosEnProgreso = Delivery::whereIn('estado', [
+                    'pendiente',
+                    'asignado',
+                    'en_camino',
+                ])->count();
 
                 // Ingresos del mes
                 $ingresosMes = Reservation::whereMonth('created_at', now()->month)

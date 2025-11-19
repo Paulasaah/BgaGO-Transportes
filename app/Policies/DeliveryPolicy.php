@@ -22,6 +22,11 @@ class DeliveryPolicy
             || ($delivery->reservation && $delivery->reservation->user_id === $user->id);
     }
 
+    public function assignDriver(User $user, Delivery $delivery): bool
+    {
+        return $user->hasRole(['admin', 'super_admin']);
+    }
+
     public function accept(User $user, Delivery $delivery): bool
     {
         return $user->hasRole('conductor')

@@ -101,7 +101,7 @@
                     'bg-yellow-500': type === 'warning',
                     'bg-blue-500': type === 'info'
                 }"
-                :style="'animation: progress ' + {{ $duration }}ms + 'ms linear forwards;'"
+                :style="'animation: progress ' + {{ $duration }} + 'ms linear forwards;'"
             ></div>
         </div>
     </div>
