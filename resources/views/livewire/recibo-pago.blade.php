@@ -1,6 +1,5 @@
 <div>
     @php($pago = $pago ?? session('pago_simulado'))
-    @php($reserva = $reservaTmp ?? session('reserva_temporal'))
     @php($reservaDb = $reservaDb ?? session('reserva_db'))
 
     <div class="text-center mb-10">
@@ -41,7 +40,9 @@
                         <div class="flex justify-between"><span>Método de pago</span><span class="font-semibold">{{ $pago['method'] ?? 'Tarjeta' }}</span></div>
                         <div class="flex justify-between"><span>Tarjeta terminada en</span><span class="font-semibold">****{{ $pago['last4'] ?? '0000' }}</span></div>
                         <div class="flex justify-between"><span>Estado</span><span class="inline-flex items-center gap-2"><span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span><span class="font-semibold">Aprobado</span></span></div>
-                        <div class="flex justify-between"><span>Total Pagado</span><span class="text-blue-400 font-bold">${{ number_format($pago['total'] ?? 0, 0, ',', '.') }}</span></div>
+                        <div class="flex justify-between"><span>Subtotal</span><span class="font-semibold">${{ number_format($reservaDb['monto'] ?? 0, 0, ',', '.') }}</span></div>
+                        <div class="flex justify-between"><span>Descuento</span><span class="font-semibold text-emerald-400">-${{ number_format($reservaDb['descuento'] ?? 0, 0, ',', '.') }}</span></div>
+                        <div class="flex justify-between"><span>Total Pagado</span><span class="text-blue-400 font-bold">${{ number_format($reservaDb['monto_final'] ?? ($pago['total'] ?? 0), 0, ',', '.') }}</span></div>
                     </div>
                 </div>
 
@@ -52,11 +53,11 @@
                     </div>
                     <div class="space-y-3 text-sm">
                         <div class="flex justify-between"><span>Reserva</span><span class="font-semibold">{{ $reservaDb['codigo'] ?? ($reservaDb['id'] ?? 'RES-XXXXXX') }}</span></div>
-                        <div class="flex justify-between"><span>Vehículo</span><span class="font-semibold">{{ $reserva['vehiculo'] ?? 'N/A' }}</span></div>
-                        <div class="flex justify-between"><span>Fecha de inicio</span><span class="font-semibold">{{ $reserva['fecha_inicio'] ?? '' }}</span></div>
-                        <div class="flex justify-between"><span>Hora</span><span class="font-semibold">{{ $reserva['hora_inicio'] ?? '' }}</span></div>
-                        <div class="flex justify-between"><span>Duración</span><span class="font-semibold">{{ $reserva['duracion_horas'] ?? 1 }} hora(s)</span></div>
-                        <div class="flex justify-between"><span>Tipo</span><span class="font-semibold">{{ ($reserva['tipo_reserva'] ?? '') === 'domicilio' ? 'Entrega a domicilio' : 'Recoger en punto' }}</span></div>
+                        <div class="flex justify-between"><span>Vehículo</span><span class="font-semibold">{{ $reservaDb['vehiculo'] ?? 'N/A' }}</span></div>
+                        <div class="flex justify-between"><span>Fecha de inicio</span><span class="font-semibold">{{ $reservaDb['fecha_inicio'] ?? '' }}</span></div>
+                        <div class="flex justify-between"><span>Hora</span><span class="font-semibold">{{ $reservaDb['hora_inicio'] ?? '' }}</span></div>
+                        <div class="flex justify-between"><span>Duración</span><span class="font-semibold">{{ $reservaDb['duracion_horas'] ?? 1 }} hora(s)</span></div>
+                        <div class="flex justify-between"><span>Tipo</span><span class="font-semibold">{{ ($reservaDb['tipo_reserva'] ?? '') === 'domicilio' ? 'Entrega a domicilio' : 'Recoger en punto' }}</span></div>
                     </div>
                 </div>
             </div>

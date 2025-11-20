@@ -10,9 +10,21 @@ class DashboardController extends Controller
     public function index()
     {
         $stats = DataService::getDashboardStats();
-        $reservasPorMes = DataService::getReservasPorMes();
-        $distribucionSedes = DataService::getDistribucionSedes();
+        $reservas = DataService::getReservasPorMes();
+        $distribucion = DataService::getDistribucionSedes();
 
-        return view('admin.dashboard.index', compact('stats', 'reservasPorMes', 'distribucionSedes'));
+        $reservasLabels = $reservas['labels'] ?? [];
+        $reservasData = $reservas['data'] ?? [];
+
+        $distribucionLabels = $distribucion['labels'] ?? [];
+        $distribucionData = $distribucion['data'] ?? [];
+
+        return view('livewire.dashboard.simple-dashboard', compact(
+            'stats',
+            'reservasLabels',
+            'reservasData',
+            'distribucionLabels',
+            'distribucionData'
+        ));
     }
 }

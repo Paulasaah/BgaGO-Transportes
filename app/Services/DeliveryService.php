@@ -47,22 +47,24 @@ class DeliveryService extends BaseService
 
             if (!$hasOriginCoords && !empty($data['direccion_origen'])) {
                 $geoOrigin = $this->geocodingService->geocode($data['direccion_origen']);
-                if (!$geoOrigin['success']) {
-                    throw new Exception('No se pudo geocodificar la dirección de origen');
+                if ($geoOrigin['success']) {
+                    $data['lat_origen'] = $geoOrigin['lat'];
+                    $data['lon_origen'] = $geoOrigin['lng'];
+                } else {
+                    $data['lat_origen'] = (float) (config('delivery.default_origin_lat', 7.119));
+                    $data['lon_origen'] = (float) (config('delivery.default_origin_lng', -73.122));
                 }
-
-                $data['lat_origen'] = $geoOrigin['lat'];
-                $data['lon_origen'] = $geoOrigin['lng'];
             }
 
             if (!$hasDestCoords && !empty($data['direccion_destino'])) {
                 $geoDest = $this->geocodingService->geocode($data['direccion_destino']);
-                if (!$geoDest['success']) {
-                    throw new Exception('No se pudo geocodificar la dirección de destino');
+                if ($geoDest['success']) {
+                    $data['lat_destino'] = $geoDest['lat'];
+                    $data['lon_destino'] = $geoDest['lng'];
+                } else {
+                    $data['lat_destino'] = isset($data['lat_origen']) ? ((float) $data['lat_origen'] + 0.01) : (float) (config('delivery.default_origin_lat', 7.129));
+                    $data['lon_destino'] = isset($data['lon_origen']) ? ((float) $data['lon_origen'] + 0.01) : (float) (config('delivery.default_origin_lng', -73.112));
                 }
-
-                $data['lat_destino'] = $geoDest['lat'];
-                $data['lon_destino'] = $geoDest['lng'];
             }
 
             // ✅ Calcular distancia y tiempo usando OSRM
@@ -76,14 +78,19 @@ class DeliveryService extends BaseService
                 $destinoCoords['lng']
             );
 
-            if (!$routeResult['success']) {
-                throw new Exception('No se pudo calcular la ruta OSRM: ' . $routeResult['message']);
+            if ($routeResult['success']) {
+                $route = $routeResult['data'];
+                $distanciaKm = $route['distance_km'];
+                $tiempoEstimado = $route['duration_minutes'];
+            } else {
+                $distanciaKm = $this->calculateDistance($origenCoords['lat'], $origenCoords['lng'], $destinoCoords['lat'], $destinoCoords['lng']);
+                $tiempoEstimado = $this->calculateEstimatedTime($distanciaKm);
+                $route = [
+                    'distance_km' => $distanciaKm,
+                    'duration_minutes' => $tiempoEstimado,
+                    'geometry' => [],
+                ];
             }
-
-            $route = $routeResult['data'];
-
-            $distanciaKm = $route['distance_km'];
-            $tiempoEstimado = $route['duration_minutes'];
 
             // ✅ Ajustar tiempo estimado usando una velocidad promedio de ciudad
             // Esto evita tiempos demasiado optimistas de OSRM (ej. 2-3 minutos para trayectos urbanos largos)
@@ -121,7 +128,7 @@ class DeliveryService extends BaseService
                 'destino_direccion' => $data['direccion_destino'],
                 'destino_lat' => $destinoCoords['lat'],
                 'destino_lng' => $destinoCoords['lng'],
-                'waypoints' => $route['geometry'],
+                'waypoints' => $route['geometry'] ?? [],
                 'distancia_km' => $distanciaKm,
                 'duracion_minutos' => $tiempoEstimado,
                 'fecha_inicio' => $pickupAt,
@@ -229,7 +236,7 @@ class DeliveryService extends BaseService
 
             // 🚗 Conductor: Validar estados permitidos
             $permitidos = ['pendiente', 'asignado', 'confirmado'];
-            
+
             // ✅ IDEMPOTENCIA: Si ya está en camino, asegurar que tenga fecha_recogida
             if ($delivery->estado === 'en_camino') {
                 // Si no tiene fecha_recogida, agregarla ahora
@@ -241,8 +248,8 @@ class DeliveryService extends BaseService
 
             if (!in_array($delivery->estado, $permitidos)) {
                 throw new Exception(
-                    "Solo se pueden iniciar domicilios en estados: " . 
-                    implode(', ', $permitidos) . 
+                    "Solo se pueden iniciar domicilios en estados: " .
+                    implode(', ', $permitidos) .
                     ". Estado actual: {$delivery->estado}"
                 );
             }

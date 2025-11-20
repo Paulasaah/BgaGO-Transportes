@@ -1,125 +1,37 @@
-<?php
-
-use Livewire\Volt\Component;
-use App\Models\Branch;
-use App\Services\DeliveryService;
-
-new class extends Component {
-    public ?string $direccion_origen = null;
-    public ?string $direccion_destino = null;
-    public ?string $tamano_paquete = 'pequeno';
-    public ?string $descripcion_paquete = null;
-    public ?string $nombre_destinatario = null;
-    public ?string $telefono_destinatario = null;
-    public bool $requiere_seguro = false;
-    public float $distancia_estimada = 0.0;
-    public int $tarifa_estimada = 0;
-    public ?int $sede_id = null;
-    public float $lat_origen = 0.0;
-    public float $lon_origen = 0.0;
-    public float $lat_destino = 0.0;
-    public float $lon_destino = 0.0;
-
-    public function mount(): void
-    {
-        $branch = Branch::select('id', 'lat', 'lon', 'nombre')->first();
-        $this->sede_id = $branch?->id ?? 1;
-        $baseLat = (float) ($branch?->lat ?? 7.119);
-        $baseLon = (float) ($branch?->lon ?? -73.122);
-        $this->lat_origen = $baseLat;
-        $this->lon_origen = $baseLon;
-        $this->lat_destino = $baseLat + 0.01;
-        $this->lon_destino = $baseLon + 0.01;
-        $this->recalcular();
-    }
-
-    public function updatedDireccionOrigen(): void { $this->recalcular(); }
-    public function updatedDireccionDestino(): void { $this->recalcular(); }
-    public function updatedTamanoPaquete(): void { $this->recalcular(); }
-    public function updatedRequiereSeguro(): void { $this->recalcular(); }
-
-    protected function recalcular(): void
-    {
-        $len = strlen(($this->direccion_origen ?? '') . ($this->direccion_destino ?? ''));
-        $km = max(1, min(15, (int) floor($len / 10)));
-        $this->distancia_estimada = (float) $km;
-
-        $base = 6000 + ($km * 1000);
-        $mult = $this->tamano_paquete === 'grande' ? 1.6 : ($this->tamano_paquete === 'mediano' ? 1.3 : 1.0);
-        $this->tarifa_estimada = (int) round($base * $mult);
-
-        $this->lat_destino = $this->lat_origen + ($km * 0.005);
-        $this->lon_destino = $this->lon_origen + ($km * 0.005);
-    }
-
-    public function solicitar(): void
-    {
-        $this->validate([
-            'direccion_origen' => ['required', 'string', 'min:6'],
-            'direccion_destino' => ['required', 'string', 'min:6'],
-            'tamano_paquete' => ['required', 'in:pequeno,mediano,grande'],
-            'descripcion_paquete' => ['required', 'string', 'min:3'],
-            'nombre_destinatario' => ['nullable', 'string'],
-            'telefono_destinatario' => ['nullable', 'string'],
-        ]);
-
-        $service = app(DeliveryService::class);
-        $result = $service->createPackageDelivery([
-            'user_id' => auth()->id(),
-            'sede_id' => $this->sede_id,
-            'direccion_origen' => $this->direccion_origen,
-            'direccion_destino' => $this->direccion_destino,
-            'lat_origen' => $this->lat_origen,
-            'lon_origen' => $this->lon_origen,
-            'lat_destino' => $this->lat_destino,
-            'lon_destino' => $this->lon_destino,
-            'nombre_remitente' => auth()->user()?->name ?? 'Cliente',
-            'telefono_remitente' => auth()->user()?->phone ?? '0000000000',
-            'nombre_destinatario' => $this->nombre_destinatario ?? 'Destinatario',
-            'telefono_destinatario' => $this->telefono_destinatario ?? '0000000000',
-            'descripcion_contenido' => $this->descripcion_paquete,
-            'peso_kg' => $this->tamano_paquete === 'grande' ? 7 : ($this->tamano_paquete === 'mediano' ? 3 : 1),
-            'requiere_firma' => true,
-            'es_fragil' => false,
-            'instrucciones_especiales' => null,
-            'costo' => $this->tarifa_estimada + ($this->requiere_seguro ? 2000 : 0),
-            'fecha_recogida' => now()->addHour(),
-        ]);
-
-        if (!$result['success']) {
-            session()->flash('error', $result['message'] ?? 'No se pudo crear el domicilio');
-            return;
-        }
-
-        $delivery = $result['data'];
-        $reserva = $delivery->reservation;
-
-        session()->put('reserva_temporal', [
-            'id' => $reserva->id,
-            'codigo' => $reserva->codigo,
-            'vehiculo' => 'domicilio',
-            'tipo_reserva' => 'domicilio',
-            'fecha_inicio' => $reserva->fecha_inicio?->format('Y-m-d') ?? now()->format('Y-m-d'),
-            'hora_inicio' => $reserva->fecha_inicio?->format('H:i') ?? now()->format('H:i'),
-            'duracion_horas' => max(1, (int) ceil(($reserva->duracion_minutos ?? 60) / 60)),
-            'total' => (int) ($reserva->monto_final ?? $this->tarifa_estimada),
-        ]);
-
-        session()->put('reserva_db', [
-            'id' => $reserva->id,
-            'codigo' => $reserva->codigo,
-            'monto_final' => (int) ($reserva->monto_final ?? $this->tarifa_estimada),
-        ]);
-
-        $this->redirect(route('catalog.payment', absolute: false), navigate: true);
-    }
-}; ?>
-
 <div class="space-y-6">
-    <form wire:submit="solicitar" class="space-y-6 p-3 md:p-4">
+    @if (session()->has('error'))
+        <div class="p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-lg text-red-700 dark:text-red-300">
+            {{ session('error') }}
+        </div>
+    @endif
+    <form wire:submit.prevent="solicitar" class="space-y-6 p-3 md:p-4">
 
         <!-- Dirección de Origen -->
-        <div>
+        <div x-data="{
+            results: [],
+            loading: false,
+            async search(val) {
+                if (!val || val.length < 3) { this.results = []; return; }
+                this.loading = true;
+                try {
+                    const url = `{{ route('user.geocode.search') }}?q=${encodeURIComponent(val)}`;
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) { this.results = []; return; }
+                    const data = await res.json();
+                    this.results = data.success ? data.results : [];
+                } catch (e) {
+                    this.results = [];
+                } finally {
+                    this.loading = false;
+                }
+            },
+            select(r) {
+                $wire.set('direccion_origen', r.label);
+                $wire.set('lat_origen', r.lat);
+                $wire.set('lon_origen', r.lng);
+                this.results = [];
+            }
+        }">
             <label for="direccion_origen" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
                 <span class="flex items-center">
                     <svg class="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,20 +41,62 @@ new class extends Component {
                     Dirección de Origen *
                 </span>
             </label>
-            <input
-                type="text"
-                id="direccion_origen"
-                wire:model.live.debounce.500ms="direccion_origen"
-                placeholder="Ej: Calle 36 #10-20, Bucaramanga"
-                class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
+            <div class="relative">
+                <input
+                    type="text"
+                    id="direccion_origen"
+                    wire:model.live.debounce.500ms="direccion_origen"
+                    @input.debounce.500ms="search($event.target.value)"
+                    placeholder="Ej: Calle 36 #10-20, Bucaramanga"
+                    class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                >
+                <input type="hidden" wire:model="lat_origen">
+                <input type="hidden" wire:model="lon_origen">
+                <template x-if="results.length || loading">
+                    <div class="absolute left-0 right-0 mt-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-sm max-h-48 overflow-auto text-sm z-20">
+                        <div x-show="loading" class="px-3 py-2 text-zinc-500 dark:text-zinc-400">Buscando…</div>
+                        <template x-for="result in results" :key="result.label">
+                            <button
+                                type="button"
+                                class="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                @click="select(result)"
+                                x-text="result.label"
+                            ></button>
+                        </template>
+                    </div>
+                </template>
+            </div>
             @error('direccion_origen')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
             @enderror
         </div>
 
         <!-- Dirección de Destino -->
-        <div>
+        <div x-data="{
+            results: [],
+            loading: false,
+            async search(val) {
+                if (!val || val.length < 3) { this.results = []; return; }
+                this.loading = true;
+                try {
+                    const url = `{{ route('user.geocode.search') }}?q=${encodeURIComponent(val)}`;
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) { this.results = []; return; }
+                    const data = await res.json();
+                    this.results = data.success ? data.results : [];
+                } catch (e) {
+                    this.results = [];
+                } finally {
+                    this.loading = false;
+                }
+            },
+            select(r) {
+                $wire.set('direccion_destino', r.label);
+                $wire.set('lat_destino', r.lat);
+                $wire.set('lon_destino', r.lng);
+                this.results = [];
+            }
+        }">
             <label for="direccion_destino" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
                 <span class="flex items-center">
                     <svg class="w-4 h-4 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -151,13 +105,31 @@ new class extends Component {
                     Dirección de Destino *
                 </span>
             </label>
-            <input
-                type="text"
-                id="direccion_destino"
-                wire:model.live.debounce.500ms="direccion_destino"
-                placeholder="Ej: Carrera 27 #42-15, Floridablanca"
-                class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
+            <div class="relative">
+                <input
+                    type="text"
+                    id="direccion_destino"
+                    wire:model.live.debounce.500ms="direccion_destino"
+                    @input.debounce.500ms="search($event.target.value)"
+                    placeholder="Ej: Carrera 27 #42-15, Floridablanca"
+                    class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                >
+                <input type="hidden" wire:model="lat_destino">
+                <input type="hidden" wire:model="lon_destino">
+                <template x-if="results.length || loading">
+                    <div class="absolute left-0 right-0 mt-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-sm max-h-48 overflow-auto text-sm z-20">
+                        <div x-show="loading" class="px-3 py-2 text-zinc-500 dark:text-zinc-400">Buscando…</div>
+                        <template x-for="result in results" :key="result.label">
+                            <button
+                                type="button"
+                                class="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                @click="select(result)"
+                                x-text="result.label"
+                            ></button>
+                        </template>
+                    </div>
+                </template>
+            </div>
             @error('direccion_destino')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
             @enderror
@@ -294,7 +266,7 @@ new class extends Component {
                     <div class="text-right">
                         <p class="text-sm text-zinc-600 dark:text-zinc-400">Tarifa estimada</p>
                         <p class="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                            ${{ number_format($tarifa_estimada + ($requiere_seguro ? 2000 : 0), 0, ',', '.') }}
+                            ${{ number_format($tarifa_estimada, 0, ',', '.') }}
                         </p>
                     </div>
                 </div>
@@ -307,25 +279,25 @@ new class extends Component {
             </div>
         @endif
 
-        <!-- Botón de Envío -->
-        <div class="flex gap-4">
-            <button
-                type="submit"
-                wire:loading.attr="disabled"
-                class="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 text-white rounded-lg font-semibold text-lg transition-all hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
-            >
-                <span wire:loading.remove wire:target="solicitar">
-                    Solicitar Domicilio
-                </span>
-                <span wire:loading wire:target="solicitar" class="flex items-center justify-center">
-                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Procesando...
-                </span>
-            </button>
-        </div>
+    <!-- Botón de Envío -->
+    <div class="flex gap-4">
+        <button
+            type="submit"
+            wire:loading.attr="disabled"
+            class="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 text-white rounded-lg font-semibold text-lg transition-all hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+        >
+            <span wire:loading.remove wire:target="solicitar">
+                Solicitar Domicilio
+            </span>
+            <span wire:loading wire:target="solicitar" class="flex items-center justify-center">
+                <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Procesando...
+            </span>
+        </button>
+    </div>
 
     </form>
 

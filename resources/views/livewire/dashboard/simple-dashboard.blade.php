@@ -1,15 +1,16 @@
+<x-layouts.app>
 <div class="flex h-full w-full flex-1 flex-col gap-6 p-6 lg:p-8" wire:poll.30s="refresh">
-    
+
     {{-- Sistema de notificaciones --}}
     <x-dashboard.notification-toast />
-    
+
     {{-- Header --}}
     <div class="flex items-center justify-between">
         <div>
             <flux:heading size="xl">Dashboard de Administrador</flux:heading>
             <flux:subheading>Resumen general de BgaGo • Actualización automática cada 30s</flux:subheading>
         </div>
-        
+
         <div class="flex items-center gap-2">
             <span class="text-xs text-zinc-500 dark:text-zinc-400">
                 Última actualización: {{ now()->format('H:i:s') }}
@@ -22,37 +23,49 @@
 
     {{-- Tarjetas de estadísticas --}}
     <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        <x-stats.card
-            title="Reservas Activas"
-            :value="$stats['reservas_activas']['value']"
-            :change="$stats['reservas_activas']['change'] . ' ' . $stats['reservas_activas']['change_text']"
-            icon="clipboard-check"
-            color="blue"
-        />
+        <div class="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400">
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M16 4H9.5a2 2 0 00-1.8 1H8a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg>
+            </div>
+            <div class="space-y-0.5">
+                <div class="text-sm text-zinc-600 dark:text-zinc-400">Reservas Activas</div>
+                <div class="text-xl font-bold text-zinc-900 dark:text-white">{{ $stats['reservas_activas']['value'] }}</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $stats['reservas_activas']['change'] }} {{ $stats['reservas_activas']['change_text'] }}</div>
+            </div>
+        </div>
 
-        <x-stats.card
-            title="Domicilios Hoy"
-            :value="$stats['domicilios_hoy']['value']"
-            :change="$stats['domicilios_hoy']['change'] . ' ' . $stats['domicilios_hoy']['change_text']"
-            icon="truck"
-            color="green"
-        />
+        <div class="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400">
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v8H2z"/><path d="M13 10h4l3 3v2h-7z"/><circle cx="5.5" cy="17.5" r="2"/><circle cx="16.5" cy="17.5" r="2"/></svg>
+            </div>
+            <div class="space-y-0.5">
+                <div class="text-sm text-zinc-600 dark:text-zinc-400">Domicilios Hoy</div>
+                <div class="text-xl font-bold text-zinc-900 dark:text-white">{{ $stats['domicilios_hoy']['value'] }}</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $stats['domicilios_hoy']['change'] }} {{ $stats['domicilios_hoy']['change_text'] }}</div>
+            </div>
+        </div>
 
-        <x-stats.card
-            title="Ingresos del Mes"
-            :value="$stats['ingresos_mes']['value']"
-            :change="$stats['ingresos_mes']['change'] . ' ' . $stats['ingresos_mes']['change_text']"
-            icon="chart-column"
-            color="purple"
-        />
+        <div class="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400">
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3h2v18H3"/><path d="M8 9h2v12H8"/><path d="M13 5h2v16h-2"/><path d="M18 12h2v9h-2"/></svg>
+            </div>
+            <div class="space-y-0.5">
+                <div class="text-sm text-zinc-600 dark:text-zinc-400">Ingresos del Mes</div>
+                <div class="text-xl font-bold text-zinc-900 dark:text-white">{{ $stats['ingresos_mes']['value'] }}</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $stats['ingresos_mes']['change'] }} {{ $stats['ingresos_mes']['change_text'] }}</div>
+            </div>
+        </div>
 
-        <x-stats.card
-            title="En Mantenimiento"
-            :value="$stats['en_mantenimiento']['value']"
-            :change="$stats['en_mantenimiento']['change'] . ' ' . $stats['en_mantenimiento']['change_text']"
-            icon="wrench"
-            color="orange"
-        />
+        <div class="rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 p-4 flex items-center gap-4">
+            <div class="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400">
+                <svg class="h-6 w-6" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 11-5.4 5.4L3 18.99 5.01 21l6.3-6.3a4 4 0 005.4-5.4l-2.01-2.01z"/></svg>
+            </div>
+            <div class="space-y-0.5">
+                <div class="text-sm text-zinc-600 dark:text-zinc-400">En Mantenimiento</div>
+                <div class="text-xl font-bold text-zinc-900 dark:text-white">{{ $stats['en_mantenimiento']['value'] }}</div>
+                <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $stats['en_mantenimiento']['change'] }} {{ $stats['en_mantenimiento']['change_text'] }}</div>
+            </div>
+        </div>
     </div>
 
     {{-- Fila 1: Alertas, Telemetría y Servicios Activos --}}
@@ -120,8 +133,7 @@
         </div>
     </div>
 
-    {{-- Scripts de Chart.js --}}
-    @script
+    @push('scripts')
     <script>
         const isDark = document.documentElement.classList.contains('dark');
         const textColor = isDark ? '#e5e7eb' : '#374151';
@@ -233,5 +245,6 @@
             });
         }
     </script>
-    @endscript
+    @endpush
 </div>
+</x-layouts.app>

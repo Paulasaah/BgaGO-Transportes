@@ -35,10 +35,10 @@ class PricingService extends BaseService
 
     // Tarifas de domicilios
     protected const DELIVERY_RATES = [
-        'tarifa_base' => 5000,
-        'por_km_paquete' => 2000,
-        'por_km_vehiculo' => 3000,
-        'tarifa_minima' => 8000,
+        'tarifa_base' => 2000,
+        'por_km_paquete' => 1500,
+        'por_km_vehiculo' => 1500,
+        'tarifa_minima' => 2000,
     ];
 
     /**
@@ -100,11 +100,12 @@ class PricingService extends BaseService
     public function calculateDeliveryPrice(
         DeliveryType $tipo,
         float $distanciaKm,
-        ?Vehicle $vehicle = null
+        ?Vehicle $vehicle = null,
+        array $options = []
     ): array {
-        return $this->execute(function () use ($tipo, $distanciaKm, $vehicle) {
+        return $this->execute(function () use ($tipo, $distanciaKm, $vehicle, $options) {
             $tarifaBase = self::DELIVERY_RATES['tarifa_base'];
-            
+
             // Calcular costo por distancia
             if ($tipo === DeliveryType::Paquete) {
                 $costoPorKm = self::DELIVERY_RATES['por_km_paquete'];
@@ -114,6 +115,17 @@ class PricingService extends BaseService
 
             $costoDistancia = $distanciaKm * $costoPorKm;
             $subtotal = $tarifaBase + $costoDistancia;
+
+            // Recargo por tamaño del paquete (si aplica)
+            if ($tipo === DeliveryType::Paquete) {
+                $tamano = $options['tamano'] ?? null; // pequeno | mediano | grande
+                $recargoTamano = match ($tamano) {
+                    'mediano' => 1500,
+                    'grande' => 3000,
+                    default => 0,
+                };
+                $subtotal += $recargoTamano;
+            }
 
             // Aplicar tarifa mínima
             if ($subtotal < self::DELIVERY_RATES['tarifa_minima']) {
@@ -139,6 +151,8 @@ class PricingService extends BaseService
                     'costo_por_km' => $costoPorKm,
                     'costo_distancia' => round($costoDistancia, 2),
                     'vehiculo' => $vehicle ? $vehicle->getFullName() : null,
+                    'tamano_paquete' => $options['tamano'] ?? null,
+                    'recargo_tamano' => isset($recargoTamano) ? $recargoTamano : 0,
                 ]
             ];
         }, 'calcular_precio_domicilio');
@@ -206,7 +220,7 @@ class PricingService extends BaseService
 
             // Cobrar hora completa por cualquier fracción
             $horasExtra = ceil($minutosExtra / 60);
-            
+
             // Recargo del 50% por tiempo extra
             $costoExtra = ($tarifaHora * $horasExtra) * 1.5;
 

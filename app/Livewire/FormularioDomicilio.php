@@ -56,6 +56,19 @@ class FormularioDomicilio extends Component
         $this->lat_destino = request()->has('drop_lat') ? (float) request()->get('drop_lat') : $this->lat_destino;
         $this->lon_destino = request()->has('drop_lng') ? (float) request()->get('drop_lng') : $this->lon_destino;
 
+        if (!is_numeric($this->lat_origen) || !is_numeric($this->lon_origen)) {
+            $branch = Branch::find($this->sede_id);
+            $baseLat = (float) ($branch?->lat ?? 7.119);
+            $baseLon = (float) ($branch?->lon ?? -73.122);
+            $this->lat_origen = $baseLat;
+            $this->lon_origen = $baseLon;
+        }
+
+        if (!is_numeric($this->lat_destino) || !is_numeric($this->lon_destino)) {
+            $this->lat_destino = (float) $this->lat_origen + 0.01;
+            $this->lon_destino = (float) $this->lon_origen + 0.01;
+        }
+
         $this->recalcular();
     }
 
@@ -92,11 +105,18 @@ class FormularioDomicilio extends Component
         $hasCoords = is_numeric($this->lat_origen) && is_numeric($this->lon_origen)
             && is_numeric($this->lat_destino) && is_numeric($this->lon_destino);
 
-        $this->distancia_estimada = $hasCoords ? max(0.1, $this->calculateDistanceLocal()) : $kmBase;
+        if (!$hasCoords) {
+            $this->lat_destino = (float) $this->lat_origen + 0.005;
+            $this->lon_destino = (float) $this->lon_origen + 0.005;
+        }
+
+        $this->distancia_estimada = max(0.1, $this->calculateDistanceLocal());
 
         $pricing = $this->pricingService->calculateDeliveryPrice(
             \App\Enums\DeliveryType::Paquete,
-            $this->distancia_estimada
+            $this->distancia_estimada,
+            null,
+            ['tamano' => $this->tamano_paquete]
         );
 
         $base = (int) ($pricing['data']['total'] ?? 0);
@@ -160,7 +180,7 @@ class FormularioDomicilio extends Component
                 'total' => (int) ($reservation->monto_final ?? $delivery->costo ?? 0),
             ],
         ]);
-        $this->redirectRoute('catalog.payment');
+        $this->redirect(route('catalog.payment', absolute: false), navigate: true);
     }
 
     public function rules(): array

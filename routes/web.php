@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Auth;
+use App\Services\RouteService;
 use Livewire\Volt\Volt;
 use App\Http\Controllers\Admin\{
     DashboardController,
@@ -19,8 +21,8 @@ use App\Http\Controllers\Api\RouteController as ApiRouteController;
 */
 
 Route::get('/', function () {
-    if (auth()->check()) {
-        $u = auth()->user();
+    if (Auth::check()) {
+        $u = Auth::user();
         if ($u->isAdmin()) {
             return redirect()->route('admin.dashboard');
         }
@@ -129,11 +131,14 @@ Route::middleware(['auth'])
         Route::view('vehicle/{id}', 'catalog.vehicle-detail')->name('vehicle.detail');
         Route::view('my-reservations', 'catalog.my-reservations')->name('reservations');
 
+        Route::post('reservations/{reservation}/cancel', [\App\Http\Controllers\Api\ReservationController::class, 'cancel'])
+            ->name('reservations.cancel');
+
         // VISTAS NUEVAS
         Route::view('reserve', 'user.reservar')->name('reserve');
     Route::view('payment', 'user.pago')->name('payment');
     Route::view('receipt', 'user.recibo')->name('receipt');
-        Route::view('confirmation', 'user.confirmacion')->name('confirmation');
+    Route::view('confirmation', 'user.confirmacion')->name('confirmation');
     });
 
 
@@ -141,7 +146,14 @@ Route::middleware(['auth'])
 Route::middleware(['auth'])->group(function () {
     Route::view('servicios', 'user.domicilio')->name('services.delivery');
     Volt::route('wallet', 'user.wallet')->name('wallet');
+    Route::get('geocode/search', [\App\Http\Controllers\Admin\GeocodingController::class, 'search'])->name('user.geocode.search');
 });
+
+// Health OSRM (solo autenticado)
+Route::middleware(['auth'])->get('/health/osrm', function (RouteService $routeService) {
+    $result = $routeService->healthCheck();
+    return response()->json($result, $result['success'] ? 200 : 503);
+})->name('health.osrm');
 
 
 /*

@@ -3,6 +3,8 @@
 use App\Models\Vehicle;
 use App\Models\Branch;
 use App\Services\ReservationService;
+use App\Services\PricingService;
+use App\Enums\DeliveryType;
 use Illuminate\Support\Str;
 use Livewire\Volt\Component;
 use Carbon\Carbon;
@@ -14,11 +16,14 @@ new class extends Component {
     public array $puntos_disponibles = [];
     public ?int $punto_recogida = null;
     public ?string $direccion_recogida = null;
+    public ?float $lat_recogida = null;
+    public ?float $lon_recogida = null;
     public ?string $fecha_inicio = null;
     public ?string $hora_inicio = null;
     public int $duracion_horas = 2;
     public int $precio_hora = 0;
     public int $total_estimado = 0;
+    public int $recargo_domicilio = 2000;
     public ?string $fecha_fin_estimada = null;
     public ?string $notas_adicionales = null;
 
@@ -65,6 +70,9 @@ new class extends Component {
     public function updatedHoraInicio(): void { $this->recalcular(); }
     public function updatedDuracionHoras(): void { $this->recalcular(); }
 
+    public function updatedLatRecogida(): void { $this->syncNearestBranch(); }
+    public function updatedLonRecogida(): void { $this->syncNearestBranch(); }
+
     protected function recalcular(): void
     {
         if ($this->fecha_inicio && $this->hora_inicio) {
@@ -75,7 +83,91 @@ new class extends Component {
             $this->fecha_fin_estimada = null;
         }
 
-        $this->total_estimado = max(0, ($this->precio_hora ?? 0) * ($this->duracion_horas ?? 0));
+        $base = max(0, ($this->precio_hora ?? 0) * ($this->duracion_horas ?? 0));
+
+        if ($this->tipo_reserva === 'domicilio' && $this->vehiculo_seleccionado && is_numeric($this->lat_recogida) && is_numeric($this->lon_recogida)) {
+            $vehicle = Vehicle::find($this->vehiculo_seleccionado);
+            if ($vehicle && $vehicle->branch && $vehicle->branch->lat && $vehicle->branch->lon) {
+                $route = app(\App\Services\RouteService::class)->calculateRoute(
+                    (float) $vehicle->branch->lat,
+                    (float) $vehicle->branch->lon,
+                    (float) $this->lat_recogida,
+                    (float) $this->lon_recogida,
+                );
+                $distanciaKm = $route['success'] ? (float) ($route['data']['distance_km'] ?? 0.0) : $this->haversineKm(
+                    (float) $vehicle->branch->lat,
+                    (float) $vehicle->branch->lon,
+                    (float) $this->lat_recogida,
+                    (float) $this->lon_recogida
+                );
+                $pricing = app(PricingService::class)->calculateDeliveryPrice(DeliveryType::Vehiculo, max(0.1, $distanciaKm), $vehicle);
+                $this->recargo_domicilio = (int) ($pricing['data']['total'] ?? self::fallbackRecargo());
+            } else {
+                $this->recargo_domicilio = self::fallbackRecargo();
+            }
+        } else {
+            $this->recargo_domicilio = self::fallbackRecargo();
+        }
+
+        $this->total_estimado = $base + ($this->tipo_reserva === 'domicilio' ? $this->recargo_domicilio : 0);
+    }
+
+    private static function fallbackRecargo(): int
+    {
+        return 2000;
+    }
+
+    private function haversineKm(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earth = 6371;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat/2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon/2) ** 2;
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return round($earth * $c, 2);
+    }
+
+    private function syncNearestBranch(): void
+    {
+        if (!is_numeric($this->lat_recogida) || !is_numeric($this->lon_recogida)) {
+            return;
+        }
+
+        $nearest = Branch::findNearestTo((float) $this->lat_recogida, (float) $this->lon_recogida);
+        if (!$nearest) {
+            return;
+        }
+
+        $this->punto_recogida = $nearest->id;
+
+        $vehicles = Vehicle::query()
+            ->disponibles()
+            ->visiblesEnCatalogo()
+            ->porSede($nearest->id)
+            ->orderBy('id', 'desc')
+            ->limit(8)
+            ->get();
+
+        $this->vehiculos_disponibles = $vehicles->mapWithKeys(function ($v) {
+            return [
+                $v->id => [
+                    'nombre' => trim(($v->marca . ' ' . $v->modelo)),
+                    'precio' => (int) ($v->precio_hora ?? 0),
+                ],
+            ];
+        })->toArray();
+
+        if (empty($this->vehiculos_disponibles)) {
+            // Mantener estado previo si no hay vehículos en la sede
+            return;
+        }
+
+        if (!array_key_exists($this->vehiculo_seleccionado, $this->vehiculos_disponibles)) {
+            $this->vehiculo_seleccionado = array_key_first($this->vehiculos_disponibles);
+        }
+
+        $this->precio_hora = $this->vehiculo_seleccionado ? ($this->vehiculos_disponibles[$this->vehiculo_seleccionado]['precio'] ?? 0) : 0;
+        $this->recalcular();
     }
 
     public function continuar()
@@ -98,22 +190,30 @@ new class extends Component {
         $fin = (clone $inicio)->addHours($this->duracion_horas);
 
         $vehicle = Vehicle::findOrFail($this->vehiculo_seleccionado);
-        $origen = $this->tipo_reserva === 'punto'
-            ? (Branch::find($this->punto_recogida)?->nombre ?? 'Sede')
-            : ($this->direccion_recogida ?? 'Domicilio');
+        $origenNombre = $vehicle->branch?->nombre ?? (Branch::find($this->punto_recogida)?->nombre ?? 'Sede');
+        $destinoDireccion = $this->tipo_reserva === 'domicilio'
+            ? ($this->direccion_recogida ?? 'Domicilio')
+            : $origenNombre;
 
         $service = app(ReservationService::class);
-        $result = $service->createReservation([
+        $payload = [
             'user_id' => auth()->id(),
             'vehiculo_id' => $vehicle->id,
             'sede_id' => $vehicle->sede_id,
             'fecha_inicio' => $inicio,
             'fecha_fin' => $fin,
-            'origen_direccion' => $origen,
-            'destino_direccion' => $origen,
+            'origen_direccion' => $origenNombre,
+            'destino_direccion' => $destinoDireccion,
             'notas_cliente' => $this->notas_adicionales,
             'entrega_domicilio' => ($this->tipo_reserva === 'domicilio'),
-        ]);
+        ];
+
+        if ($this->tipo_reserva === 'domicilio' && is_numeric($this->lat_recogida) && is_numeric($this->lon_recogida)) {
+            $payload['destino_lat'] = (float) $this->lat_recogida;
+            $payload['destino_lng'] = (float) $this->lon_recogida;
+        }
+
+        $result = $service->createReservation($payload);
 
         if (!$result['success']) {
             session()->flash('error', $result['message'] ?? 'No se pudo crear la reserva');
@@ -220,7 +320,7 @@ new class extends Component {
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                         </svg>
                         <h4 class="font-bold text-zinc-900 dark:text-white mb-2">Entrega a Domicilio</h4>
-                        <p class="text-sm text-zinc-600 dark:text-zinc-400">Te llevamos el vehículo donde estés (+$5.000)</p>
+                        <p class="text-sm text-zinc-600 dark:text-zinc-400">Te llevamos el vehículo donde estés (+$2.000 + $1.500/km)</p>
                     </div>
                 </label>
             </div>
@@ -247,17 +347,57 @@ new class extends Component {
             @enderror
         </div>
         @else
-        <div>
+        <div x-data="{
+            results: [],
+            loading: false,
+            async search(val) {
+                if (!val || val.length < 3) { this.results = []; return; }
+                this.loading = true;
+                try {
+                    const url = `{{ route('user.geocode.search') }}?q=${encodeURIComponent(val)}`;
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) { this.results = []; return; }
+                    const data = await res.json();
+                    this.results = data.success ? data.results : [];
+                } catch (e) {
+                    this.results = [];
+                } finally {
+                    this.loading = false;
+                }
+            },
+            select(r) {
+                $wire.set('direccion_recogida', r.label);
+                $wire.set('lat_recogida', r.lat);
+                $wire.set('lon_recogida', r.lng);
+                this.results = [];
+            }
+        }">
             <label for="direccion_recogida" class="block text-sm font-semibold text-zinc-700 dark:text-zinc-300 mb-2">
                 Dirección de Entrega *
             </label>
-            <input
-                type="text"
-                id="direccion_recogida"
-                wire:model="direccion_recogida"
-                placeholder="Ej: Calle 36 #10-20, Bucaramanga"
-                class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
+            <div class="relative">
+                <input
+                    type="text"
+                    id="direccion_recogida"
+                    wire:model="direccion_recogida"
+                    @input.debounce.500ms="search($event.target.value)"
+                    placeholder="Ej: Calle 36 #10-20, Bucaramanga"
+                    class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                >
+                <template x-if="results.length || loading">
+                    <div class="absolute left-0 right-0 mt-1 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-sm max-h-48 overflow-auto text-sm z-20">
+                        <div x-show="loading" class="px-3 py-2 text-zinc-500 dark:text-zinc-400">Buscando…</div>
+                        <template x-for="result in results" :key="result.label">
+                            <button
+                                type="button"
+                                class="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                                @click="select(result)"
+                                x-text="result.label"
+                            ></button>
+                        </template>
+                    </div>
+                </template>
+            </div>
             @error('direccion_recogida')
                 <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
             @enderror
@@ -358,7 +498,7 @@ new class extends Component {
                 @if($tipo_reserva === 'domicilio')
                 <div class="flex justify-between">
                     <span class="text-zinc-600 dark:text-zinc-400">Entrega a domicilio:</span>
-                    <span class="font-semibold text-zinc-900 dark:text-white">$5.000</span>
+                    <span class="font-semibold text-zinc-900 dark:text-white">${{ number_format($recargo_domicilio, 0, ',', '.') }}</span>
                 </div>
                 @endif
                 @if($fecha_fin_estimada)
@@ -371,7 +511,7 @@ new class extends Component {
                 <div class="flex justify-between items-center">
                     <span class="text-lg font-bold text-zinc-900 dark:text-white">Total:</span>
                     <span class="text-3xl font-bold text-blue-600 dark:text-blue-400">
-                        ${{ number_format($total_estimado + ($tipo_reserva === 'domicilio' ? 5000 : 0), 0, ',', '.') }}
+                        ${{ number_format($total_estimado, 0, ',', '.') }}
                     </span>
                 </div>
             </div>

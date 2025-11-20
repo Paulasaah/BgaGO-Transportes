@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use App\Enums\PaymentStatus;
+use App\Models\Reservation;
 use App\Models\Payment;
 use App\Services\ReservationService;
 use Carbon\Carbon;
@@ -54,14 +55,15 @@ class ReciboPago extends Component
                 return;
             }
 
-            $reservation = Arr::get($result, 'data');
+            $reservationData = Arr::get($result, 'data');
+            $reservationId = is_array($reservationData) ? ($reservationData['id'] ?? null) : ($reservationData->id ?? null);
 
             $payment = Payment::create([
                 'codigo_transaccion' => $this->pago['transaction_id'] ?? null,
-                'reserva_id' => $reservation->id,
+                'reserva_id' => $reservationId,
                 'user_id' => auth()->id(),
                 'metodo_pago' => 'tarjeta',
-                'monto' => (float) ($this->pago['total'] ?? 0),
+                'monto' => (float) (is_array($reservationData) ? ($reservationData['monto_final'] ?? 0) : ($reservationData->monto_final ?? 0)),
                 'estado' => PaymentStatus::Pendiente,
                 'datos_transaccion' => [
                     'last4' => $this->pago['last4'] ?? null,
@@ -71,15 +73,54 @@ class ReciboPago extends Component
 
             $payment->approve($this->pago['transaction_id'] ?? null);
 
+            $reservation = Reservation::with('vehicle')->find($reservationId);
+
             $this->reservaDb = [
                 'id' => $reservation->id,
                 'codigo' => $reservation->codigo,
                 'estado' => 'confirmada',
+                'vehiculo' => $reservation->vehicle?->getFullName(),
+                'fecha_inicio' => $reservation->fecha_inicio?->format('Y-m-d'),
+                'hora_inicio' => $reservation->fecha_inicio?->format('H:i'),
+                'duracion_horas' => ceil(($reservation->duracion_minutos ?? 60) / 60),
+                'monto' => (float) $reservation->monto,
+                'descuento' => (float) ($reservation->descuento ?? 0),
+                'monto_final' => (float) $reservation->monto_final,
+                'tipo_reserva' => $reservation->destino_direccion ? 'domicilio' : 'sede',
             ];
 
-            session(['recibo_persistido' => true, 'reserva_db' => $this->reservaDb]);
+            $this->pago = [
+                'transaction_id' => $payment->codigo_transaccion,
+                'method' => $payment->metodo_pago,
+                'last4' => Arr::get($payment->datos_transaccion, 'last4'),
+                'total' => (float) $reservation->monto_final,
+                'timestamp' => $payment->fecha_aprobacion?->format('Y-m-d H:i'),
+            ];
+
+            session(['recibo_persistido' => true, 'reserva_db' => $this->reservaDb, 'pago_simulado' => $this->pago]);
         } else {
-            $this->reservaDb = session('reserva_db');
+            $reservaDbSession = session('reserva_db');
+            if (is_array($reservaDbSession) && isset($reservaDbSession['id'])) {
+                $reservation = Reservation::with('vehicle')->find($reservaDbSession['id']);
+                if ($reservation) {
+                    $this->reservaDb = [
+                        'id' => $reservation->id,
+                        'codigo' => $reservation->codigo,
+                        'estado' => (string) $reservation->estado->value,
+                        'vehiculo' => $reservation->vehicle?->getFullName(),
+                        'fecha_inicio' => $reservation->fecha_inicio?->format('Y-m-d'),
+                        'hora_inicio' => $reservation->fecha_inicio?->format('H:i'),
+                        'duracion_horas' => ceil(($reservation->duracion_minutos ?? 60) / 60),
+                        'monto' => (float) $reservation->monto,
+                        'descuento' => (float) ($reservation->descuento ?? 0),
+                        'monto_final' => (float) $reservation->monto_final,
+                        'tipo_reserva' => $reservation->destino_direccion ? 'domicilio' : 'sede',
+                    ];
+                }
+            } else {
+                $this->reservaDb = $reservaDbSession;
+            }
+            $this->pago = session('pago_simulado') ?? $this->pago;
         }
     }
 

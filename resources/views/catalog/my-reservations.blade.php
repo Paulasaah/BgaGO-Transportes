@@ -47,7 +47,7 @@
                     <p class="mt-3 text-zinc-700 dark:text-zinc-300">Consulta tus reservas activas y pasadas.</p>
                     <div class="mt-6 flex items-center gap-3">
                         <a href="{{ route('catalog.reserve') }}" wire:navigate class="inline-flex items-center justify-center h-11 px-5 rounded-lg bg-blue-600 text-white hover:bg-blue-700">Reservar vehículo</a>
-                        <a href="{{ route('services.delivery') }}" wire:navigate class="inline-flex items-center justify-center h-11 px-5 rounded-lg ring-1 ring-zinc-300 dark:ring-zinc-700 text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-zinc-800">Solicitar domicilio</a>
+                        <a href="{{ route('services.delivery') }}" wire:navigate class="inline-flex items-center justify-center h-11 px-5 rounded-lg bg-white text-zinc-900 hover:bg-zinc-100 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200">Solicitar domicilio</a>
                     </div>
                 </div>
                 <div class="h-48 sm:h-56 lg:h-64">
@@ -127,7 +127,6 @@
                     </div>
                 </div>
                 @empty
-                <div class="rounded-xl ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 p-6 text-center text-sm text-zinc-600 dark:text-zinc-400">No hay reservas activas</div>
                 @endforelse
             </div>
 
@@ -204,25 +203,34 @@
                         <div class="mt-6 flex items-center justify-end gap-3">
                             <button class="px-4 h-9 rounded-lg ring-1 ring-zinc-300 dark:ring-zinc-700 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800" @click="confirmCancel=false">Volver</button>
                             <button class="px-4 h-9 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:bg-red-400" :disabled="canceling" @click="
-                                canceling=true; error=null;
-                                fetch(`/api/reservations/${item.id}/cancel`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Accept': 'application/json',
-                                        'Content-Type': 'application/json',
-                                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content,
-                                        'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '')
-                                    },
-                                    body: JSON.stringify({motivo_cancelacion: 'Cancelada por el usuario'})
-                                }).then(res => {
-                                    if (res.ok) {
-                                        hidden[item.codigo] = true;
-                                        confirmCancel=false; open=false;
-                                    } else {
-                                        return res.json().then(d => { error = d.message || 'No se pudo cancelar'; });
+                                (async () => {
+                                    try {
+                                        canceling = true; error = null;
+                                        await fetch('/sanctum/csrf-cookie', { credentials: 'same-origin' });
+                                        const res = await fetch(`/catalog/reservations/${item.id}/cancel`, {
+                                            method: 'POST',
+                                            credentials: 'same-origin',
+                                            headers: {
+                                                'Accept': 'application/json',
+                                                'Content-Type': 'application/json',
+                                                'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content,
+                                                'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '')
+                                            },
+                                            body: JSON.stringify({ motivo_cancelacion: 'Cancelada por el usuario' })
+                                        });
+                                        if (res.ok) {
+                                            hidden[item.codigo] = true;
+                                            confirmCancel = false; open = false;
+                                        } else {
+                                            const d = await res.json().catch(() => ({}));
+                                            error = d.message || 'No se pudo cancelar';
+                                        }
+                                    } catch (e) {
+                                        error = 'Error de red';
+                                    } finally {
+                                        canceling = false;
                                     }
-                                }).catch(() => { error = 'Error de red'; })
-                                  .finally(() => { canceling=false; })
+                                })();
                             ">Confirmar</button>
                         </div>
                     </div>

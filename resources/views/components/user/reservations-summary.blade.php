@@ -53,75 +53,7 @@
         }
     } catch (\Throwable $e) {}
 
-    if (empty($items)) {
-        $items = [
-            [
-                'codigo' => 'RES-2025-001',
-                'title' => 'Servicio de Domicilio',
-                'vehicle' => 'Moto',
-                'when' => 'Nov 17 • 5:00 PM',
-                'tipo' => 'domicilio',
-                'status' => 'activa',
-                'estado_label' => 'En Curso',
-                'monto' => '15.000',
-                'origen' => 'Carrera 19 #35-10, Centro',
-                'destino' => 'Calle 48 #29-20, Cañaveral',
-                'pago_id' => 'PAY-XXXX',
-            ],
-            [
-                'codigo' => 'RES-2025-002',
-                'title' => 'Reserva de Vehículo',
-                'vehicle' => 'Bicicleta',
-                'when' => 'Nov 18 • 6:30 PM',
-                'tipo' => 'reserva',
-                'status' => 'confirmada',
-                'estado_label' => 'Confirmada',
-                'monto' => '20.000',
-                'origen' => 'Carrera 36 #48-15, Cabecera',
-                'destino' => 'Calle 7 #8-30, Floridablanca',
-                'pago_id' => 'PAY-XXXX',
-            ],
-            [
-                'codigo' => 'RES-2025-003',
-                'title' => 'Reserva de Vehículo',
-                'vehicle' => 'Patineta',
-                'when' => 'Nov 19 • 8:00 AM',
-                'tipo' => 'reserva',
-                'status' => 'pendiente',
-                'estado_label' => 'Pendiente',
-                'monto' => '10.000',
-                'origen' => 'Centro Comercial Cacique',
-                'destino' => 'Parque San Pío',
-                'pago_id' => 'PAY-XXXX',
-            ],
-            [
-                'codigo' => 'RES-2025-004',
-                'title' => 'Servicio de Domicilio',
-                'vehicle' => 'Moto',
-                'when' => 'Nov 15 • 3:10 PM',
-                'tipo' => 'domicilio',
-                'status' => 'completada',
-                'estado_label' => 'Completada',
-                'monto' => '25.000',
-                'origen' => 'Sucursal Cabecera',
-                'destino' => 'Calle 45 #28-90, Bucaramanga',
-                'pago_id' => 'PAY-XXXX',
-            ],
-            [
-                'codigo' => 'RES-2025-005',
-                'title' => 'Servicio de Domicilio',
-                'vehicle' => 'Moto',
-                'when' => 'Nov 14 • 2:05 PM',
-                'tipo' => 'domicilio',
-                'status' => 'cancelada',
-                'estado_label' => 'Cancelada',
-                'monto' => '18.000',
-                'origen' => 'Sucursal Cañaveral',
-                'destino' => 'Calle 105 #30-45, Floridablanca',
-                'pago_id' => 'PAY-XXXX',
-            ],
-        ];
-    }
+    
 
     $recent = $items[0] ?? null;
     $past = array_slice($items, 1);
@@ -157,6 +89,25 @@
             <div>
                 <div class="text-sm text-zinc-600 dark:text-zinc-400 mb-2">Pasadas</div>
                 <div class="space-y-3">
+                    @if(count($items) === 0)
+                        <div class="relative overflow-hidden rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-gradient-to-br from-blue-50 via-white to-blue-100 dark:from-blue-950/20 dark:via-zinc-900 dark:to-blue-900/20 p-8 pt-24 pb-16 mx-auto max-w-xl">
+                            <div class="text-center">
+                                <div class="inline-flex items-center gap-2 px-3 h-8 rounded-full bg-blue-600/10 text-blue-700 dark:text-blue-300 ring-1 ring-blue-500/20 text-xs">Estado</div>
+                                <h3 class="mt-3 text-2xl font-bold text-zinc-900 dark:text-white">No hay reservas activas en este momento</h3>
+                                <p class="mt-2 text-sm text-zinc-700 dark:text-zinc-300">Reserva un vehículo o solicita un domicilio ahora mismo. Es rápido y sencillo.</p>
+                                <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+                                    <a href="{{ route('catalog.reserve') }}" wire:navigate class="inline-flex items-center justify-center h-11 px-5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 shadow-sm">
+                                        <svg class="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7h11v8H2z"/><path d="M13 10h4l3 3v2h-7z"/><circle cx="5.5" cy="17.5" r="2"/><circle cx="16.5" cy="17.5" r="2"/></svg>
+                                        Reservar vehículo
+                                    </a>
+                                    <a href="{{ route('services.delivery') }}" wire:navigate class="inline-flex items-center justify-center h-11 px-5 rounded-lg bg-white text-zinc-900 hover:bg-zinc-100 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-200 ring-1 ring-zinc-300 dark:ring-zinc-700 shadow-sm">
+                                        <svg class="mr-2 h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4H9.5a2 2 0 00-1.8 1H8a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V6a2 2 0 00-2-2z"/><path d="M9 8h6"/><path d="M9 12h6"/><path d="M9 16h4"/></svg>
+                                        Solicitar domicilio
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    @else
                     @if($activeReserva)
                         <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-4 flex items-center justify-between gap-4">
                             <div class="flex items-center gap-3">
@@ -174,36 +125,23 @@
                             </div>
                         </div>
                     @endif
-                    @if(!$activeDomicilio && !$activeReserva)
-                        <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-8 text-center relative overflow-hidden">
-                            <div class="absolute inset-0 opacity-10 pointer-events-none" style="background: radial-gradient(600px 200px at 10% 10%, #2563eb 0%, transparent 60%), radial-gradient(400px 160px at 90% 20%, #22d3ee 0%, transparent 60%), radial-gradient(500px 180px at 30% 90%, #f59e0b 0%, transparent 60%);"></div>
-                            <div class="relative flex flex-col items-center gap-3">
-                                <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18"/><path d="M6 10h12"/><path d="M10 14h4"/><path d="M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z"/></svg>
+                    @if($activeDomicilio)
+                        <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-4 flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <img src="{{ $thumb($activeDomicilio['vehicle'] ?? null) }}" alt="Vehículo" class="h-12 w-12 rounded-xl object-contain bg-zinc-100 dark:bg-zinc-800 p-1" />
+                                <div>
+                                    <div class="text-sm font-medium text-zinc-900 dark:text-white">{{ $activeDomicilio['title'] }}</div>
+                                    <div class="text-xs text-zinc-600 dark:text-zinc-400">{{ $activeDomicilio['origen'] ?? $activeDomicilio['vehicle'] }}{{ isset($activeDomicilio['destino']) ? ' → '.$activeDomicilio['destino'] : '' }}</div>
+                                    <div class="text-xs text-zinc-500 dark:text-zinc-400">{{ $activeDomicilio['when'] }} • COP{{ $activeDomicilio['monto'] }}</div>
                                 </div>
-                                <div class="text-lg font-semibold text-zinc-900 dark:text-white">No hay reservas pasadas</div>
-                                <p class="text-sm text-zinc-600 dark:text-zinc-400">¿Listo para tu próxima experiencia? Reserva un vehículo ahora.</p>
-                                <a href="{{ route('catalog.reserve') }}" wire:navigate class="mt-2 inline-flex items-center gap-2 px-5 h-11 rounded-lg bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all shadow hover:shadow-lg">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13l-3 3m0 0l3 3m-3-3h11"/><path d="M21 13V7a2 2 0 0 0-2-2H7L3 7v10a2 2 0 0 0 2 2h6"/></svg>
-                                    Reservar vehículo
-                                </a>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="inline-flex items-center h-6 px-2 rounded text-xs whitespace-nowrap {{ $badge($activeDomicilio['status']) }}">{{ $activeDomicilio['estado_label'] ?? ucfirst($activeDomicilio['status']) }}</span>
+                                <span class="inline-flex items-center h-6 px-2 rounded text-xs whitespace-nowrap {{ $typeChip($activeDomicilio['tipo'] ?? '') }}">{{ ($activeDomicilio['tipo'] ?? '') === 'domicilio' ? 'Domicilio' : 'Reserva' }}</span>
+                                <a href="#" class="{{ $btnClass }}" @click.prevent="open=true; item=@js($activeDomicilio)">Ver detalles</a>
                             </div>
                         </div>
-                        <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-8 text-center relative overflow-hidden">
-                            <div class="absolute inset-0 opacity-10 pointer-events-none" style="background: radial-gradient(600px 200px at 90% 10%, #2563eb 0%, transparent 60%), radial-gradient(400px 160px at 15% 25%, #22d3ee 0%, transparent 60%), radial-gradient(500px 180px at 70% 90%, #1d4ed8 0%, transparent 60%);"></div>
-                            <div class="relative flex flex-col items-center gap-3">
-                                <div class="inline-flex items-center justify-center w-14 h-14 rounded-full bg-blue-600/10 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-7 h-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13V7a2 2 0 0 0-2-2H7L3 7v10a2 2 0 0 0 2 2h6"/><path d="M13 7H7"/><path d="M13 11H7"/><path d="M17 15h-4l-1.5 1.5"/></svg>
-                                </div>
-                                <div class="text-lg font-semibold text-zinc-900 dark:text-white">¿Necesitas un domicilio?</div>
-                                <p class="text-sm text-zinc-600 dark:text-zinc-400">Solicita un servicio de entrega de paquetes de forma rápida.</p>
-                                <a href="{{ route('services.delivery') }}" wire:navigate class="mt-2 inline-flex items-center gap-2 px-5 h-11 rounded-lg bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-all shadow hover:shadow-lg">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l4-2 4 2 4-2 4 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M9 22h6"/></svg>
-                                    Solicitar domicilio
-                                </a>
-                        </div>
-                        </div>
-                        @else
+                    @endif
                     @foreach($past as $i)
                         <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-4 flex items-center justify-between gap-4 {{ $rowClass($i['status']) }} min-h-[92px] h-full">
                             <div class="flex items-center gap-3">
