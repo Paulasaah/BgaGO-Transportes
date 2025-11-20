@@ -41,13 +41,14 @@ new #[Layout('components.layouts.public')] class extends Component {
             ->get()
             ->toArray();
 
-        // Pendientes por realizar
+        // Próximas por realizar (pendientes o confirmadas futuras)
         $this->futuras = Reservation::with(['user','vehicle','branch'])
-            ->where('estado', ReservationStatus::Pendiente)
+            ->whereIn('estado', [ReservationStatus::Pendiente, ReservationStatus::Confirmada])
             ->where(function($q) use ($driverId) {
                 $q->whereNull('conductor_id')
                   ->orWhere('conductor_id', $driverId);
             })
+            ->where('fecha_inicio', '>=', Carbon::now())
             ->orderBy('fecha_inicio')
             ->limit(10)
             ->get()
@@ -109,6 +110,11 @@ new #[Layout('components.layouts.public')] class extends Component {
     {
         $this->showModal = false;
         $this->selected = null;
+    }
+
+    public function refresh(): void
+    {
+        $this->mount();
     }
 
     public function acceptReservation(int $id): void
@@ -275,7 +281,7 @@ new #[Layout('components.layouts.public')] class extends Component {
 
 
 
-    <div class="grid gap-6 lg:grid-cols-3">
+    <div class="grid gap-6 lg:grid-cols-3" wire:poll.keep-alive.10s="refresh">
         <div class="bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6">
             <flux:heading size="lg" class="mb-4">Entregas de hoy</flux:heading>
             <div class="space-y-4">
@@ -394,11 +400,12 @@ new #[Layout('components.layouts.public')] class extends Component {
                     </div>
                 </div>
                 <div class="p-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center justify-end gap-2">
-                    @if(($selected['estado'] ?? null) === 'pendiente')
+                    @php $sel = strtolower($selected['estado'] ?? ''); @endphp
+                    @if(in_array($sel, ['pendiente','confirmada']))
                         <flux:button variant="ghost" wire:click="closeModal">Cerrar</flux:button>
                         <flux:button variant="primary" wire:click="acceptReservation({{ $selected['id'] }})">Aceptar</flux:button>
                         <flux:button variant="danger" wire:click="rejectReservation({{ $selected['id'] }})">Rechazar</flux:button>
-                    @elseif(($selected['estado'] ?? null) === 'activa')
+                    @elseif($sel === 'activa')
                         <flux:button variant="ghost" wire:click="closeModal">Cerrar</flux:button>
                         <flux:button variant="primary" wire:click="completeReservation({{ $selected['id'] }})">Marcar completada</flux:button>
                         <flux:button variant="danger" wire:click="cancelActive({{ $selected['id'] }})">Cancelar</flux:button>

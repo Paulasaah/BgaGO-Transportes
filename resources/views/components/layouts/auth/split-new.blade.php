@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
     <head>
-        <script>(function(){var t=localStorage.getItem('theme');if(!t){t='light';localStorage.setItem('theme',t);}document.documentElement.classList.toggle('dark',t==='dark');})();</script>
+        <script>(function(){var t=localStorage.getItem('theme');if(!t){t='light';localStorage.setItem('theme',t);}document.documentElement.classList.toggle('dark',t==='dark');document.documentElement.setAttribute('data-theme',t);})();</script>
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white antialiased dark:bg-zinc-900">
@@ -21,7 +21,7 @@
 
             <div class="flex flex-col items-center justify-center p-6 md:p-10 bg-white dark:bg-zinc-900 relative">
                 <div class="absolute top-4 right-4">
-                    <div x-data="{ theme: localStorage.getItem('theme') || 'light', init(){ document.documentElement.classList.toggle('dark', this.theme==='dark') }, toggle(){ this.theme = this.theme==='dark' ? 'light' : 'dark'; localStorage.setItem('theme', this.theme); document.documentElement.classList.toggle('dark', this.theme==='dark') } }">
+                    <div x-data="{ theme: localStorage.getItem('theme') || 'light', init(){ document.documentElement.classList.toggle('dark', this.theme==='dark'); document.documentElement.setAttribute('data-theme', this.theme) }, toggle(){ this.theme = this.theme==='dark' ? 'light' : 'dark'; localStorage.setItem('theme', this.theme); document.documentElement.classList.toggle('dark', this.theme==='dark'); document.documentElement.setAttribute('data-theme', this.theme) } }">
                         <button @click="toggle" :aria-label="theme==='dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'" class="relative h-9 w-16 rounded-full transition-colors" :class="theme==='dark' ? 'bg-[#0b2a3a]' : 'bg-amber-100'">
                             <span class="absolute top-1 left-1 h-7 w-7 rounded-full flex items-center justify-center text-white transition-all" :class="theme==='dark' ? 'translate-x-7 bg-sky-500' : 'translate-x-0 bg-amber-400 text-black'">
                                 <template x-if="theme==='dark'">

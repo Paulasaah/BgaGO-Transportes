@@ -2,7 +2,7 @@
     @php
         $uid = auth()->id();
         $base = \App\Models\Reservation::with(['vehicle'])->where('user_id', $uid);
-        $act = $base->clone()->whereIn('estado', ['pendiente','activa'])->orderByDesc('fecha_inicio');
+        $act = $base->clone()->whereIn('estado', ['pendiente','activa','confirmada'])->orderByDesc('fecha_inicio');
         $pas = $base->clone()->whereIn('estado', ['completada','cancelada'])->orderByDesc('fecha_inicio');
         $s = trim(request('s',''));
         if ($s !== '') {
@@ -12,7 +12,7 @@
         }
         $activas = $act->get();
         $pasadas = $pas->get();
-        $countActivas = $base->clone()->where('estado','activa')->count();
+        $countActivas = $base->clone()->whereIn('estado', ['activa','confirmada'])->count();
         $countPendientes = $base->clone()->where('estado','pendiente')->count();
         $countCompletadas = $base->clone()->where('estado','completada')->count();
         $thumb = function ($vehicle) {
@@ -184,7 +184,7 @@
                         </div>
                         <div class="mt-6 flex items-center justify-end gap-3">
                             <button class="px-4 h-9 rounded-lg ring-1 ring-zinc-300 dark:ring-zinc-700 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-zinc-800" @click="open=false">Cerrar</button>
-                            <template x-if="item && (item.estado==='Pendiente' || item.estado==='En Curso')">
+                            <template x-if="item && (item.estado==='Pendiente' || item.estado==='Confirmada')">
                                 <button class="px-4 h-9 rounded-lg bg-red-600 text-white hover:bg-red-700" @click="confirmCancel=true">Cancelar</button>
                             </template>
                         </div>

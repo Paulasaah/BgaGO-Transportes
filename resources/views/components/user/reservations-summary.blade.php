@@ -53,7 +53,7 @@
         }
     } catch (\Throwable $e) {}
 
-    
+
 
     $recent = $items[0] ?? null;
     $past = array_slice($items, 1);
@@ -72,7 +72,7 @@
     }
 @endphp
 
-<section class="mt-6" x-data="{ open:false, item:null, confirmCancel:false, canceling:false, error:null }">
+<section class="mt-6" x-data="{ open:false, item:null, confirmCancel:false, canceling:false, error:null, hidden:{} }">
     <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-6">
         <div class="grid gap-6 md:grid-cols-2">
             <div>
@@ -109,7 +109,7 @@
                         </div>
                     @else
                     @if($activeReserva)
-                        <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-4 flex items-center justify-between gap-4">
+                        <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-4 flex items-center justify-between gap-4" x-show="!hidden['{{ $activeReserva['codigo'] }}']" x-transition.opacity.duration.200ms data-code="{{ $activeReserva['codigo'] }}">
                             <div class="flex items-center gap-3">
                                 <img src="{{ $thumb($activeReserva['vehicle'] ?? null) }}" alt="Vehículo" class="h-12 w-12 rounded-xl object-contain bg-zinc-100 dark:bg-zinc-800 p-1" />
                                 <div>
@@ -126,7 +126,7 @@
                         </div>
                     @endif
                     @if($activeDomicilio)
-                        <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-4 flex items-center justify-between gap-4">
+                        <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-4 flex items-center justify-between gap-4" x-show="!hidden['{{ $activeDomicilio['codigo'] }}']" x-transition.opacity.duration.200ms data-code="{{ $activeDomicilio['codigo'] }}">
                             <div class="flex items-center gap-3">
                                 <img src="{{ $thumb($activeDomicilio['vehicle'] ?? null) }}" alt="Vehículo" class="h-12 w-12 rounded-xl object-contain bg-zinc-100 dark:bg-zinc-800 p-1" />
                                 <div>
@@ -143,7 +143,7 @@
                         </div>
                     @endif
                     @foreach($past as $i)
-                        <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-4 flex items-center justify-between gap-4 {{ $rowClass($i['status']) }} min-h-[92px] h-full">
+                        <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-4 flex items-center justify-between gap-4 {{ $rowClass($i['status']) }} min-h-[92px] h-full" x-show="!hidden['{{ $i['codigo'] }}']" x-transition.opacity.duration.200ms data-code="{{ $i['codigo'] }}">
                             <div class="flex items-center gap-3">
                                 <img src="{{ $thumb($i['vehicle'] ?? null) }}" alt="Vehículo" class="h-12 w-12 rounded-xl object-contain bg-zinc-100 dark:bg-zinc-800 p-1" />
                                 <div>
@@ -186,7 +186,9 @@
                     </div>
                     <div class="mt-6 flex items-center justify-end gap-3">
                         <button class="px-4 h-9 rounded-lg ring-1 ring-zinc-300 dark:ring-white/10 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10" @click="open=false">Cerrar</button>
-                        <button class="px-4 h-9 rounded-lg bg-blue-600 text-white hover:bg-blue-700" @click="confirmCancel=true">Cancelar</button>
+                        <template x-if="item && (item.status==='pendiente' || item.status==='confirmada')">
+                            <button class="px-4 h-9 rounded-lg bg-blue-600 text-white hover:bg-blue-700" @click="confirmCancel=true">Cancelar</button>
+                        </template>
                     </div>
                 </div>
             </template>
@@ -205,25 +207,36 @@
                     <div class="mt-6 flex items-center justify-end gap-3">
                         <button class="px-4 h-9 rounded-lg ring-1 ring-zinc-300 dark:ring-white/10 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10" @click="confirmCancel=false">Volver</button>
                         <button class="px-4 h-9 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-400" :disabled="canceling" @click="
-                            canceling=true; error=null;
-                            fetch(`/api/reservations/${item.id}`, { method:'GET', headers:{'Accept':'application/json'} })
-                              .then(r => r.ok ? item.id : Promise.reject('No existe'))
-                              .then(() => fetch(`/api/reservations/${item.id}/cancel`, {
-                                    method: 'POST',
-                                    headers: {
-                                        'Accept': 'application/json',
-                                        'Content-Type': 'application/json',
-                                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content,
-                                        'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '')
-                                    },
-                                    body: JSON.stringify({motivo_cancelacion: 'Cancelada por el usuario'})
-                                }))
-                              .then(res => {
-                                  if (res.ok) { item.status='cancelada'; item.estado_label='Cancelada'; confirmCancel=false; open=false; }
-                                  else { return res.json().then(d => { error = d.message || 'No se pudo cancelar'; }); }
-                              })
-                              .catch(() => { error = 'Error procesando la cancelación'; })
-                              .finally(() => { canceling=false; })
+                            (async () => {
+                                try {
+                                    canceling = true; error = null;
+                                    await fetch('/sanctum/csrf-cookie', { credentials: 'same-origin' });
+                                    const res = await fetch(`/catalog/reservations/${item.id}/cancel`, {
+                                        method: 'POST',
+                                        credentials: 'same-origin',
+                                        headers: {
+                                            'Accept': 'application/json',
+                                            'Content-Type': 'application/json',
+                                            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content,
+                                            'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '')
+                                        },
+                                        body: JSON.stringify({ motivo_cancelacion: 'Cancelada por el usuario' })
+                                    });
+                                    if (res.ok) {
+                                        item.status = 'cancelada';
+                                        item.estado_label = 'Cancelada';
+                                        hidden[item.codigo] = true;
+                                        confirmCancel = false; open = false;
+                                    } else {
+                                        const d = await res.json().catch(() => ({}));
+                                        error = d.message || 'No se pudo cancelar';
+                                    }
+                                } catch (e) {
+                                    error = 'Error procesando la cancelación';
+                                } finally {
+                                    canceling = false;
+                                }
+                            })();
                         ">Confirmar</button>
                     </div>
                 </div>
