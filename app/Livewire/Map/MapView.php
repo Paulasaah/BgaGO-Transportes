@@ -22,6 +22,7 @@ class MapView extends Component
     public $filterStatus = 'all';
     public $showSimulated = true;
     public $showAlerts = true;
+    public $showOnlyActive = false;
 
     public $stats = [
         'total_devices' => 0,
@@ -70,6 +71,17 @@ class MapView extends Component
         $vehicles = $latestData->map(function ($latest) use ($activeByDevice) {
             $active = $activeByDevice->get($latest->device_id);
 
+            $routeProgressPercent = null;
+            if (
+                $latest->device_type === 'vehiculo' &&
+                $latest->total_distance_km > 0 &&
+                $latest->route_progress !== null
+            ) {
+                $routeProgressPercent = (int) round(
+                    max(0, min($latest->route_progress * 100, 100))
+                );
+            }
+
             return [
                 'device_id' => $latest->device_id,
                 'type' => $latest->device_type,
@@ -92,6 +104,9 @@ class MapView extends Component
                 'rating' => (float) ($latest->rating ?? 0),
                 'active_reservation_id' => $active['reservation_id'] ?? null,
                 'active_reservation_code' => $active['reservation_code'] ?? null,
+                'route_progress_percent' => $routeProgressPercent,
+                'distance_travelled_km' => (float) ($latest->distance_travelled_km ?? 0),
+                'total_distance_km' => (float) ($latest->total_distance_km ?? 0),
                 'is_simulated' => $this->isSimulatedDevice((string) $latest->device_id),
                 'has_route' => false,
                 'route' => [],
@@ -102,6 +117,15 @@ class MapView extends Component
         if (!$this->showSimulated) {
             $vehicles = $vehicles->filter(function (array $vehicle) {
                 return !$vehicle['is_simulated'];
+            });
+        }
+
+        if ($this->showOnlyActive) {
+            $vehicles = $vehicles->filter(function (array $vehicle) {
+                $hasActiveReservation = !empty($vehicle['active_reservation_id']) && $vehicle['type'] === 'vehiculo';
+                $isActiveDriver = $vehicle['type'] === 'conductor' && $vehicle['status'] === 'active';
+
+                return $hasActiveReservation || $isActiveDriver;
             });
         }
 

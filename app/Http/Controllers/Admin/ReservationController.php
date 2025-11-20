@@ -27,7 +27,10 @@ class ReservationController extends Controller
     public function create()
     {
         $users = \App\Models\User::orderBy('name')->get();
-        $vehicles = \App\Models\Vehicle::where('estado', 'disponible')->orderBy('placa')->get();
+        $vehicles = \App\Models\Vehicle::where('estado', 'disponible')
+            ->where('visible_catalogo', true)
+            ->orderBy('placa')
+            ->get();
         $conductores = \App\Models\User::role('conductor')->orderBy('name')->get();
         $sedes = \App\Models\Branch::orderBy('nombre')->get();
         

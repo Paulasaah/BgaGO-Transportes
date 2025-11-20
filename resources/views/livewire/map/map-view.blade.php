@@ -113,6 +113,11 @@
                 <span>Mostrar simulados</span>
             </label>
 
+            <label class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                <input type="checkbox" wire:model.live="showOnlyActive" class="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500" />
+                <span>Ver solo servicios activos</span>
+            </label>
+
             <div class="flex-1"></div>
 
             <div class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -207,6 +212,12 @@
                             </span>
                         </div>
 
+                        @if(!empty($vehicle['active_reservation_id']) && $vehicle['type'] === 'vehiculo')
+                            <div class="mt-1 text-[11px] text-emerald-700 dark:text-emerald-300">
+                                Reserva en curso: {{ $vehicle['active_reservation_code'] }}
+                            </div>
+                        @endif
+
                         {{-- Información --}}
                         <div class="space-y-1.5 text-xs">
                             {{-- Batería --}}
@@ -236,6 +247,25 @@
                                          style="width: {{ $vehicle['battery_health'] }}%"></div>
                                 </div>
                             </div>
+
+                            @if($vehicle['type'] === 'vehiculo'
+                                && $vehicle['status'] === 'active'
+                                && $vehicle['total_distance_km'] > 0
+                                && !is_null($vehicle['route_progress_percent']))
+                                <div>
+                                    <div class="flex justify-between mb-0.5">
+                                        <span class="text-zinc-600 dark:text-zinc-400">Progreso ruta</span>
+                                        <span class="font-medium text-zinc-900 dark:text-white">
+                                            {{ $vehicle['route_progress_percent'] }}%
+                                            ({{ number_format($vehicle['distance_travelled_km'], 1) }} / {{ number_format($vehicle['total_distance_km'], 1) }} km)
+                                        </span>
+                                    </div>
+                                    <div class="w-full h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full bg-blue-500"
+                                             style="width: {{ $vehicle['route_progress_percent'] }}%"></div>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
 
                         {{-- Detalles --}}
@@ -322,7 +352,9 @@
         echoChannel: null,
         currentFilters: {
             type: 'all',
-            status: 'all'
+            status: 'all',
+            showSimulated: true,
+            showOnlyActive: false,
         }
     };
 
@@ -381,6 +413,11 @@
         const statusColor = getStatusColor(v.status);
         const batteryColor = getBatteryColor(v.battery);
         const healthColor = v.battery_health >= 80 ? '#22c55e' : v.battery_health >= 60 ? '#eab308' : '#ef4444';
+        const hasRouteProgress =
+            v.type === 'vehiculo' &&
+            v.total_distance_km &&
+            v.total_distance_km > 0 &&
+            typeof v.route_progress_percent === 'number';
         
         return `
             <div style="min-width:240px;font-family:system-ui;padding:12px;">
@@ -408,6 +445,14 @@
                             ${v.status_label}
                         </span>
                     </div>
+                    ${v.active_reservation_id && v.type === 'vehiculo' ? `
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin:4px 0;">
+                        <span style="color:#71717a;">Servicio</span>
+                        <span style="font-size:11px;font-weight:600;color:#16a34a;">
+                            Reserva en curso (${v.active_reservation_code})
+                        </span>
+                    </div>
+                    ` : ''}
                     
                     <div style="margin:10px 0;">
                         <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
@@ -428,6 +473,20 @@
                             <div style="background:${healthColor};height:100%;width:${v.battery_health}%;border-radius:999px;transition:width 0.3s;"></div>
                         </div>
                     </div>
+                    ${hasRouteProgress ? `
+                    <div style="margin:10px 0;">
+                        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+                            <span style="color:#71717a;">Progreso de ruta</span>
+                            <span style="font-weight:600;">
+                                ${v.route_progress_percent.toFixed(0)}%
+                                (${v.distance_travelled_km.toFixed(1)} / ${v.total_distance_km.toFixed(1)} km)
+                            </span>
+                        </div>
+                        <div style="background:#e4e4e7;border-radius:999px;height:6px;overflow:hidden;">
+                            <div style="background:#3b82f6;height:100%;width:${Math.min(100, Math.max(0, v.route_progress_percent))}%;border-radius:999px;transition:width 0.3s;"></div>
+                        </div>
+                    </div>
+                    ` : ''}
                     
                     ${v.speed > 0 ? `
                     <div style="display:flex;justify-content:space-between;margin:8px 0;">
@@ -1148,20 +1207,46 @@
         }
     });
 
+    // Función auxiliar para detectar dispositivos simulados por ID
+    function isSimulatedDeviceId(deviceId) {
+        if (typeof deviceId !== 'string') return false;
+        return deviceId.startsWith('VH-') || deviceId.startsWith('CD-');
+    }
+
     // Función para verificar si un vehículo pasa los filtros
     function shouldShowVehicle(vehicle) {
         const filters = mapState.currentFilters;
-        
+
+        const isSimulated = typeof vehicle.is_simulated !== 'undefined'
+            ? !!vehicle.is_simulated
+            : isSimulatedDeviceId(vehicle.device_id);
+
+        // Filtro por simulados
+        if (filters.showSimulated === false && isSimulated) {
+            return false;
+        }
+
         // Filtro por tipo
         if (filters.type !== 'all' && vehicle.type !== filters.type) {
             return false;
         }
-        
+
         // Filtro por estado
         if (filters.status !== 'all' && vehicle.status !== filters.status) {
             return false;
         }
-        
+
+        // Filtro "solo servicios activos"
+        if (filters.showOnlyActive) {
+            const hasActiveReservation = !!vehicle.active_reservation_id && vehicle.type === 'vehiculo';
+            const isActiveDriver = vehicle.type === 'conductor' && vehicle.status === 'active';
+            const isIotActiveVehicle = vehicle.type === 'vehiculo' && vehicle.status === 'active';
+
+            if (!hasActiveReservation && !isActiveDriver && !isIotActiveVehicle) {
+                return false;
+            }
+        }
+
         return true;
     }
 
@@ -1170,13 +1255,17 @@
         // Actualizar filtros locales cuando cambian en Livewire
         const typeSelect = document.querySelector('[wire\\:model\\.live="filterType"]');
         const statusSelect = document.querySelector('[wire\\:model\\.live="filterStatus"]');
-        
+        const showSimulatedCheckbox = document.querySelector('[wire\\:model\\.live="showSimulated"]');
+        const showOnlyActiveCheckbox = document.querySelector('[wire\\:model\\.live="showOnlyActive"]');
+
         if (typeSelect) {
             mapState.currentFilters.type = typeSelect.value;
         }
         if (statusSelect) {
             mapState.currentFilters.status = statusSelect.value;
         }
+        mapState.currentFilters.showSimulated = showSimulatedCheckbox ? showSimulatedCheckbox.checked : true;
+        mapState.currentFilters.showOnlyActive = !!(showOnlyActiveCheckbox && showOnlyActiveCheckbox.checked);
     });
 
     // Laravel Echo - Broadcasting en tiempo real

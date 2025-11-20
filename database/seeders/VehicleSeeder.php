@@ -11,11 +11,11 @@ class VehicleSeeder extends Seeder
 {
     public function run(): void
     {
-        $branchIds = Branch::pluck('id')->toArray();
-        $userIds = User::pluck('id')->toArray();
+        $branchesByName = Branch::pluck('id', 'nombre')->toArray();
+        $driverUserIds = User::role('conductor')->pluck('id')->toArray();
 
-        if (empty($branchIds) || empty($userIds)) {
-            $this->command->warn('⚠️ No hay datos suficientes en Branch o User para crear vehículos.');
+        if (empty($branchesByName)) {
+            $this->command->warn('⚠️ No hay sedes (Branch) para crear vehículos.');
             return;
         }
 
@@ -32,14 +32,46 @@ class VehicleSeeder extends Seeder
             ['placa' => 'TGB-159', 'marca' => 'Suzuki', 'modelo' => 'Gixxer', 'year' => 2021, 'tipo' => 'moto', 'color' => 'Blanco'],
         ];
 
-        foreach ($vehicles as $v) {
+        $totalVehicles = count($vehicles);
+
+        // Definir cuántos vehículos serán de catálogo vs flota de domicilios
+        $catalogCount = min(6, $totalVehicles); // primeros 6 para catálogo (si existen)
+
+        // Asignación determinística placa -> sede por nombre
+        $plateBranchMap = [
+            'ABC-123' => 'Cabecera',
+            'GHJ-321' => 'Cabecera',
+            'QWE-654' => 'Cabecera',
+            'XYZ-789' => 'Centro',
+            'POI-852' => 'Centro',
+            'LMN-456' => 'Floridablanca',
+            'RTY-963' => 'Floridablanca',
+            'VBN-357' => 'Cañaveral',
+            'TGB-159' => 'Cañaveral',
+            'UJK-741' => 'Cañaveral',
+        ];
+
+        foreach ($vehicles as $index => $v) {
+            $branchName = $plateBranchMap[$v['placa']] ?? array_key_first($branchesByName);
+            $branchId = $branchesByName[$branchName] ?? reset($branchesByName);
+
+            // Catálogo: visibles, sin conductor obligatorio
+            $isCatalog = $index < $catalogCount;
+
+            $conductorId = null;
+            if (!$isCatalog && !empty($driverUserIds)) {
+                // Flota de domicilios: asignar un conductor activo
+                $conductorId = $driverUserIds[array_rand($driverUserIds)];
+            }
+
             Vehicle::updateOrCreate(
                 ['placa' => $v['placa']], // clave única
                 array_merge($v, [
-                    'sede_id' => $branchIds[array_rand($branchIds)],
-                    'conductor_id' => $userIds[array_rand($userIds)],
+                    // Asignar sedes en round-robin para garantizar al menos un vehículo por sede
+                    'sede_id' => $branchId,
+                    'conductor_id' => $conductorId,
                     'estado' => 'disponible',
-                    'visible_catalogo' => true,
+                    'visible_catalogo' => $isCatalog,
                     'precio_hora' => 15000,
                     'precio_dia' => 60000,
                     'imagen_principal' => 'https://via.placeholder.com/400x300',

@@ -122,13 +122,18 @@ class ReservationService extends BaseService
     {
         return $this->executeWithTransaction(function () use ($reservationId) {
             $reservation = Reservation::findOrFail($reservationId);
+            $user = auth()->user();
 
             if (!$reservation->isPendiente()) {
                 throw new Exception('Solo se pueden confirmar reservas pendientes');
             }
 
-            if (!$reservation->hasPaidPayment()) {
-                throw new Exception('La reserva debe tener un pago aprobado');
+            // 👑 Admin/SuperAdmin: pueden confirmar reservas pendientes sin pago previo
+            if (!$user || !$user->hasRole(['admin', 'super_admin'])) {
+                // 👤 Usuarios normales: se mantiene la regla de pago aprobado
+                if (!$reservation->hasPaidPayment()) {
+                    throw new Exception('La reserva debe tener un pago aprobado');
+                }
             }
 
             $reservation->update([

@@ -70,6 +70,9 @@ class ProcessTelemetryAction
             'target_branch' => $data['target_branch'] ?? null,
             'odometer' => $data['odometer'] ?? 0,
             'trip_count' => $data['trip_count'] ?? 0,
+            'route_progress' => $data['route_progress'] ?? 0,
+            'distance_travelled_km' => $data['distance_travelled_km'] ?? 0,
+            'total_distance_km' => $data['total_distance_km'] ?? 0,
             'battery_health' => $data['battery_health'] ?? 100,
             'maintenance_km_left' => $data['maintenance_km_left'] ?? 1000,
             'last_maintenance' => isset($data['last_maintenance']) 

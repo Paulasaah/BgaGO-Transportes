@@ -439,6 +439,8 @@ class DeliveryService extends BaseService
 
         $vehicle = Vehicle::where('sede_id', $reservation->sede_id)
             ->where('estado', VehicleStatus::Disponible)
+            ->where('visible_catalogo', false)
+            ->whereNotNull('conductor_id')
             ->lockForUpdate()
             ->orderBy('id')
             ->first();
