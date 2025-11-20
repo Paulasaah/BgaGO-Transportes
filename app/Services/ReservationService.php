@@ -8,19 +8,21 @@ use App\Enums\ReservationStatus;
 use App\Enums\ReservationType;
 use Carbon\Carbon;
 use Exception;
-use Illuminate\Support\Facades\Auth;
 
 class ReservationService extends BaseService
 {
     protected PricingService $pricingService;
     protected VehicleAvailabilityService $availabilityService;
+    protected RouteService $routeService;
 
     public function __construct(
         PricingService $pricingService,
-        VehicleAvailabilityService $availabilityService
+        VehicleAvailabilityService $availabilityService,
+        RouteService $routeService
     ) {
         $this->pricingService = $pricingService;
         $this->availabilityService = $availabilityService;
+        $this->routeService = $routeService;
     }
 
     /**
@@ -54,14 +56,32 @@ class ReservationService extends BaseService
                 throw new Exception($isAvailable['message']);
             }
 
+            // Calcular precio
             $pricing = $this->pricingService->calculateReservationPrice(
                 $vehicle,
                 $fechaInicio,
                 $fechaFin
             );
 
-            $total = ($pricing['data']['total'] ?? 0)
-                + ((isset($data['entrega_domicilio']) && $data['entrega_domicilio']) ? 5000 : 0);
+            // Calcular ruta OSRM de forma opcional (solo si vienen coordenadas)
+            $route = null;
+            if (
+                !empty($data['origen_lat']) &&
+                !empty($data['origen_lng']) &&
+                !empty($data['destino_lat']) &&
+                !empty($data['destino_lng'])
+            ) {
+                $routeResult = $this->routeService->calculateRoute(
+                    (float) $data['origen_lat'],
+                    (float) $data['origen_lng'],
+                    (float) $data['destino_lat'],
+                    (float) $data['destino_lng']
+                );
+
+                if ($routeResult['success']) {
+                    $route = $routeResult['data'];
+                }
+            }
 
             // Crear reserva
             $reservation = Reservation::create([
@@ -75,11 +95,17 @@ class ReservationService extends BaseService
                 'fecha_fin' => $fechaFin,
                 'monto' => $pricing['data']['subtotal'],
                 'descuento' => $pricing['data']['descuento'] ?? 0,
-                'monto_final' => $total,
+                'monto_final' => $pricing['data']['total'],
                 'duracion_minutos' => $fechaInicio->diffInMinutes($fechaFin),
                 'notas_cliente' => $data['notas_cliente'] ?? null,
                 'origen_direccion' => $data['origen_direccion'] ?? 'Sin dirección',
-                'destino_direccion' => $data['destino_direccion'] ?? ($data['origen_direccion'] ?? 'Sede'),
+                'origen_lat' => $data['origen_lat'] ?? null,
+                'origen_lng' => $data['origen_lng'] ?? null,
+                'destino_direccion' => $data['destino_direccion'] ?? null,
+                'destino_lat' => $data['destino_lat'] ?? null,
+                'destino_lng' => $data['destino_lng'] ?? null,
+                'waypoints' => $route['geometry'] ?? null,
+                'distancia_km' => $route['distance_km'] ?? null,
             ]);
 
             // Actualizar estado del vehículo
@@ -168,9 +194,8 @@ class ReservationService extends BaseService
 
             $reservation->update($updateData);
 
-            if ($reservation->vehicle) {
-                $reservation->vehicle->update(['estado' => 'disponible']);
-            }
+            // Liberar vehículo
+            $reservation->vehicle->update(['estado' => 'disponible']);
 
             return $reservation->fresh();
         }, 'completar_reserva');
@@ -178,7 +203,7 @@ class ReservationService extends BaseService
 
     /**
      * Cancelar reserva
-     *
+     * 
      * @param int $reservationId
      * @param string|null $motivo
      * @param int|null $canceladoPor
@@ -188,11 +213,11 @@ class ReservationService extends BaseService
     {
         return $this->executeWithTransaction(function () use ($reservationId, $motivo, $canceladoPor) {
             $reservation = Reservation::findOrFail($reservationId);
-
+            
             // ⚠️ NOTA: Este método NO debería ser llamado por admins
             // Los admins cancelan directamente desde el Controller
             // Este método solo se llama para usuarios normales
-
+            
             // 👤 USUARIOS NORMALES: Solo pueden cancelar si el estado lo permite
             if (!$reservation->canBeCancelled()) {
                 throw new Exception(
@@ -200,7 +225,7 @@ class ReservationService extends BaseService
                 );
             }
 
-            $user = Auth::user();
+            $user = auth()->user();
             $motivoFinal = $motivo ?: 'Cancelación sin motivo especificado';
 
             $reservation->update([
@@ -294,69 +319,5 @@ class ReservationService extends BaseService
                     ->avg('calificacion_conductor')
             ];
         }, 'obtener_estadisticas_usuario');
-    }
-
-    /**
-     * Aceptación por conductor: asignar y confirmar
-     */
-    public function driverAccept(int $reservationId, int $driverId): array
-    {
-        return $this->executeWithTransaction(function () use ($reservationId, $driverId) {
-            $reservation = Reservation::lockForUpdate()->findOrFail($reservationId);
-
-            if ($reservation->estado->isFinal()) {
-                throw new Exception('La reserva está en estado final');
-            }
-
-            if ($reservation->conductor_id && $reservation->conductor_id !== $driverId) {
-                throw new Exception('La reserva ya tiene otro conductor asignado');
-            }
-
-            $reservation->update([
-                'conductor_id' => $driverId,
-                'estado' => ReservationStatus::Confirmada,
-                'fecha_confirmacion' => now(),
-            ]);
-
-            $this->logSuccess('conductor_acepta_reserva', [
-                'reservation_id' => $reservationId,
-                'driver_id' => $driverId,
-            ]);
-
-            return $reservation->fresh();
-        }, 'aceptar_reserva_conductor');
-    }
-
-    /**
-     * Rechazo por conductor: cancelar pendiente/confirmada
-     */
-    public function driverReject(int $reservationId, int $driverId, ?string $motivo = null): array
-    {
-        return $this->executeWithTransaction(function () use ($reservationId, $driverId, $motivo) {
-            $reservation = Reservation::lockForUpdate()->findOrFail($reservationId);
-
-            if ($reservation->estado->isFinal()) {
-                throw new Exception('La reserva está en estado final');
-            }
-
-            $reservation->update([
-                'estado' => ReservationStatus::Cancelada,
-                'motivo_cancelacion' => $motivo ?: 'Rechazada por el conductor',
-                'cancelado_por' => $driverId,
-                'fecha_cancelacion' => now(),
-            ]);
-
-            // Liberar vehículo si corresponde
-            if ($reservation->vehicle && $reservation->vehicle->isOcupado()) {
-                $reservation->vehicle->update(['estado' => 'disponible']);
-            }
-
-            $this->logSuccess('conductor_rechaza_reserva', [
-                'reservation_id' => $reservationId,
-                'driver_id' => $driverId,
-            ]);
-
-            return $reservation->fresh();
-        }, 'rechazar_reserva_conductor');
     }
 }

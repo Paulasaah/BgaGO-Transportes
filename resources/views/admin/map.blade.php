@@ -8,7 +8,7 @@
 
         <!-- Componente del Mapa -->
         <div class="flex-1 min-h-0">
-            <livewire:map.map-view />
+            <livewire:map.map-view :reservationId="request('reservation')" />
         </div>
     </div>
 </x-layouts.app>

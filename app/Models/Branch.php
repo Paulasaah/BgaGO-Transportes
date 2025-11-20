@@ -62,4 +62,42 @@ class Branch extends Model
             ? round(($currentDevices / $this->capacidad_vehiculos) * 100, 1)
             : 0;
     }
+
+    /**
+     * Encontrar la sede más cercana a unas coordenadas dadas.
+     */
+    public static function findNearestTo(float $lat, float $lon): ?self
+    {
+        $branches = self::whereNotNull('lat')
+            ->whereNotNull('lon')
+            ->get();
+
+        if ($branches->isEmpty()) {
+            return null;
+        }
+
+        $deg2rad = M_PI / 180;
+        $best = null;
+
+        foreach ($branches as $branch) {
+            $dLat = ($branch->lat - $lat) * $deg2rad;
+            $dLon = ($branch->lon - $lon) * $deg2rad;
+
+            $a = sin($dLat / 2) ** 2
+                + cos($lat * $deg2rad) * cos($branch->lat * $deg2rad)
+                * sin($dLon / 2) ** 2;
+
+            $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+            $distance = 6371 * $c; // km
+
+            if ($best === null || $distance < $best['distance']) {
+                $best = [
+                    'branch' => $branch,
+                    'distance' => $distance,
+                ];
+            }
+        }
+
+        return $best['branch'] ?? null;
+    }
 }

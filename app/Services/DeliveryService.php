@@ -9,14 +9,22 @@ use App\Enums\ReservationStatus;
 use App\Enums\DeliveryType;
 use Carbon\Carbon;
 use Exception;
+use App\Contracts\GeocodingService;
 
 class DeliveryService extends BaseService
 {
     protected PricingService $pricingService;
+    protected RouteService $routeService;
+    protected GeocodingService $geocodingService;
 
-    public function __construct(PricingService $pricingService)
-    {
+    public function __construct(
+        PricingService $pricingService,
+        RouteService $routeService,
+        GeocodingService $geocodingService
+    ) {
         $this->pricingService = $pricingService;
+        $this->routeService = $routeService;
+        $this->geocodingService = $geocodingService;
     }
 
     /**
@@ -31,24 +39,68 @@ class DeliveryService extends BaseService
                 'sede_id',
                 'direccion_origen',
                 'direccion_destino',
-                'nombre_remitente',
-                'telefono_remitente',
-                'nombre_destinatario',
-                'telefono_destinatario',
             ]);
 
-            // ✅ Calcular distancia y tiempo
+            // Intentar obtener coordenadas
+            $hasOriginCoords = !empty($data['lat_origen']) && !empty($data['lon_origen']);
+            $hasDestCoords = !empty($data['lat_destino']) && !empty($data['lon_destino']);
+
+            if (!$hasOriginCoords && !empty($data['direccion_origen'])) {
+                $geoOrigin = $this->geocodingService->geocode($data['direccion_origen']);
+                if (!$geoOrigin['success']) {
+                    throw new Exception('No se pudo geocodificar la dirección de origen');
+                }
+
+                $data['lat_origen'] = $geoOrigin['lat'];
+                $data['lon_origen'] = $geoOrigin['lng'];
+            }
+
+            if (!$hasDestCoords && !empty($data['direccion_destino'])) {
+                $geoDest = $this->geocodingService->geocode($data['direccion_destino']);
+                if (!$geoDest['success']) {
+                    throw new Exception('No se pudo geocodificar la dirección de destino');
+                }
+
+                $data['lat_destino'] = $geoDest['lat'];
+                $data['lon_destino'] = $geoDest['lng'];
+            }
+
+            // ✅ Calcular distancia y tiempo usando OSRM
             $origenCoords = $this->parseCoordinates($data['lat_origen'] . ',' . $data['lon_origen']);
             $destinoCoords = $this->parseCoordinates($data['lat_destino'] . ',' . $data['lon_destino']);
 
-            $distanciaKm = $this->calculateDistance(
+            $routeResult = $this->routeService->calculateRoute(
                 $origenCoords['lat'],
                 $origenCoords['lng'],
                 $destinoCoords['lat'],
                 $destinoCoords['lng']
             );
 
-            $tiempoEstimado = $this->calculateEstimatedTime($distanciaKm);
+            if (!$routeResult['success']) {
+                throw new Exception('No se pudo calcular la ruta OSRM: ' . $routeResult['message']);
+            }
+
+            $route = $routeResult['data'];
+
+            $distanciaKm = $route['distance_km'];
+            $tiempoEstimado = $route['duration_minutes'];
+
+            // ✅ Ajustar tiempo estimado usando una velocidad promedio de ciudad
+            // Esto evita tiempos demasiado optimistas de OSRM (ej. 2-3 minutos para trayectos urbanos largos)
+            $citySpeed = (float) config('delivery.city_speed_kmh', 25);
+            if ($citySpeed > 0 && $distanciaKm > 0) {
+                $minCityDuration = (int) ceil(($distanciaKm / $citySpeed) * 60); // minutos
+                if ($minCityDuration > $tiempoEstimado) {
+                    $tiempoEstimado = $minCityDuration;
+                }
+            }
+
+            // ✅ Calcular hora de recogida y fin estimado a partir de OSRM
+            $pickupAt = isset($data['fecha_recogida'])
+                ? Carbon::parse($data['fecha_recogida'])
+                : now();
+
+            $estimatedEndAt = (clone $pickupAt)->addMinutes($tiempoEstimado);
 
             // ✅ Calcular precio
             $pricing = $this->pricingService->calculateDeliveryPrice(
@@ -69,10 +121,11 @@ class DeliveryService extends BaseService
                 'destino_direccion' => $data['direccion_destino'],
                 'destino_lat' => $destinoCoords['lat'],
                 'destino_lng' => $destinoCoords['lng'],
+                'waypoints' => $route['geometry'],
                 'distancia_km' => $distanciaKm,
                 'duracion_minutos' => $tiempoEstimado,
-                'fecha_inicio' => Carbon::parse($data['fecha_recogida'] ?? now()),
-                'fecha_fin' => Carbon::parse($data['fecha_recogida'] ?? now())->addMinutes($tiempoEstimado),
+                'fecha_inicio' => $pickupAt,
+                'fecha_fin' => $estimatedEndAt,
                 'monto' => $pricing['data']['subtotal'],
                 'descuento' => $pricing['data']['descuento'] ?? 0,
                 'monto_final' => $pricing['data']['total'],
@@ -93,19 +146,20 @@ class DeliveryService extends BaseService
                 'lat_destino' => $data['lat_destino'],
                 'lon_destino' => $data['lon_destino'],
 
-                // Datos de contacto
-                'nombre_remitente' => $data['nombre_remitente'],
-                'telefono_remitente' => $data['telefono_remitente'],
-                'nombre_destinatario' => $data['nombre_destinatario'],
-                'telefono_destinatario' => $data['telefono_destinatario'],
+                // Datos de contacto (opcionales en flujos admin)
+                'nombre_remitente' => $data['nombre_remitente'] ?? null,
+                'telefono_remitente' => $data['telefono_remitente'] ?? null,
+                'nombre_destinatario' => $data['nombre_destinatario'] ?? null,
+                'telefono_destinatario' => $data['telefono_destinatario'] ?? null,
 
                 // Detalles adicionales
                 'descripcion_contenido' => $data['descripcion_contenido'] ?? null,
-                'peso_estimado' => $data['peso_kg'] ?? null,
+                'peso_estimado' => $data['peso_estimado'] ?? ($data['peso_kg'] ?? null),
                 'requiere_firma' => $data['requiere_firma'] ?? false,
                 'es_fragil' => $data['es_fragil'] ?? false,
                 'instrucciones_especiales' => $data['instrucciones_especiales'] ?? null,
-                'costo' => $data['costo'] ?? $pricing['data']['total'] ?? 0,
+                'costo' => $data['costo'] ?? ($pricing['data']['total'] ?? 0),
+                'fecha_entrega_estimada' => $estimatedEndAt,
             ]);
 
             return $delivery->load(['user', 'reservation.branch']);
@@ -126,7 +180,7 @@ class DeliveryService extends BaseService
 
             $delivery->update([
                 'conductor_id' => $conductorId,
-                'estado' => 'en_camino', // cambia de 'pendiente' a 'en_camino' al asignar
+                'estado' => 'asignado', // el servicio queda asignado al conductor, pero aún no en camino
             ]);
 
             if ($delivery->reservation) {

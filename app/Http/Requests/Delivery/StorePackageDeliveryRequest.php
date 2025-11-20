@@ -39,12 +39,12 @@ class StorePackageDeliveryRequest extends FormRequest
                 'max:255',
             ],
             'lat_origen' => [
-                'required',
+                'nullable',
                 'numeric',
                 'between:-90,90',
             ],
             'lon_origen' => [
-                'required',
+                'nullable',
                 'numeric',
                 'between:-180,180',
             ],
@@ -56,12 +56,12 @@ class StorePackageDeliveryRequest extends FormRequest
                 'max:255',
             ],
             'lat_destino' => [
-                'required',
+                'nullable',
                 'numeric',
                 'between:-90,90',
             ],
             'lon_destino' => [
-                'required',
+                'nullable',
                 'numeric',
                 'between:-180,180',
             ],

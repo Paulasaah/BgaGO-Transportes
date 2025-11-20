@@ -5,6 +5,7 @@ namespace App\Livewire\Map;
 use Livewire\Component;
 use App\Models\Telemetria;
 use App\Models\Branch;
+use App\Models\Reservation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
 
@@ -28,9 +29,16 @@ class MapView extends Component
         'avg_battery' => 0,
     ];
 
-    public function mount()
+    public ?int $reservationId = null;
+
+    public function mount(?int $reservationId = null)
     {
+        $this->reservationId = $reservationId;
         $this->loadMapData();
+
+        if ($this->reservationId) {
+            $this->loadReservationForMap();
+        }
     }
 
     public function loadMapData()
@@ -131,6 +139,38 @@ class MapView extends Component
             'offline' => 'Desconectado',
             default => 'Desconocido',
         };
+    }
+
+    private function loadReservationForMap(): void
+    {
+        if (!$this->reservationId) {
+            return;
+        }
+
+        $reservation = Reservation::with('branch')->find($this->reservationId);
+
+        if (!$reservation) {
+            return;
+        }
+
+        $payload = [
+            'id' => $reservation->id,
+            'tipo' => $reservation->tipo->value,
+            'estado' => $reservation->estado->value,
+            'waypoints' => $reservation->waypoints,
+            'distancia_km' => $reservation->distancia_km,
+            'duracion_minutos' => $reservation->duracion_minutos,
+            'monto_final' => $reservation->monto_final,
+            'origen_lat' => $reservation->origen_lat,
+            'origen_lng' => $reservation->origen_lng,
+            'destino_lat' => $reservation->destino_lat,
+            'destino_lng' => $reservation->destino_lng,
+            'branch_lat' => $reservation->branch?->lat,
+            'branch_lng' => $reservation->branch?->lon,
+            'branch_nombre' => $reservation->branch?->nombre,
+        ];
+
+        $this->dispatch('showReservationRoute', reservation: $payload);
     }
 
     public function refreshMap()

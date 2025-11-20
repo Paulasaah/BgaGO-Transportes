@@ -70,12 +70,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | OSRM 
+    | OSRM Routing Engine
     |--------------------------------------------------------------------------
+    | Configuración para el motor de rutas OSRM
     */
 
     'osrm' => [
-        'host' => env('OSRM_HOST'),
+        'host' => env('OSRM_HOST', 'osrm'),
+        'port' => env('OSRM_PORT', 5000),
+        'profile' => env('OSRM_PROFILE', 'driving'),
+        'timeout' => env('OSRM_TIMEOUT', 10),
     ],
 
 
