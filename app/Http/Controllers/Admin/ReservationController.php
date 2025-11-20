@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Enums\ReservationStatus;
+use App\Enums\ReservationType;
 use App\Services\ReservationService;
 use App\Services\DeliveryService;
 use Illuminate\Http\Request;
@@ -59,7 +60,7 @@ class ReservationController extends Controller
             'fecha_inicio'  => 'nullable|date',
             'vehicle_id'    => 'nullable|exists:vehicles,id',
             'conductor_id'  => 'nullable|exists:users,id',
-            'sede_id'       => 'required|exists:branches,id',
+            'sede_id'       => 'nullable|exists:branches,id',
             'observaciones' => 'nullable|string|max:1000',
             // Coordenadas opcionales (por autocompletado)
             'lat_origen'    => 'nullable|numeric|between:-90,90',
@@ -78,16 +79,31 @@ class ReservationController extends Controller
             $rules['fecha_fin']        = 'nullable';
             $rules['direccion_origen'] = 'required|string|max:500';
             $rules['direccion_destino']= 'required|string|max:500';
+            $rules['sede_id']          = 'required|exists:branches,id';
         }
 
         $validated = $request->validate($rules);
 
         if ($request->tipo === 'reserva') {
+            $vehicle = \App\Models\Vehicle::findOrFail((int) $validated['vehicle_id']);
+
+            $sedeId = $vehicle->sede_id ?? ($validated['sede_id'] ?? null);
+
+            if (!$sedeId) {
+                return redirect()
+                    ->back()
+                    ->withInput()
+                    ->with('notification', [
+                        'type'    => 'error',
+                        'message' => 'El vehículo seleccionado no tiene una sede asociada. Configura la sede del vehículo antes de crear la reserva.',
+                    ]);
+            }
+
             // Usar ReservationService para respetar la lógica de negocio (precio, disponibilidad, etc.)
             $data = [
                 'user_id'           => (int) $validated['user_id'],
                 'vehiculo_id'       => (int) $validated['vehicle_id'],
-                'sede_id'           => (int) $validated['sede_id'],
+                'sede_id'           => (int) $sedeId,
                 'fecha_inicio'      => $validated['fecha_inicio'],
                 'fecha_fin'         => $validated['fecha_fin'],
                 'origen_direccion'  => $validated['direccion_origen']  ?? 'Sin dirección',
@@ -164,6 +180,65 @@ class ReservationController extends Controller
     {
         $reservation->load(['user', 'vehicle', 'driver', 'branch']);
         return view('admin.reservations.show', compact('reservation'));
+    }
+
+    public function start(Reservation $reservation)
+    {
+        if (in_array($reservation->estado, [ReservationStatus::Completada, ReservationStatus::Cancelada])) {
+            return back()->with('notification', [
+                'type' => 'error',
+                'message' => 'No se puede activar una reserva completada o cancelada',
+            ]);
+        }
+
+        try {
+            if ($reservation->tipo === ReservationType::Domicilio) {
+                $delivery = \App\Models\Delivery::where('reserva_id', $reservation->id)->first();
+
+                if (!$delivery) {
+                    return back()->with('notification', [
+                        'type' => 'error',
+                        'message' => 'No se encontró el domicilio asociado a esta reserva',
+                    ]);
+                }
+
+                $result = $this->deliveryService->startDelivery($delivery->id);
+            } else {
+                if ($reservation->estado === ReservationStatus::Pendiente) {
+                    $confirmResult = $this->reservationService->confirmReservation($reservation->id);
+
+                    if (!$confirmResult['success']) {
+                        return back()->with('notification', [
+                            'type' => 'error',
+                            'message' => $confirmResult['message'],
+                        ]);
+                    }
+
+                    $reservation = $confirmResult['data'];
+                }
+
+                $result = $this->reservationService->startReservation($reservation->id);
+            }
+
+            if (!$result['success']) {
+                return back()->with('notification', [
+                    'type' => 'error',
+                    'message' => $result['message'],
+                ]);
+            }
+
+            return back()->with('notification', [
+                'type' => 'success',
+                'message' => 'Reserva activada exitosamente',
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('notification', [
+                'type' => 'error',
+                'message' => 'Ocurrió un error al activar la reserva',
+            ]);
+        }
     }
 
     /**

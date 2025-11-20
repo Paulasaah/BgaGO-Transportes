@@ -7,16 +7,40 @@ import random
 import os
 import sys
 from datetime import datetime
+import requests
 
 # Forzar unbuffered output para Docker
 sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', buffering=1)
 sys.stderr = os.fdopen(sys.stderr.fileno(), 'w', buffering=1)
+
+"""Simulador MQTT para vehículos reales y conductores.
+
+Para vehículos reales (placas como GHJ-321):
+- Lee servicios activos/vehículos idle desde Laravel vía /api/simulation/*.
+- Recorre la ruta OSRM (geometry) punto a punto.
+- Calcula progreso de ruta y consumo de batería basado en la distancia recorrida.
+- Opcionalmente, puede auto-completar la reserva al llegar al destino.
+"""
 
 # CONFIGURACIÓN
 BROKER_HOST = os.getenv("BROKER_HOST", "127.0.0.1")
 BROKER_PORT = int(os.getenv("BROKER_PORT", 1883))
 TOPIC_TEMPLATE = "vehiculos/{device_id}/telemetria"
 UPDATE_INTERVAL = 2.0
+
+LARAVEL_API_BASE = os.getenv("LARAVEL_API_BASE", "http://localhost:8000")
+LARAVEL_TOKEN = os.getenv("LARAVEL_TOKEN")
+
+# Si está en true, el publisher intentará llamar a /api/reservations/{id}/complete
+# cuando detecte que un vehículo real llegó al final de su ruta.
+PUBLISHER_AUTO_COMPLETE = os.getenv("PUBLISHER_AUTO_COMPLETE", "false").lower() == "true"
+
+# Consumo de batería/salud por kilómetro recorrido para vehículos reales
+BATTERY_CONSUMPTION_PER_KM = 0.8   # % de batería por km (aprox)
+HEALTH_DEGRADATION_PER_KM = 0.01   # % de health por km (aprox)
+
+SIM_VEHICLES = {}
+SIM_LOCK = threading.Lock()
 
 # SEDES DE BUCARAMANGA
 BRANCHES = {
@@ -89,6 +113,294 @@ def generate_delivery_route(start_branch):
                      "name": f"Entrega #{i+1}", "customer": f"Cliente-{random.randint(100, 999)}", "wait_time": random.uniform(4, 9)})
     route.append({"lat": start["lat"], "lon": start["lon"], "name": f"Retorno {start_branch}", "customer": "Sede", "wait_time": 0})
     return route
+
+def build_route_points(route):
+    geometry = route.get("geometry") or {}
+    coordinates = geometry.get("coordinates") or []
+    points = []
+    for item in coordinates:
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            lon, lat = float(item[0]), float(item[1])
+            points.append((lat, lon))
+    if not points:
+        origin = route.get("origin") or {}
+        destination = route.get("destination") or {}
+        o_lat = origin.get("lat")
+        o_lng = origin.get("lng")
+        d_lat = destination.get("lat")
+        d_lng = destination.get("lng")
+        if o_lat is not None and o_lng is not None and d_lat is not None and d_lng is not None:
+            points = [
+                (float(o_lat), float(o_lng)),
+                (float(d_lat), float(d_lng)),
+            ]
+    return points
+
+def fetch_simulation_data():
+    if not LARAVEL_API_BASE:
+        return
+    headers = {"Accept": "application/json"}
+    if LARAVEL_TOKEN:
+        headers["Authorization"] = f"Bearer {LARAVEL_TOKEN}"
+    active_services = []
+    idle_vehicles = []
+    try:
+        resp = requests.get(f"{LARAVEL_API_BASE.rstrip('/')}/api/simulation/active-services", headers=headers, timeout=5)
+        data = resp.json()
+        if isinstance(data, dict) and data.get("success") and isinstance(data.get("data"), list):
+            active_services = data["data"]
+    except Exception as e:
+        print(f"Error al obtener servicios activos: {e}")
+    try:
+        resp = requests.get(f"{LARAVEL_API_BASE.rstrip('/')}/api/simulation/idle-vehicles", headers=headers, timeout=5)
+        data = resp.json()
+        if isinstance(data, dict) and data.get("success") and isinstance(data.get("data"), list):
+            idle_vehicles = data["data"]
+    except Exception as e:
+        print(f"Error al obtener vehículos idle: {e}")
+    with SIM_LOCK:
+        active_ids = set()
+        idle_ids = set()
+        for service in active_services:
+            vehicle = service.get("vehicle") or {}
+            device_id = vehicle.get("device_id")
+            if not device_id:
+                continue
+
+            # Construir puntos de ruta desde OSRM / origen-destino
+            route = service.get("route") or {}
+            points = build_route_points(route)
+            if not points:
+                continue
+
+            active_ids.add(device_id)
+
+            reservation_id = service.get("id")
+            total_distance_km = float(route.get("distance_km") or 0.0)
+
+            entry = SIM_VEHICLES.get(device_id, {})
+            if not entry:
+                entry = {
+                    "device_id": device_id,
+                    "device_type": "vehiculo",
+                    "battery": random.uniform(60.0, 100.0),
+                    "battery_health": random.uniform(90.0, 100.0),
+                    "odometer": 0.0,
+                    "trip_count": 0,
+                    "maintenance_km_left": 1000.0,
+                    "distance_travelled_km": 0.0,
+                    "route_progress": 0.0,
+                    "completion_requested": False,
+                    "has_arrived": False,
+                }
+            else:
+                # Si la reserva cambió para este vehículo, reiniciar tracking de ruta
+                if entry.get("reservation_id") != reservation_id:
+                    entry["route_index"] = 0
+                    entry["distance_travelled_km"] = 0.0
+                    entry["route_progress"] = 0.0
+                    entry["completion_requested"] = False
+                    entry["has_arrived"] = False
+
+            entry["status"] = "active"
+            entry["reservation_id"] = reservation_id
+            entry["total_distance_km"] = total_distance_km
+            entry["route_points"] = points
+
+            # Asegurar que route_index esté dentro de rango
+            route_index = int(entry.get("route_index", 0))
+            if route_index >= len(points):
+                route_index = 0
+                entry["route_index"] = 0
+
+            entry["lat"], entry["lon"] = points[route_index]
+
+            branch = service.get("branch") or {}
+            entry["current_branch"] = branch.get("name")
+            entry["target_branch"] = None
+            SIM_VEHICLES[device_id] = entry
+        for vehicle in idle_vehicles:
+            device_id = vehicle.get("device_id")
+            if not device_id:
+                continue
+            idle_ids.add(device_id)
+            entry = SIM_VEHICLES.get(device_id, {})
+            if not entry:
+                # Dispositivo nuevo: inicializar cerca de la sede
+                branch = vehicle.get("branch") or {}
+                entry = {
+                    "device_id": device_id,
+                    "device_type": "vehiculo",
+                    "battery": random.uniform(60.0, 100.0),
+                    "battery_health": random.uniform(90.0, 100.0),
+                    "odometer": 0.0,
+                    "trip_count": 0,
+                    "maintenance_km_left": 1000.0,
+                    "lat": float(branch.get("lat", 0) or 0),
+                    "lon": float(branch.get("lng", 0) or 0),
+                }
+            # Actualizar metadatos de sede, pero conservar la posición si ya existe
+            branch = vehicle.get("branch") or {}
+            entry["current_branch"] = branch.get("name")
+            entry["target_branch"] = None
+            entry["status"] = "idle"
+            entry["route_points"] = None
+            entry["route_index"] = 0
+            SIM_VEHICLES[device_id] = entry
+        valid_ids = active_ids.union(idle_ids)
+        for device_id in list(SIM_VEHICLES.keys()):
+            if device_id not in valid_ids:
+                del SIM_VEHICLES[device_id]
+
+
+def auto_complete_reservation(reservation_id: int):
+    """Intentar completar una reserva vía API Laravel.
+
+    Solo se ejecuta si PUBLISHER_AUTO_COMPLETE está habilitado. Cualquier error
+    se lanza al caller para logging, pero no detiene el hilo principal.
+    """
+
+    if not LARAVEL_API_BASE:
+        return
+
+    headers = {"Accept": "application/json"}
+    if LARAVEL_TOKEN:
+        headers["Authorization"] = f"Bearer {LARAVEL_TOKEN}"
+
+    url = f"{LARAVEL_API_BASE.rstrip('/')}/api/reservations/{reservation_id}/complete"
+    resp = requests.post(url, headers=headers, timeout=5)
+    # Si Laravel devuelve 4xx/5xx, que el caller decida qué hacer
+    resp.raise_for_status()
+
+def simulate_dynamic_vehicles():
+    print("Hilo de simulación de vehículos dinámicos iniciado")
+    while True:
+        try:
+            with SIM_LOCK:
+                snapshot = {k: v.copy() for k, v in SIM_VEHICLES.items()}
+            for device_id, device in snapshot.items():
+                current_speed = 0.0
+                lat = device.get("lat")
+                lon = device.get("lon")
+                route_points = device.get("route_points") or []
+                route_index = int(device.get("route_index", 0))
+                status = device.get("status", "idle")
+
+                if status == "active" and route_points:
+                    # Avanzar un punto en la ruta OSRM
+                    next_index = min(route_index + 1, len(route_points) - 1)
+                    next_lat, next_lon = route_points[next_index]
+                    prev_lat, prev_lon = lat, lon
+                    lat, lon = next_lat, next_lon
+
+                    dist_km = 0.0
+                    if prev_lat is not None and prev_lon is not None:
+                        dist_km = distance(prev_lat, prev_lon, lat, lon)
+
+                    if dist_km > 0:
+                        current_speed = dist_km / (UPDATE_INTERVAL / 3600.0)
+
+                    device["lat"] = lat
+                    device["lon"] = lon
+                    device["route_index"] = next_index
+
+                    # Actualizar métricas de recorrido
+                    device["odometer"] = float(device.get("odometer", 0.0)) + dist_km
+                    device["maintenance_km_left"] = float(device.get("maintenance_km_left", 1000.0)) - dist_km
+
+                    # Progreso de ruta basado en la distancia total planificada
+                    total_distance = float(device.get("total_distance_km", 0.0)) or 0.001
+                    travelled = float(device.get("distance_travelled_km", 0.0)) + dist_km
+                    device["distance_travelled_km"] = travelled
+                    device["route_progress"] = min(travelled / total_distance, 1.0)
+
+                    # Consumo de batería y degradación de health basado en km
+                    battery = float(device.get("battery", 100.0))
+                    battery_health = float(device.get("battery_health", 100.0))
+                    battery -= dist_km * BATTERY_CONSUMPTION_PER_KM
+                    battery_health -= dist_km * HEALTH_DEGRADATION_PER_KM
+                    device["battery"] = max(0.0, battery)
+                    device["battery_health"] = max(50.0, battery_health)
+
+                    # Detectar llegada al final de la ruta
+                    if next_index >= len(route_points) - 1:
+                        device["has_arrived"] = True
+
+                        # Incrementar contador de viajes del dispositivo
+                        device["trip_count"] = int(device.get("trip_count", 0)) + 1
+
+                        # Pasar el vehículo a estado idle y limpiar la ruta simulada
+                        device["status"] = "idle"
+                        device["route_points"] = []
+                        device["route_index"] = 0
+                        device["route_progress"] = 1.0
+
+                        # Opción B: auto-completar reserva si está habilitado
+                        reservation_id = device.get("reservation_id")
+                        if (
+                            PUBLISHER_AUTO_COMPLETE
+                            and reservation_id
+                            and not device.get("completion_requested")
+                        ):
+                            try:
+                                auto_complete_reservation(int(reservation_id))
+                                device["completion_requested"] = True
+                                print(
+                                    f"[" + device_id + "] Ruta completada, se solicitó complete para reserva "
+                                    f"{reservation_id}"
+                                )
+                            except Exception as e:
+                                print(
+                                    f"Error auto-completando reserva {reservation_id} para {device_id}: {e}"
+                                )
+                else:
+                    # Vehículos sin ruta activa: pequeño jitter alrededor de la posición
+                    if lat is not None and lon is not None:
+                        device["lat"] = lat + random.uniform(-0.00002, 0.00002)
+                        device["lon"] = lon + random.uniform(-0.00002, 0.00002)
+                with SIM_LOCK:
+                    if device_id in SIM_VEHICLES:
+                        SIM_VEHICLES[device_id].update(device)
+                payload = {
+                    "device_id": device_id,
+                    "device_type": "vehiculo",
+                    "status": device.get("status", "idle"),
+                    "Geopoint": {
+                        "lat": round(device.get("lat", 0.0), 8),
+                        "lon": round(device.get("lon", 0.0), 8),
+                        "alt": 0,
+                    },
+                    "Battery": round(float(device.get("battery", 100.0)), 1),
+                    "battery_health": round(float(device.get("battery_health", 100.0)), 1),
+                    "speed": round(current_speed, 1),
+                    "current_branch": device.get("current_branch"),
+                    "target_branch": device.get("target_branch"),
+                    "odometer": round(float(device.get("odometer", 0.0)), 2),
+                    "trip_count": int(device.get("trip_count", 0)),
+                    "maintenance_km_left": round(float(device.get("maintenance_km_left", 1000.0)), 2),
+                    "last_maintenance": device.get("last_maintenance", datetime.now().strftime("%Y-%m-%d")),
+                    "route_progress": round(float(device.get("route_progress", 0.0)), 3),
+                    "distance_travelled_km": round(float(device.get("distance_travelled_km", 0.0)), 3),
+                    "total_distance_km": round(float(device.get("total_distance_km", 0.0)), 3),
+                    "has_arrived": bool(device.get("has_arrived", False)),
+                    "timestamp": datetime.now().isoformat(),
+                }
+                topic = TOPIC_TEMPLATE.format(device_id=device_id)
+                publish.single(topic, json.dumps(payload), hostname=BROKER_HOST, port=BROKER_PORT)
+                print(f"📡 [{device_id}] {payload['status']} | Bat: {payload['Battery']:.1f}% | Pos: {payload['Geopoint']['lat']:.6f},{payload['Geopoint']['lon']:.6f}", flush=True)
+            time.sleep(UPDATE_INTERVAL)
+        except Exception as e:
+            print(f"Error en simulación dinámica: {e}")
+            time.sleep(5)
+
+def simulation_sync_loop():
+    print("Hilo de sincronización con Laravel iniciado")
+    while True:
+        try:
+            fetch_simulation_data()
+        except Exception as e:
+            print(f"Error al sincronizar simulación: {e}")
+        time.sleep(10.0)
 
 def init_device_positions():
     for device_id, device in DEVICES.items():
@@ -300,22 +612,31 @@ if __name__ == "__main__":
     print("SIMULADOR MQTT - BgaGO v4.0")
     print("="*80)
     print(f"Broker: {BROKER_HOST}:{BROKER_PORT}")
-    print(f"Dispositivos: {len(DEVICES)}")
+    print(f"Dispositivos estáticos (conductores): {len([d for d in DEVICES.values() if d['type'] == 'conductor'])}")
     print("="*80)
-    
+
     init_device_positions()
-    
+
     threads = []
+
     for device_id, device in DEVICES.items():
-        t = threading.Thread(target=simulate_vehicle if device["type"] == "vehiculo" else simulate_conductor, 
-                            args=(device_id,), daemon=True)
-        t.start()
-        threads.append(t)
-        time.sleep(0.5)
-    
+        if device["type"] == "conductor":
+            t = threading.Thread(target=simulate_conductor, args=(device_id,), daemon=True)
+            t.start()
+            threads.append(t)
+            time.sleep(0.5)
+
+    sync_thread = threading.Thread(target=simulation_sync_loop, daemon=True)
+    sync_thread.start()
+    threads.append(sync_thread)
+
+    dynamic_thread = threading.Thread(target=simulate_dynamic_vehicles, daemon=True)
+    dynamic_thread.start()
+    threads.append(dynamic_thread)
+
     print("\nTodos los dispositivos iniciados")
     print("Presiona Ctrl+C para detener\n")
-    
+
     try:
         while True:
             time.sleep(1)

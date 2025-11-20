@@ -219,7 +219,7 @@ use App\Enums\ReservationType;
                 <flux:heading size="lg" class="mb-4">Asignación</flux:heading>
                 
                 <div class="grid gap-6 md:grid-cols-2">
-                    <div>
+                    <div x-show="tipo === 'reserva'" x-cloak>
                         <flux:select name="vehicle_id" label="Vehículo" placeholder="Selecciona un vehículo">
                             <option value="">Sin asignar</option>
                             @foreach($vehicles as $vehicle)
@@ -232,31 +232,12 @@ use App\Enums\ReservationType;
                     </div>
 
                     <div>
-                        <flux:select name="conductor_id" label="Conductor" placeholder="Selecciona un conductor">
-                            <option value="">Sin asignar</option>
-                            @foreach($conductores as $conductor)
-                                <option value="{{ $conductor->id }}" {{ old('conductor_id') == $conductor->id ? 'selected' : '' }}>
-                                    {{ $conductor->name }}
-                                </option>
-                            @endforeach
-                        </flux:select>
-                        @error('conductor_id')<flux:error>{{ $message }}</flux:error>@enderror
-                    </div>
-
-                    <div>
                         <div x-show="tipo === 'reserva'">
-                            <flux:select 
-                                name="sede_id" 
-                                label="Sede" 
-                                placeholder="Selecciona una sede"
-                            >
-                                <option value="">Sin asignar</option>
-                                @foreach($sedes as $sede)
-                                    <option value="{{ $sede->id }}" {{ old('sede_id') == $sede->id ? 'selected' : '' }}>
-                                        {{ $sede->nombre }}
-                                    </option>
-                                @endforeach
-                            </flux:select>
+                            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 space-y-1">
+                                <p class="text-xs text-zinc-700 dark:text-zinc-300">
+                                    La sede se asignará automáticamente según la sede del vehículo seleccionado.
+                                </p>
+                            </div>
                         </div>
 
                         <div x-show="tipo === 'domicilio'" x-cloak>

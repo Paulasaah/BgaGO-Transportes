@@ -18,6 +18,7 @@ class Delivery extends Model
         'tipo',
         'descripcion',
         'vehiculo_id',
+        'conductor_id',
         'nombre_remitente',
         'telefono_remitente',
         'nombre_destinatario',

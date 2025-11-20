@@ -6,8 +6,10 @@ use Livewire\Component;
 use App\Models\Telemetria;
 use App\Models\Branch;
 use App\Models\Reservation;
+use App\Enums\ReservationStatus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 
 class MapView extends Component
 {
@@ -18,6 +20,7 @@ class MapView extends Component
 
     public $filterType = 'all';
     public $filterStatus = 'all';
+    public $showSimulated = true;
     public $showAlerts = true;
 
     public $stats = [
@@ -61,7 +64,12 @@ class MapView extends Component
 
         $this->calculateStats($latestData);
 
-        $this->vehicles = $latestData->map(function ($latest) {
+        // Enriquecer con información de reservas activas por dispositivo (placa)
+        $activeByDevice = $this->getActiveReservationsByDevice();
+
+        $vehicles = $latestData->map(function ($latest) use ($activeByDevice) {
+            $active = $activeByDevice->get($latest->device_id);
+
             return [
                 'device_id' => $latest->device_id,
                 'type' => $latest->device_type,
@@ -78,14 +86,26 @@ class MapView extends Component
                 'trip_count' => (int) $latest->trip_count,
                 'maintenance_km_left' => (float) $latest->maintenance_km_left,
                 'needs_maintenance' => $latest->needsMaintenance(),
-                'driver_name' => $latest->driver_name,
+                // Para conductores viene de telemetría, para vehículos puede venir de la reserva activa
+                'driver_name' => $active['driver_name'] ?? $latest->driver_name,
                 'deliveries_completed' => (int) $latest->deliveries_completed,
                 'rating' => (float) ($latest->rating ?? 0),
+                'active_reservation_id' => $active['reservation_id'] ?? null,
+                'active_reservation_code' => $active['reservation_code'] ?? null,
+                'is_simulated' => $this->isSimulatedDevice((string) $latest->device_id),
                 'has_route' => false,
                 'route' => [],
                 'updated_at' => $latest->updated_at->diffForHumans(),
             ];
-        })->values()->toArray();
+        })->values();
+
+        if (!$this->showSimulated) {
+            $vehicles = $vehicles->filter(function (array $vehicle) {
+                return !$vehicle['is_simulated'];
+            });
+        }
+
+        $this->vehicles = $vehicles->values()->toArray();
 
         $this->branches = Branch::all()->map(function ($branch) {
             $devicesInBranch = collect($this->vehicles)
@@ -129,6 +149,32 @@ class MapView extends Component
         ];
     }
 
+    private function getActiveReservationsByDevice()
+    {
+        $reservations = Reservation::with(['vehicle', 'driver'])
+            ->where('estado', ReservationStatus::Activa)
+            ->whereNotNull('vehiculo_id')
+            ->limit(200)
+            ->get();
+
+        return $reservations->mapWithKeys(function (Reservation $reservation) {
+            $vehicle = $reservation->vehicle;
+
+            if (!$vehicle || !$vehicle->placa) {
+                return [];
+            }
+
+            return [
+                $vehicle->placa => [
+                    'reservation_id' => $reservation->id,
+                    'reservation_code' => $reservation->codigo,
+                    'driver_id' => $reservation->driver?->id,
+                    'driver_name' => $reservation->driver?->name,
+                ],
+            ];
+        });
+    }
+
     private function getStatusLabel($status)
     {
         return match ($status) {
@@ -139,6 +185,11 @@ class MapView extends Component
             'offline' => 'Desconectado',
             default => 'Desconocido',
         };
+    }
+
+    private function isSimulatedDevice(string $deviceId): bool
+    {
+        return Str::startsWith($deviceId, ['VH-', 'CD-']);
     }
 
     private function loadReservationForMap(): void

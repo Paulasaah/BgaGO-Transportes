@@ -105,10 +105,18 @@ class ProcessTelemetryAction
             if ($vehicle) {
                 $vehiculoId = $vehicle->id;
                 // Buscar reserva activa si existe
-                $activeReservation = $vehicle->getActiveReservation()->first();
+                $activeReservation = $vehicle->getActiveReservation();
                 $reservaId = $activeReservation?->id;
             }
         }
+
+        $rawSpeed = (float) ($data['speed'] ?? 0);
+
+        if (!is_finite($rawSpeed)) {
+            $rawSpeed = 0.0;
+        }
+
+        $speed = max(0.0, min($rawSpeed, 200.0));
 
         GpsTrack::create([
             'device_id' => $data['device_id'],
@@ -118,7 +126,7 @@ class ProcessTelemetryAction
             'latitud' => $data['Geopoint']['lat'] ?? 0,
             'longitud' => $data['Geopoint']['lon'] ?? 0,
             'altitud' => $data['Geopoint']['alt'] ?? null,
-            'velocidad' => $data['speed'] ?? 0,
+            'velocidad' => $speed,
             'motor_encendido' => $data['status'] === 'active',
             'nivel_bateria' => (int) ($data['Battery'] ?? 100),
             'kilometraje' => (int) ($data['odometer'] ?? 0),

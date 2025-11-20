@@ -43,6 +43,20 @@ use App\Enums\ReservationType;
                             Cancelar Reserva
                         </flux:button>
                     </form>
+
+                    @if($reservation->estado !== ReservationStatus::Activa)
+                        <form method="POST" action="{{ route('admin.reservations.start', $reservation) }}" class="inline">
+                            @csrf
+                            @method('PATCH')
+                            <flux:button 
+                                type="submit" 
+                                variant="primary" 
+                                icon="play"
+                            >
+                                Activar reserva
+                            </flux:button>
+                        </form>
+                    @endif
                 @endif
                 
                 <flux:button :href="route('admin.map', ['reservation' => $reservation->id])" variant="outline" icon="map">

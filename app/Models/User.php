@@ -9,6 +9,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\Permission\Traits\HasRoles;
+use App\Enums\ReservationStatus;
 
 class User extends Authenticatable // implements MustVerifyEmail
 {
@@ -106,5 +107,19 @@ class User extends Authenticatable // implements MustVerifyEmail
     public function isClient(): bool
     {
         return $this->hasRole('cliente');
+    }
+
+    public function isAvailableDriver(): bool
+    {
+        if (!$this->isDriver() || !$this->driverProfile || !$this->driverProfile->is_active) {
+            return false;
+        }
+
+        return !$this->conductorReservations()
+            ->whereIn('estado', [
+                ReservationStatus::Confirmada,
+                ReservationStatus::Activa,
+            ])
+            ->exists();
     }
 }

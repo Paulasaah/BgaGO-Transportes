@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\BranchController;
 use App\Http\Controllers\Api\DeviceController;
 use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\RouteController;
+use App\Http\Controllers\Api\SimulationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -182,6 +183,19 @@ Route::middleware('auth:sanctum')->prefix('routes')->group(function () {
         ->withoutMiddleware('auth:sanctum')
         ->middleware('throttle:10,1');
 });
+
+// SIMULACIÓN IOT - ENDPOINTS PARA PUBLISHER (LECTURA SOLAMENTE)
+// ✅ PROTEGIDO: Requiere autenticación y permiso ver_telemetria
+
+Route::middleware(['auth:sanctum', 'can:view-telemetry'])
+    ->prefix('simulation')
+    ->group(function () {
+        Route::get('/active-services', [SimulationController::class, 'activeServices'])
+            ->middleware('throttle:60,1');
+
+        Route::get('/idle-vehicles', [SimulationController::class, 'idleVehicles'])
+            ->middleware('throttle:60,1');
+    });
 
 // RESERVAS - REQUIERE AUTENTICACIÓN
 

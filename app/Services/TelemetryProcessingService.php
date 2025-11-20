@@ -70,9 +70,11 @@ class TelemetryProcessingService
             // 4. Verificar alertas (batería baja, mantenimiento, etc.)
             $this->checkAlerts($telemetry);
 
-            Log::info('Telemetría procesada exitosamente', [
-                'device_id' => $data['device_id'],
-            ]);
+            if (config('telemetry.log_success', false)) {
+                Log::debug('Telemetría procesada exitosamente', [
+                    'device_id' => $data['device_id'],
+                ]);
+            }
 
             return true;
 

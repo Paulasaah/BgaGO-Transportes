@@ -90,7 +90,11 @@ services:
     environment:
       - BROKER_HOST=mosquitto
       - BROKER_PORT=1883
-      - LARAVEL_API=http://laravel.test/api/telemetria
+      # Base URL de Laravel vista desde la red Docker
+      - LARAVEL_API_BASE=http://laravel.test
+      # Token Sanctum para que el publisher consuma /api/simulation/
+      - LARAVEL_TOKEN=${LARAVEL_PUBLISHER_TOKEN}
+      - PUBLISHER_AUTO_COMPLETE=true
     networks:
       - sail
 

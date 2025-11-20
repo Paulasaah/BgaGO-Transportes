@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Models\Reservation;
 use App\Models\Delivery;
 use App\Models\Vehicle;
+use App\Models\User;
 use App\Enums\ReservationStatus;
 use App\Enums\DeliveryType;
+use App\Enums\VehicleStatus;
 use Carbon\Carbon;
 use Exception;
 use App\Contracts\GeocodingService;
@@ -162,6 +164,8 @@ class DeliveryService extends BaseService
                 'fecha_entrega_estimada' => $estimatedEndAt,
             ]);
 
+            $this->autoAssignDriverForReservation($reservation, $delivery);
+
             return $delivery->load(['user', 'reservation.branch']);
         }, 'crear_domicilio_paquete');
     }
@@ -211,6 +215,13 @@ class DeliveryService extends BaseService
                     return $delivery->fresh();
                 }
 
+                if ($delivery->reservation && !$delivery->reservation->conductor_id) {
+                    $this->autoAssignDriverForReservation($delivery->reservation, $delivery);
+                    $delivery->refresh();
+                }
+
+                $this->ensureVehicleAssigned($delivery);
+
                 $delivery->update([
                     'estado' => 'en_camino',
                     'fecha_recogida' => $delivery->fecha_recogida ?? now(),
@@ -229,7 +240,7 @@ class DeliveryService extends BaseService
 
             // 🚗 Conductor: Validar estados permitidos
             $permitidos = ['pendiente', 'asignado', 'confirmado'];
-            
+
             // ✅ IDEMPOTENCIA: Si ya está en camino, asegurar que tenga fecha_recogida
             if ($delivery->estado === 'en_camino') {
                 // Si no tiene fecha_recogida, agregarla ahora
@@ -246,6 +257,8 @@ class DeliveryService extends BaseService
                     ". Estado actual: {$delivery->estado}"
                 );
             }
+
+            $this->ensureVehicleAssigned($delivery);
 
             $delivery->update([
                 'estado' => 'en_camino',
@@ -309,7 +322,7 @@ class DeliveryService extends BaseService
 
             // Liberar vehículo si aplica
             if ($delivery->vehicle && $delivery->vehicle->isOcupado()) {
-                $delivery->vehicle->update(['estado' => 'disponible']);
+                $delivery->vehicle->update(['estado' => VehicleStatus::Disponible]);
             }
 
             return $delivery->fresh();
@@ -354,5 +367,96 @@ class DeliveryService extends BaseService
                 ] : null,
             ];
         }, 'rastrear_domicilio');
+    }
+
+    private function autoAssignDriverForReservation(Reservation $reservation, Delivery $delivery): void
+    {
+        if (!$reservation->sede_id || $reservation->conductor_id) {
+            return;
+        }
+
+        $driverIds = Vehicle::where('sede_id', $reservation->sede_id)
+            ->whereNotNull('conductor_id')
+            ->pluck('conductor_id')
+            ->unique();
+
+        $driversQuery = User::query()
+            ->role('conductor')
+            ->whereHas('driverProfile', function ($query) {
+                $query->where('is_active', true);
+            });
+
+        if ($driverIds->isNotEmpty()) {
+            $driversQuery->whereIn('id', $driverIds);
+        }
+
+        $candidates = $driversQuery->get();
+
+        if ($candidates->isEmpty()) {
+            $candidates = User::query()
+                ->role('conductor')
+                ->whereHas('driverProfile', function ($query) {
+                    $query->where('is_active', true);
+                })
+                ->get();
+
+            if ($candidates->isEmpty()) {
+                return;
+            }
+        }
+
+        $availableDrivers = $candidates->filter(function (User $driver) {
+            return $driver->isAvailableDriver();
+        });
+
+        $driver = $availableDrivers->isNotEmpty()
+            ? $availableDrivers->random()
+            : $candidates->random();
+
+        $reservation->update([
+            'conductor_id' => $driver->id,
+            'estado' => ReservationStatus::Confirmada,
+            'fecha_confirmacion' => now(),
+        ]);
+
+        $delivery->update([
+            'conductor_id' => $driver->id,
+            'estado' => 'asignado',
+        ]);
+    }
+
+    private function ensureVehicleAssigned(Delivery $delivery): void
+    {
+        if ($delivery->vehiculo_id || $delivery->reservation?->vehiculo_id) {
+            return;
+        }
+
+        $reservation = $delivery->reservation;
+
+        if (!$reservation || !$reservation->sede_id) {
+            throw new Exception('No se puede asignar vehículo: la reserva no tiene sede asociada.');
+        }
+
+        $vehicle = Vehicle::where('sede_id', $reservation->sede_id)
+            ->where('estado', VehicleStatus::Disponible)
+            ->lockForUpdate()
+            ->orderBy('id')
+            ->first();
+
+        if (!$vehicle) {
+            throw new Exception('No hay vehículos disponibles en la sede para iniciar este domicilio.');
+        }
+
+        $vehicle->update([
+            'estado' => VehicleStatus::Ocupado,
+        ]);
+
+        $delivery->update([
+            'vehiculo_id' => $vehicle->id,
+        ]);
+
+        $reservation->update([
+            'vehiculo_id' => $vehicle->id,
+        ]);
     }
 }

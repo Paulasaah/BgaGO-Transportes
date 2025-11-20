@@ -108,6 +108,11 @@
                 <option value="maintenance">Mantenimiento</option>
             </select>
 
+            <label class="flex items-center gap-1.5 text-xs text-zinc-600 dark:text-zinc-300">
+                <input type="checkbox" wire:model.live="showSimulated" class="rounded border-zinc-300 dark:border-zinc-600 text-blue-600 focus:ring-blue-500" />
+                <span>Mostrar simulados</span>
+            </label>
+
             <div class="flex-1"></div>
 
             <div class="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -309,6 +314,8 @@
         branchMarkers: {},      // ✅ Agregado para marcadores de sedes
         routes: {},             // ✅ NUEVO: Almacenar rutas dibujadas
         routeMarkers: {},       // ✅ NUEVO: Marcadores de origen/destino
+        currentRouteId: null,              // ✅ ID de la ruta actualmente mostrada
+        currentRouteReservationId: null,   // ✅ Reserva asociada a la ruta actual
         autoRefresh: null,
         isReady: false,
         broadcastingEnabled: true,
@@ -318,6 +325,9 @@
             status: 'all'
         }
     };
+
+    // Base URL para ver detalle de reserva en panel admin
+    const reservationDetailBaseUrl = @json(route('admin.reservations.index'));
 
     function getStatusColor(status) {
         const colors = {
@@ -338,6 +348,7 @@
     function createVehicleIcon(vehicle) {
         const color = getStatusColor(vehicle.status);
         const isMoving = vehicle.speed > 1;
+        const isSimulated = !!vehicle.is_simulated;
         
         const iconType = vehicle.type === 'conductor' ? 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z' : 
                                                           'M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z';
@@ -351,6 +362,7 @@
                      <svg style="position:absolute;top:8px;left:8px;" width="16" height="16" viewBox="0 0 24 24" fill="white">
                        <path d="${iconType}"/>
                      </svg>
+                     ${isSimulated ? `<div style="position:absolute;top:-10px;right:-10px;padding:2px 4px;border-radius:4px;background:#7c3aed;color:white;font-size:9px;font-weight:bold;box-shadow:0 1px 3px rgba(0,0,0,0.4);">SIM</div>` : ''}
                      ${isMoving ? `<div style="position:absolute;bottom:-16px;left:50%;transform:translateX(-50%);
                                    background:${color};color:white;padding:2px 6px;border-radius:4px;
                                    font-size:9px;font-weight:bold;white-space:nowrap;
@@ -382,7 +394,10 @@
                     </div>
                     <div style="flex:1;">
                         <div style="font-size:16px;font-weight:700;color:#18181b;">${v.device_id}</div>
-                        ${v.type === 'conductor' ? `<div style="font-size:12px;color:#71717a;">${v.driver_name}</div>` : ''}
+                        ${v.type === 'conductor'
+                            ? (v.driver_name ? `<div style="font-size:12px;color:#71717a;">${v.driver_name}</div>` : '')
+                            : (v.driver_name ? `<div style="font-size:12px;color:#71717a;">Conductor: ${v.driver_name}</div>` : '')
+                        }
                     </div>
                 </div>
                 
@@ -453,10 +468,30 @@
                                 <div style="font-weight:600;color:#18181b;">${v.odometer.toFixed(1)} km</div>
                             </div>
                             <div>
+                                <div style="color:#a1a1aa;font-size:10px;text-transform:uppercase;">Viajes</div>
+                                <div style="font-weight:600;color:#18181b;">${(v.trip_count ?? 0)}</div>
+                            </div>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr;gap:6px;margin-top:8px;font-size:12px;">
+                            <div>
                                 <div style="color:#a1a1aa;font-size:10px;text-transform:uppercase;">Mantenimiento</div>
                                 <div style="font-weight:600;color:${v.maintenance_km_left <= 100 ? '#ef4444' : '#18181b'};">${v.maintenance_km_left.toFixed(0)} km</div>
                             </div>
                         </div>
+                        ${v.active_reservation_id && v.type === 'vehiculo' ? `
+                        <div style="margin-top:10px;display:flex;justify-content:flex-end;">
+                            <a href="${reservationDetailBaseUrl.replace(/\/$/, '')}/${v.active_reservation_id}"
+                               target="_blank"
+                               style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;
+                                      background:#0f172a;color:white;font-size:11px;font-weight:600;text-decoration:none;">
+                                <span>Ver detalle</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M7 17L17 7" />
+                                    <path d="M7 7h10v10" />
+                                </svg>
+                            </a>
+                        </div>
+                        ` : ''}
                         `}
                     </div>
                     
@@ -718,6 +753,11 @@
             delete mapState.routeMarkers[routeId];
         }
 
+        if (mapState.currentRouteId === routeId) {
+            mapState.currentRouteId = null;
+            mapState.currentRouteReservationId = null;
+        }
+
         console.log(`🗑️ Ruta "${routeId}" limpiada`);
     }
 
@@ -728,6 +768,8 @@
         Object.keys(mapState.routes).forEach(routeId => {
             clearRoute(routeId);
         });
+        mapState.currentRouteId = null;
+        mapState.currentRouteReservationId = null;
         console.log('🗑️ Todas las rutas limpiadas');
     }
 
@@ -943,6 +985,9 @@
         const vehicle = data.vehicle || data;
         
         if (vehicle && mapState.markers[vehicle.device_id]) {
+            // Al cambiar de vehículo, limpiar cualquier ruta dibujada previamente
+            clearAllRoutes();
+
             mapState.instance.setView([vehicle.lat, vehicle.lng], 16, { 
                 animate: true,
                 duration: 0.8
@@ -1056,6 +1101,9 @@
             }
         }
 
+        // Antes de dibujar una nueva ruta de reserva, limpiar todas las anteriores
+        clearAllRoutes();
+
         if (reservation.waypoints) {
             const routeData = {
                 geometry: reservation.waypoints,
@@ -1065,6 +1113,8 @@
             };
             
             const routeId = `reservation-${reservation.id}`;
+            mapState.currentRouteId = routeId;
+            mapState.currentRouteReservationId = reservation.id;
             
             // Dibujar ruta con estilo especial para reservas
             const options = {
