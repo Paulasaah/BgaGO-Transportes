@@ -2,7 +2,7 @@
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-20">
                 <!-- Logo -->
-                <a href="{{ auth()->check() ? ((auth()->user()->isAdmin() || auth()->user()->isDriver()) ? route('dashboard') : route('user.home')) : route('home') }}" class="flex items-center space-x-3 group" wire:navigate>
+                <a href="{{ auth()->check() ? (auth()->user()->isAdmin() ? route('admin.dashboard') : (auth()->user()->isDriver() ? url('/driver/dashboard') : route('user.home'))) : route('home') }}" class="flex items-center space-x-3 group" wire:navigate>
                     <div class="relative">
                         <x-app-logo-icon class="h-10 w-10 text-blue-600 dark:text-blue-400" />
                         <div class="absolute inset-0 bg-blue-500/20 blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -14,6 +14,7 @@
 
                 <!-- Desktop Navigation -->
                 @auth
+                @if(!auth()->user()->isDriver())
                 <div class="hidden lg:flex items-center space-x-2">
                     <a href="{{ route('services.delivery') }}"
                     class="px-4 py-2 rounded-lg font-medium text-zinc-700 hover:text-black dark:text-zinc-300 dark:hover:text-white transition-colors" wire:navigate>
@@ -28,6 +29,7 @@
                         Reservas
                     </a>
                 </div>
+                @endif
                 @endauth
 
                 <!-- Auth Buttons -->
@@ -72,14 +74,16 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-zinc-600 dark:text-zinc-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
                             </button>
                             <div x-show="open" x-cloak style="display:none" class="absolute right-0 mt-2 w-56 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-800 bg-white dark:bg-zinc-900 shadow-lg z-50" @mouseenter="openFn()" @mouseleave="closeFn()">
-                                <div class="p-2 space-y-1">
-                                    <a href="{{ \Illuminate\Support\Facades\Route::has('settings.profile') ? route('settings.profile') : '/settings/profile' }}" wire:navigate class="block px-4 py-2 text-sm text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-white/10 rounded-lg">Configuración</a>
+                            <div class="p-2 space-y-1">
+                                <a href="{{ \Illuminate\Support\Facades\Route::has('settings.profile') ? route('settings.profile') : '/settings/profile' }}" wire:navigate class="block px-4 py-2 text-sm text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-white/10 rounded-lg">Configuración</a>
+                                @if(!auth()->user()->isDriver())
                                     <a href="{{ \Illuminate\Support\Facades\Route::has('wallet') ? route('wallet') : '/wallet' }}" wire:navigate class="block px-4 py-2 text-sm text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-white/10 rounded-lg">Wallet</a>
-                                    <form method="POST" action="{{ route('logout') }}" class="w-full">
-                                        @csrf
-                                        <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-white/10 rounded-lg">Cerrar Sesión</button>
-                                    </form>
-                                </div>
+                                @endif
+                                <form method="POST" action="{{ route('logout') }}" class="w-full">
+                                    @csrf
+                                    <button type="submit" class="block w-full text-left px-4 py-2 text-sm text-zinc-900 dark:text-white hover:bg-zinc-50 dark:hover:bg-white/10 rounded-lg">Cerrar Sesión</button>
+                                </form>
+                            </div>
                             </div>
                         </div>
                     @endguest
@@ -112,12 +116,14 @@
                 <a href="{{ \Illuminate\Support\Facades\Route::has('mapa') ? route('mapa') : '/mapa' }}" class="block px-4 py-3 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10 rounded-lg font-medium transition-colors" wire:navigate>
                     Mapa
                 </a>
+                @if(!auth()->user()->isDriver())
                 <a href="{{ route('services.delivery') }}" class="block px-4 py-3 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10 rounded-lg font-medium transition-colors" wire:navigate>
                     Servicios
                 </a>
                 <a href="{{ route('catalog.index') }}" class="block px-4 py-3 text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/10 rounded-lg font-medium transition-colors" wire:navigate>
                     Catálogo
                 </a>
+                @endif
                 @endauth
 
                 <div class="pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-3">
@@ -129,8 +135,8 @@
                             Registrarse
                         </a>
                     @else
-                        <a href="{{ (auth()->user()->isAdmin() || auth()->user()->isDriver()) ? route('dashboard') : route('user.home') }}" class="block px-4 py-3 text-center bg-blue-600 text-white hover:bg-blue-700 dark:bg-white dark:text-black dark:hover:bg-zinc-200 rounded-lg font-medium transition-colors" wire:navigate>
-                            {{ (auth()->user()->isAdmin() || auth()->user()->isDriver()) ? 'Dashboard' : 'Inicio' }}
+                        <a href="{{ auth()->user()->isAdmin() ? route('admin.dashboard') : (auth()->user()->isDriver() ? url('/driver/dashboard') : route('user.home')) }}" class="block px-4 py-3 text-center bg-blue-600 text-white hover:bg-blue-700 dark:bg-white dark:text-black dark:hover:bg-zinc-200 rounded-lg font-medium transition-colors" wire:navigate>
+                            {{ auth()->user()->isAdmin() ? 'Dashboard' : (auth()->user()->isDriver() ? 'Dashboard Conductor' : 'Inicio') }}
                         </a>
                     @endguest
                 </div>

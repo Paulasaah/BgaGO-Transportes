@@ -16,7 +16,19 @@ use App\Http\Controllers\Admin\{
 |--------------------------------------------------------------------------
 */
 
-Route::view('/', 'landing.home')->name('home');
+Route::get('/', function () {
+    if (auth()->check()) {
+        $u = auth()->user();
+        if ($u->isAdmin()) {
+            return redirect()->route('admin.dashboard');
+        }
+        if ($u->isDriver()) {
+            return redirect('/driver/dashboard');
+        }
+        return redirect()->route('user.home');
+    }
+    return view('landing.home');
+})->name('home');
 Route::redirect('/home', '/');
 Route::view('/mapa', 'landing.mapa')->name('landing.mapa');
 
@@ -147,6 +159,20 @@ Route::middleware(['auth'])->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::view('/test-map', 'test-map');
+
+
+/*
+|--------------------------------------------------------------------------
+| 🚚 Panel de Conductor (solo conductor)
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware(['auth', 'verified', 'role:conductor'])
+    ->prefix('driver')
+    ->name('driver.')
+    ->group(function () {
+        Livewire\Volt\Volt::route('dashboard', 'driver.dashboard')->name('dashboard');
+    });
 
 
 /*

@@ -6,9 +6,10 @@ use App\Models\Branch;
 use App\Models\Vehicle;
 use App\Services\ReservationService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 use Livewire\Component;
 
-class FormularioReserva extends Component
+class ReservaVehiculoForm extends Component
 {
     public array $vehiculos_disponibles = [];
 
@@ -120,33 +121,58 @@ class FormularioReserva extends Component
         $vehiculo = $this->vehiculos_disponibles[$this->vehiculo_seleccionado] ?? null;
         if (! $vehiculo) {
             $this->addError('vehiculo_seleccionado', 'Selecciona un vehículo');
-
             return;
         }
 
         $inicio = Carbon::parse($this->fecha_inicio.' '.$this->hora_inicio);
         $fin = $inicio->copy()->addHours($this->duracion_horas);
 
-        session([
-            'reserva_temporal' => [
-                'vehiculo_id' => $vehiculo['id'],
-                'vehiculo' => $vehiculo['nombre'],
-                'sede_id' => ($this->tipo_reserva === 'punto') ? $this->punto_recogida : ($vehiculo['sede_id'] ?? null),
-                'tipo_reserva' => $this->tipo_reserva,
-                'fecha_inicio' => $inicio->format('Y-m-d'),
-                'hora_inicio' => $inicio->format('H:i'),
-                'duracion_horas' => $this->duracion_horas,
-                'precio_hora' => $this->precio_hora,
-                'total' => $this->total_estimado,
-                'fecha_fin_estimada' => $fin->format('Y-m-d H:i'),
-                'direccion_origen' => $this->tipo_reserva === 'punto'
-                    ? ($this->puntos_disponibles[$this->punto_recogida] ?? 'Sede')
-                    : $this->direccion_recogida,
-            ],
+        $origen = $this->tipo_reserva === 'punto'
+            ? ($this->puntos_disponibles[$this->punto_recogida] ?? 'Sede')
+            : ($this->direccion_recogida ?? 'Domicilio');
+
+        // Crear reserva inmediata para llevar datos completos al pago
+        $result = $this->reservationService->createReservation([
+            'user_id' => Auth::id(),
+            'vehiculo_id' => $vehiculo['id'],
+            'sede_id' => ($this->tipo_reserva === 'punto') ? $this->punto_recogida : ($vehiculo['sede_id'] ?? null),
+            'fecha_inicio' => $inicio->format('Y-m-d H:i'),
+            'fecha_fin' => $fin->format('Y-m-d H:i'),
+            'origen_direccion' => $origen,
+            'destino_direccion' => $origen,
+            'notas_cliente' => $this->notas_adicionales,
+            'entrega_domicilio' => ($this->tipo_reserva === 'domicilio'),
         ]);
 
-        return redirect()->route('catalog.payment');
-    }
+        if (!($result['success'] ?? false)) {
+            session()->flash('error', $result['message'] ?? 'No se pudo crear la reserva');
+            return;
+        }
+
+        $reserva = $result['data'];
+
+        session()->put('reserva_temporal', [
+            'id' => $reserva->id,
+            'codigo' => $reserva->codigo,
+            'vehiculo' => $vehiculo['nombre'],
+            'tipo_reserva' => $this->tipo_reserva,
+            'fecha_inicio' => $inicio->format('Y-m-d'),
+            'hora_inicio' => $inicio->format('H:i'),
+            'duracion_horas' => $this->duracion_horas,
+            'precio_hora' => $this->precio_hora,
+            'total' => (int) ($reserva->monto_final ?? $this->total_estimado),
+            'fecha_fin_estimada' => $fin->format('Y-m-d H:i'),
+            'direccion_origen' => $origen,
+        ]);
+
+        session()->put('reserva_db', [
+            'id' => $reserva->id,
+            'codigo' => $reserva->codigo,
+            'monto_final' => (int) ($reserva->monto_final ?? $this->total_estimado),
+        ]);
+
+        $this->redirectRoute('catalog.payment');
+        }
 
     public function rules(): array
     {

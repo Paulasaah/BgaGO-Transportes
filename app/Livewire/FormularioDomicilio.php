@@ -6,6 +6,7 @@ use Livewire\Component;
 use App\Models\Branch;
 use App\Services\DeliveryService;
 use App\Services\PricingService;
+use Illuminate\Support\Facades\Auth;
 
 class FormularioDomicilio extends Component
 {
@@ -121,7 +122,7 @@ class FormularioDomicilio extends Component
         $this->validate($this->rules(), $this->messages());
 
         $result = $this->deliveryService->createPackageDelivery([
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'sede_id' => $this->sede_id,
             'direccion_origen' => $this->direccion_origen,
             'lat_origen' => $this->lat_origen ?? 0,
@@ -129,8 +130,8 @@ class FormularioDomicilio extends Component
             'direccion_destino' => $this->direccion_destino,
             'lat_destino' => $this->lat_destino ?? 0,
             'lon_destino' => $this->lon_destino ?? 0,
-            'nombre_remitente' => auth()->user()->name ?? 'Cliente',
-            'telefono_remitente' => auth()->user()->phone ?? '0000000000',
+            'nombre_remitente' => Auth::user()?->name ?? 'Cliente',
+            'telefono_remitente' => Auth::user()?->phone ?? '0000000000',
             'nombre_destinatario' => $this->nombre_destinatario,
             'telefono_destinatario' => $this->telefono_destinatario,
             'descripcion_contenido' => $this->descripcion_paquete,
@@ -149,6 +150,8 @@ class FormularioDomicilio extends Component
 
         session([
             'reserva_temporal' => [
+                'id' => $reservation->id,
+                'codigo' => $reservation->codigo,
                 'vehiculo' => 'domicilio-paquete',
                 'tipo_reserva' => 'domicilio',
                 'fecha_inicio' => optional($reservation->fecha_inicio)->format('Y-m-d'),

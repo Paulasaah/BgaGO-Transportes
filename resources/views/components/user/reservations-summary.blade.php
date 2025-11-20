@@ -36,6 +36,7 @@
                     $paymentId = $p?->codigo_transaccion;
                 } catch (\Throwable $e) {}
                 return [
+                    'id' => $r->id,
                     'codigo' => $r->codigo,
                     'title' => $r->tipo->label(),
                     'vehicle' => optional($r->vehicle)->nombre ?? optional($r->vehicle?->tipo)->label() ?? 'Vehículo',
@@ -139,7 +140,7 @@
     }
 @endphp
 
-<section class="mt-6" x-data="{ open:false, item:null, confirmCancel:false }">
+<section class="mt-6" x-data="{ open:false, item:null, confirmCancel:false, canceling:false, error:null }">
     <div class="rounded-2xl ring-1 ring-zinc-200/70 dark:ring-white/10 bg-white dark:bg-zinc-900 p-6">
         <div class="grid gap-6 md:grid-cols-2">
             <div>
@@ -169,7 +170,7 @@
                             <div class="flex items-center gap-3">
                                 <span class="inline-flex items-center h-6 px-2 rounded text-xs whitespace-nowrap {{ $badge($activeReserva['status']) }}">{{ $activeReserva['estado_label'] ?? ucfirst($activeReserva['status']) }}</span>
                                 <span class="inline-flex items-center h-6 px-2 rounded text-xs whitespace-nowrap {{ $typeChip($activeReserva['tipo'] ?? '') }}">{{ ($activeReserva['tipo'] ?? '') === 'domicilio' ? 'Domicilio' : 'Reserva' }}</span>
-                                <a href="{{ route('catalog.reservations') }}" wire:navigate class="{{ $btnClass }}" @click.prevent="open=true; item=@js($activeReserva)">Ver detalles</a>
+                                <a href="#" class="{{ $btnClass }}" @click.prevent="open=true; item=@js($activeReserva)">Ver detalles</a>
                             </div>
                         </div>
                     @endif
@@ -216,7 +217,7 @@
                             <div class="flex items-center gap-3">
                                 <span class="inline-flex items-center h-6 px-2 rounded text-xs whitespace-nowrap {{ $badge($i['status']) }}">{{ $i['estado_label'] ?? ucfirst($i['status']) }}</span>
                                 <span class="inline-flex items-center h-6 px-2 rounded text-xs whitespace-nowrap {{ $typeChip($i['tipo'] ?? '') }}">{{ ($i['tipo'] ?? '') === 'domicilio' ? 'Domicilio' : 'Reserva' }}</span>
-                                <a href="{{ route('catalog.reservations') }}" wire:navigate class="{{ $btnClass }}" @click.prevent="open=true; item=@js($i)">Ver detalles</a>
+                                <a href="#" class="{{ $btnClass }}" @click.prevent="open=true; item=@js($i)">Ver detalles</a>
                             </div>
                         </div>
                     @endforeach
@@ -259,10 +260,33 @@
                         </div>
                         <h4 class="text-lg font-semibold text-zinc-900 dark:text-white">Confirmar cancelación</h4>
                     </div>
-                    <p class="mt-3 text-sm text-zinc-700 dark:text-zinc-300">¿Deseas cancelar esta reserva? Esta acción no afecta el sistema aún, pero actualizará el estado en esta vista.</p>
+                    <p class="mt-3 text-sm text-zinc-700 dark:text-zinc-300">¿Deseas cancelar esta reserva? Esta acción cancelará en el sistema y actualizará esta vista.</p>
+                    <template x-if="error">
+                        <p class="mt-2 text-sm text-red-600 dark:text-red-400" x-text="error"></p>
+                    </template>
                     <div class="mt-6 flex items-center justify-end gap-3">
                         <button class="px-4 h-9 rounded-lg ring-1 ring-zinc-300 dark:ring-white/10 text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-white/10" @click="confirmCancel=false">Volver</button>
-                        <button class="px-4 h-9 rounded-lg bg-blue-600 text-white hover:bg-blue-700" @click="item.status='cancelada'; item.estado_label='Cancelada'; confirmCancel=false; open=false;">Confirmar</button>
+                        <button class="px-4 h-9 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:bg-blue-400" :disabled="canceling" @click="
+                            canceling=true; error=null;
+                            fetch(`/api/reservations/${item.id}`, { method:'GET', headers:{'Accept':'application/json'} })
+                              .then(r => r.ok ? item.id : Promise.reject('No existe'))
+                              .then(() => fetch(`/api/reservations/${item.id}/cancel`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Accept': 'application/json',
+                                        'Content-Type': 'application/json',
+                                        'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]')?.content,
+                                        'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '')
+                                    },
+                                    body: JSON.stringify({motivo_cancelacion: 'Cancelada por el usuario'})
+                                }))
+                              .then(res => {
+                                  if (res.ok) { item.status='cancelada'; item.estado_label='Cancelada'; confirmCancel=false; open=false; }
+                                  else { return res.json().then(d => { error = d.message || 'No se pudo cancelar'; }); }
+                              })
+                              .catch(() => { error = 'Error procesando la cancelación'; })
+                              .finally(() => { canceling=false; })
+                        ">Confirmar</button>
                     </div>
                 </div>
             </template>

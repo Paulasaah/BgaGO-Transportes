@@ -31,7 +31,12 @@ new #[Layout('components.layouts.auth.split-new')] class extends Component {
 
         Auth::login($user);
 
-        $this->redirect(route('dashboard', absolute: false), navigate: true);
+        $u = Auth::user();
+        $default = $u?->isAdmin()
+            ? route('admin.dashboard', absolute: false)
+            : ($u?->isDriver() ? url('/driver/dashboard') : route('user.home', absolute: false));
+
+        $this->redirectIntended(default: $default, navigate: true);
     }
 }; ?>
 

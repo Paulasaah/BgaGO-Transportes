@@ -1,7 +1,8 @@
 {{-- resources/views/components/layouts/public.blade.php --}}
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="dark">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
+    <script>(function(){var t=localStorage.getItem('theme');if(!t){t='light';localStorage.setItem('theme',t);}document.documentElement.classList.toggle('dark',t==='dark');})();</script>
     @include('partials.head')
     @livewireStyles
 </head>

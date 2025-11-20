@@ -110,7 +110,7 @@ new class extends Component {
             'fecha_inicio' => $inicio,
             'fecha_fin' => $fin,
             'origen_direccion' => $origen,
-            'destino_direccion' => null,
+            'destino_direccion' => $origen,
             'notas_cliente' => $this->notas_adicionales,
             'entrega_domicilio' => ($this->tipo_reserva === 'domicilio'),
         ]);
@@ -385,8 +385,7 @@ new class extends Component {
                 Cancelar
             </a>
             <button
-                type="button"
-                wire:click="continuar"
+                type="submit"
                 wire:loading.attr="disabled"
                 class="flex-1 px-6 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-zinc-400 text-white rounded-lg font-semibold text-lg transition-all hover:scale-[1.02] disabled:hover:scale-100 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
             >

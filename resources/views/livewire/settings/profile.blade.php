@@ -5,8 +5,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Validation\Rule;
 use Livewire\Volt\Component;
+use Livewire\Attributes\Layout;
 
-new class extends Component {
+new #[Layout('components.layouts.public')] class extends Component {
     public string $name = '';
     public string $email = '';
 
@@ -69,10 +70,10 @@ new class extends Component {
     }
 }; ?>
 
-<section class="w-full">
+<section class="w-full px-4 sm:px-6 lg:px-8 mb-16">
     @include('partials.settings-heading')
 
-    <x-settings.layout heading="Profile" subheading="Update your name and email address">
+    <x-settings.layout heading="Perfil" subheading="Actualiza tu nombre y correo electrónico">
         <form wire:submit="updateProfileInformation" class="my-6 w-full space-y-6">
             <flux:input wire:model="name" label="{{ __('Name') }}" type="text" name="name" required autofocus autocomplete="name" />
 

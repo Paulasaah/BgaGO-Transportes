@@ -5,8 +5,9 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
 use Livewire\Volt\Component;
+use Livewire\Attributes\Layout;
 
-new class extends Component {
+new #[Layout('components.layouts.public')] class extends Component {
     public string $current_password = '';
     public string $password = '';
     public string $password_confirmation = '';
@@ -37,10 +38,10 @@ new class extends Component {
     }
 }; ?>
 
-<section class="w-full">
+<section class="w-full px-4 sm:px-6 lg:px-8 mb-16">
     @include('partials.settings-heading')
 
-    <x-settings.layout heading="Update password" subheading="Ensure your account is using a long, random password to stay secure">
+    <x-settings.layout heading="Cambiar contraseña" subheading="Usa una contraseña segura y aleatoria para proteger tu cuenta">
         <form wire:submit="updatePassword" class="mt-6 space-y-6">
             <flux:input
                 wire:model="current_password"

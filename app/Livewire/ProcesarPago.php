@@ -3,9 +3,13 @@
 namespace App\Livewire;
 
 use Livewire\Component;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Payment;
 use App\Enums\PaymentStatus;
 use App\Services\ReservationService;
+use App\Models\Reservation;
+use App\Enums\ReservationStatus;
+use Carbon\Carbon;
 
 class ProcesarPago extends Component
 {
@@ -39,12 +43,12 @@ class ProcesarPago extends Component
             ['tipo' => 'efectivo', 'nombre' => 'Efectivo', 'descripcion' => 'Pago al recoger (solo sedes)'],
         ];
 
-        $saved = session('wallet_cards_' . auth()->id());
+        $saved = session('wallet_cards_' . Auth::id());
         if (is_array($saved)) {
             $this->wallet_cards = $saved;
         }
 
-        $pref = session('wallet_preferred_' . auth()->id());
+        $pref = session('wallet_preferred_' . Auth::id());
         if (is_numeric($pref) && isset($this->wallet_cards[(int) $pref])) {
             $card = $this->wallet_cards[(int) $pref];
             $this->metodo_seleccionado = 'tarjeta';
@@ -95,7 +99,73 @@ class ProcesarPago extends Component
         $reservaTmp = session('reserva_temporal');
         $reservaDb = session('reserva_db');
 
-        if (!$reservaTmp || !$reservaDb) {
+        if (!$reservaDb && $reservaTmp) {
+            if (isset($reservaTmp['id'])) {
+                $existing = Reservation::find($reservaTmp['id']);
+                if ($existing) {
+                    session()->put('reserva_db', [
+                        'id' => $existing->id,
+                        'codigo' => $existing->codigo,
+                        'monto_final' => (int) ($existing->monto_final ?? 0),
+                    ]);
+                }
+            } else {
+                $inicioStr = trim(($reservaTmp['fecha_inicio'] ?? '') . ' ' . ($reservaTmp['hora_inicio'] ?? ''));
+                $finStr = $reservaTmp['fecha_fin_estimada'] ?? null;
+                if (!$finStr && ($reservaTmp['duracion_horas'] ?? null)) {
+                    $finStr = Carbon::parse($inicioStr)->addHours((int) $reservaTmp['duracion_horas'])->format('Y-m-d H:i');
+                }
+
+                // Intentar recuperar una reserva pendiente existente del usuario
+                if (!($reservaTmp['vehiculo_id'] ?? null)) {
+                    $existingPending = Reservation::where('user_id', Auth::id())
+                        ->where('estado', ReservationStatus::Pendiente)
+                        ->orderByDesc('created_at')
+                        ->first();
+                    if ($existingPending) {
+                        session()->put('reserva_db', [
+                            'id' => $existingPending->id,
+                            'codigo' => $existingPending->codigo,
+                            'monto_final' => (int) ($existingPending->monto_final ?? 0),
+                        ]);
+                        goto after_reserva_db_set;
+                    }
+                }
+
+                $payload = [
+                    'user_id' => Auth::id(),
+                    'vehiculo_id' => $reservaTmp['vehiculo_id'] ?? null,
+                    'sede_id' => $reservaTmp['sede_id'] ?? null,
+                    'fecha_inicio' => $inicioStr,
+                    'fecha_fin' => $finStr,
+                    'origen_direccion' => $reservaTmp['direccion_origen'] ?? 'Sede',
+                    'entrega_domicilio' => ($reservaTmp['tipo_reserva'] ?? '') === 'domicilio',
+                    'notas_cliente' => null,
+                ];
+
+                if (!($payload['vehiculo_id'] ?? null)) {
+                    session()->flash('error', "Falta el vehículo para crear la reserva. Por favor selecciona uno.");
+                    return;
+                }
+
+                $result = $this->reservationService->createReservation($payload);
+                if (!($result['success'] ?? false)) {
+                    session()->flash('error', $result['message'] ?? 'No se pudo crear la reserva');
+                    return;
+                }
+                $reserva = $result['data'];
+                session()->put('reserva_db', [
+                    'id' => $reserva->id,
+                    'codigo' => $reserva->codigo,
+                    'monto_final' => (int) ($reserva->monto_final ?? 0),
+                ]);
+            }
+        }
+
+        after_reserva_db_set:
+        $reservaDb = session('reserva_db');
+
+        if (!$reservaDb) {
             session()->flash('error', 'No hay reserva para procesar el pago');
             return;
         }
@@ -109,7 +179,7 @@ class ProcesarPago extends Component
 
         $payment = Payment::create([
             'reserva_id' => $reservaDb['id'],
-            'user_id' => auth()->id(),
+            'user_id' => Auth::id(),
             'metodo_pago' => $this->metodo_seleccionado,
             'monto' => $total,
             'estado' => PaymentStatus::Pendiente,
@@ -128,7 +198,7 @@ class ProcesarPago extends Component
             'metodo' => ucfirst($this->metodo_seleccionado),
             'ultimos_digitos' => $last4,
             'monto' => $total,
-            'reserva' => $reservaTmp,
+            'reserva' => $reservaTmp ?? $reservaDb,
         ]);
 
         $this->redirect(route('catalog.confirmation', absolute: false), navigate: true);

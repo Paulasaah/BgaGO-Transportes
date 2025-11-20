@@ -72,7 +72,7 @@ new #[Layout('components.layouts.public')] class extends Component {
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div class="flex items-center justify-between mb-6">
-            <h1 class="text-2xl font-bold text-zinc-900 dark:text-white">BgaGO Wallet</h1>
+            <h1 class="text-2xl font-bold text-zinc-900 dark:text-white">Billetera BgaGO</h1>
             <div class="flex items-center gap-2">
                 <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white text-sm font-semibold">{{ strtoupper(substr(auth()->user()->name,0,1)) }}</span>
             </div>
@@ -84,12 +84,12 @@ new #[Layout('components.layouts.public')] class extends Component {
                     <div class="text-sm text-zinc-600 dark:text-zinc-400">BgaGO Cash</div>
                     <div class="text-4xl font-bold text-zinc-900 dark:text-white">COP 0</div>
                 </div>
-                <button type="button" class="px-4 py-2 rounded-lg bg-zinc-900/5 dark:bg-white/10 hover:bg-zinc-900/10 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200">+ Gift card</button>
+                <button type="button" class="px-4 py-2 rounded-lg bg-zinc-900/5 dark:bg-white/10 hover:bg-zinc-900/10 dark:hover:bg-white/20 text-zinc-800 dark:text-zinc-200">+ Tarjeta de regalo</button>
             </div>
         </div>
 
         <div class="mb-4">
-            <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Payment Methods</h2>
+            <h2 class="text-lg font-bold text-zinc-900 dark:text-white">Métodos de pago</h2>
         </div>
 
         <div class="grid md:grid-cols-2 gap-4 mb-8">
@@ -100,7 +100,7 @@ new #[Layout('components.layouts.public')] class extends Component {
                         <div class="flex items-center gap-2">
                             @if($preferred === $i)
                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-white/20 text-[10px]">
-                                    Preferred
+                                    Preferida
                                 </span>
                             @endif
                             <span class="inline-flex items-center justify-center w-10 h-6 rounded bg-blue-500 text-white text-[10px]">{{ strtoupper(($card['brand'] ?? 'VISA')) }}</span>
@@ -109,17 +109,17 @@ new #[Layout('components.layouts.public')] class extends Component {
                     <div class="mt-4 tracking-widest">**** {{ substr(preg_replace('/\D/', '', ($card['numero'] ?? '')), -4) }}</div>
                     <div class="mt-2 text-sm opacity-80">{{ $card['nombre'] ?? '' }}</div>
                     <div class="mt-4 flex items-center gap-2">
-                        <button type="button" wire:click="setPreferred({{ $i }})" class="text-xs px-3 py-1 rounded bg-white/20 hover:bg-white/30">Set preferred</button>
-                        <button type="button" wire:click="remove({{ $i }})" class="text-xs px-3 py-1 rounded bg-white/20 hover:bg-white/30">Remove</button>
+                        <button type="button" wire:click="setPreferred({{ $i }})" class="text-xs px-3 py-1 rounded bg-white/20 hover:bg-white/30">Marcar preferida</button>
+                        <button type="button" wire:click="remove({{ $i }})" class="text-xs px-3 py-1 rounded bg-white/20 hover:bg-white/30">Eliminar</button>
                     </div>
                 </div>
             @empty
-                <div class="text-sm text-zinc-600 dark:text-zinc-400">No saved cards.</div>
+                <div class="text-sm text-zinc-600 dark:text-zinc-400">No hay tarjetas guardadas.</div>
             @endforelse
 
             <div class="p-5 rounded-2xl bg-green-700 text-white">
                 <div class="flex items-center justify-between">
-                    <span class="text-sm">Cash</span>
+                    <span class="text-sm">Efectivo</span>
                     <span class="inline-flex items-center justify-center w-10 h-6 rounded bg-white/20 text-white text-[10px]">$</span>
                 </div>
                 <div class="mt-6">Disponible</div>
@@ -128,21 +128,21 @@ new #[Layout('components.layouts.public')] class extends Component {
 
         <div x-data="{ open:false }" class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6">
             <div class="flex items-center justify-between">
-                <h3 class="text-base font-bold text-zinc-900 dark:text-white">Add Payment Method</h3>
-                <button type="button" @click="open = !open" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm">+ Add</button>
+                <h3 class="text-base font-bold text-zinc-900 dark:text-white">Agregar método de pago</h3>
+                <button type="button" @click="open = !open" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm">+ Agregar</button>
             </div>
             <div x-show="open" class="mt-4">
                 <div class="grid md:grid-cols-2 gap-4">
                     <input type="text" wire:model.live.debounce.300ms="numero" placeholder="1234 5678 9012 3456" class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" maxlength="19">
-                    <input type="text" wire:model.live="nombre" placeholder="Cardholder name" class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
-                    <input type="text" wire:model.live="exp" placeholder="MM/YY" class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" maxlength="5">
+                    <input type="text" wire:model.live="nombre" placeholder="Nombre del titular" class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                    <input type="text" wire:model.live="exp" placeholder="MM/AA" class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white placeholder-zinc-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" maxlength="5">
                     <select wire:model.live="tipo" class="w-full px-4 py-3 rounded-lg border border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
-                        <option value="credito">Credit</option>
-                        <option value="debito">Debit</option>
+                        <option value="credito">Crédito</option>
+                        <option value="debito">Débito</option>
                     </select>
                 </div>
                 <div class="mt-4">
-                    <button type="button" wire:click="add" class="px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Save card</button>
+                    <button type="button" wire:click="add" class="px-5 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold">Guardar tarjeta</button>
                 </div>
             </div>
         </div>
